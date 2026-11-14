@@ -50,6 +50,7 @@ import copy
 import datetime
 import importlib
 import io
+import math
 import pkgutil
 import queue
 import shutil
@@ -91,8 +92,16 @@ from PiFinder.ui.object_list import SortOrder, UIObjectList
 from PiFinder.nearby import NEAREST_LIST_CAP
 from PiFinder.object_sequence import ObjectSequence
 from PiFinder.state_snapshot import StateSnapshot
-from PiFinder.types.mount import MountStatus
+from PiFinder.mountcontrol_interface import local_sidereal_deg
+from PiFinder.types.mount import (
+    ROTATION_DONE,
+    ROTATION_REFUSED,
+    ROTATION_TURNING,
+    MountStatus,
+)
+from PiFinder.ui import polar_align
 from PiFinder.ui.log import UILog
+from PiFinder.ui.polar_align import PAState, UIPolarAlign
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
 from PiFinder.ui.sqm_sweep import UISQMSweep
@@ -1021,3 +1030,290 @@ def test_all_ui_modules_covered():
         f"{sorted(uncovered)}. Wire them into the menu tree, add a fixture"
         " to _DYNAMIC_IDS, or document an exception in _COVERAGE_SKIP."
     )
+
+
+class _CameraSolve:
+    """The part of a solution that the polar alignment wizard reads."""
+
+    def __init__(self, ra: float, dec: float, roll: float, solve_time: float):
+        pointing = Mock()
+        pointing.RA, pointing.Dec, pointing.Roll = ra, dec, roll
+        self.pointing = Mock()
+        self.pointing.camera.solve = pointing
+        self.last_solve_success = solve_time
+
+    def has_pointing(self) -> bool:
+        return True
+
+
+POLAR_DT = datetime.datetime(2026, 11, 12, 22, 0, tzinfo=datetime.timezone.utc)
+# Sidereal rate in degrees per second.
+SIDEREAL_DEG_S = 360.0 / 86164.0905
+
+
+class _PolarRig:
+    """The wizard with a mount status and a camera solve that the test
+    sets. The clock of the wizard is POLAR_DT plus `later` seconds."""
+
+    def __init__(self, display, camera_image, catalogs, mount_control=True):
+        self.cfg = Config()
+        self.cfg.set_option("mount_control", mount_control)
+        shared_state = _make_shared_state("warm")
+        self.location = shared_state.location()
+        command_queues = _make_command_queues()
+        self.mount_queue = command_queues["mountcontrol"]
+        while not self.mount_queue.empty():
+            self.mount_queue.get_nowait()
+        self.module = UIPolarAlign(
+            display,
+            camera_image,
+            shared_state,
+            command_queues,
+            self.cfg,
+            catalogs,
+            item_definition={"name": "Polar Align", "class": UIPolarAlign},
+        )
+        self.lst_deg = local_sidereal_deg(POLAR_DT, self.location.lon)
+
+    def show(
+        self,
+        ra,
+        dec=30.0,
+        rotation="",
+        rotation_id=0,
+        mount_ra=None,
+        fresh=True,
+        later=0.0,
+        altaz=False,
+        phase="MOUNT_TRACKING",
+    ) -> None:
+        """Give the wizard a frame: the camera solve at (ra, dec), and the
+        mount at mount_ra (the default is the camera RA)."""
+        now = time.time()
+        status = MountStatus(
+            phase,
+            "",
+            None,
+            1.0,
+            "Simulator",
+            now,
+            ra_deg=ra if mount_ra is None else mount_ra,
+            dec_deg=dec,
+            rotation_id=rotation_id,
+            rotation=rotation,
+            altaz=altaz,
+        )
+        solve_time = now + 0.1 if fresh else now - 10
+        UIModule.snapshot = StateSnapshot(
+            {
+                "mount_status": status,
+                "solution": _CameraSolve(ra, dec, 10.0, solve_time),
+                "location": self.location,
+                "datetime": (POLAR_DT + datetime.timedelta(seconds=later), now),
+            }
+        )
+        self.module.update()
+
+    def sent(self) -> dict:
+        return self.mount_queue.get_nowait()
+
+    def close(self) -> None:
+        UIModule.snapshot = StateSnapshot()
+        self.cfg.set_option("mount_control", False)
+
+
+@pytest.fixture
+def polar_rig(display, camera_image, catalogs):
+    rig = _PolarRig(display, camera_image, catalogs)
+    yield rig
+    rig.close()
+
+
+def _capture_three_points(rig: _PolarRig, monkeypatch) -> float:
+    """Run the mount mode from hour angle 30° west to the result. Return
+    the RA of the last point."""
+    module = rig.module
+    monkeypatch.setattr(polar_align, "MOUNT_SETTLE_SECS", 0.0)
+    ra = (rig.lst_deg - 30.0) % 360.0
+    rig.show(ra, fresh=False)
+    assert module._mount_mode()
+    module.key_square()  # intro -> aim
+    module.key_square()  # capture point 1
+    assert module.state == PAState.WAIT_SOLVE
+    rig.show(ra)
+    assert len(module.solves) == 1
+    assert module.state == PAState.ROTATE
+    first = rig.sent()
+    # Hour angle 30° has no room toward the meridian: the mount turns west
+    # (RA falls), by less than the 30° that it prefers.
+    assert first["type"] == "rotate_ra"
+    assert first["angle_deg"] == pytest.approx(-21.5)
+
+    # The wizard waits for the result of its own command.
+    rig.show(ra, rotation=ROTATION_DONE, rotation_id=first["id"] - 1, fresh=False)
+    assert module.state == PAState.ROTATE
+    rig.show(ra, rotation=ROTATION_TURNING, rotation_id=first["id"], fresh=False)
+    assert module.state == PAState.ROTATE
+    ra += first["angle_deg"]
+    rig.show(ra, rotation=ROTATION_DONE, rotation_id=first["id"], fresh=False)
+    assert module.state == PAState.WAIT_SOLVE
+    assert len(module.solves) == 1
+
+    rig.show(ra, rotation=ROTATION_DONE, rotation_id=first["id"])
+    assert len(module.solves) == 2
+    second = rig.sent()
+    # The second rotation has the direction and the angle of the first.
+    assert second["angle_deg"] == first["angle_deg"]
+    assert second["id"] != first["id"]
+    ra += second["angle_deg"]
+    rig.show(ra, rotation=ROTATION_DONE, rotation_id=second["id"], fresh=False)
+    assert module.state == PAState.WAIT_SOLVE
+    rig.show(ra, rotation=ROTATION_DONE, rotation_id=second["id"])
+    assert rig.mount_queue.empty()
+    return ra
+
+
+@pytest.mark.integration
+def test_polar_align_mount_mode_computes_from_three_solves(polar_rig, monkeypatch):
+    """With a connected mount, the wizard captures point 1 on SQUARE, turns
+    the RA axis two times in one direction, and computes the result from
+    three different solves."""
+    module = polar_rig.module
+    _capture_three_points(polar_rig, monkeypatch)
+    assert module.state == PAState.ADJUST
+    assert len({solve[0] for solve in module.solves}) == 3
+    assert module.result["n_points"] == 3
+    assert module.result["sweep"] == pytest.approx(43.0, abs=0.5)
+    # The camera turned about the pole of the sky: the error is small.
+    assert abs(module.result["dAlt"]) < 0.5
+    assert abs(module.result["dAz"]) < 0.5
+
+
+@pytest.mark.integration
+def test_polar_align_waits_for_the_settle_time(polar_rig):
+    module = polar_rig.module
+    ra = (polar_rig.lst_deg - 30.0) % 360.0
+    polar_rig.show(ra, fresh=False)
+    module.key_square()
+    module.key_square()
+    polar_rig.show(ra)
+    command = polar_rig.sent()
+    polar_rig.show(ra, rotation=ROTATION_DONE, rotation_id=command["id"])
+    # A solve from before the end of the settle time is not a capture.
+    assert module.state == PAState.WAIT_SOLVE
+    assert module.capture_request_time > time.time() + 1.0
+    assert len(module.solves) == 1
+
+
+@pytest.mark.integration
+def test_polar_align_does_not_capture_after_a_failed_rotation(polar_rig):
+    """A rotation that the mount refused or stopped gives no capture.
+    SQUARE sends the same rotation again."""
+    module = polar_rig.module
+    ra = (polar_rig.lst_deg - 30.0) % 360.0
+    polar_rig.show(ra, fresh=False)
+    module.key_square()
+    module.key_square()
+    polar_rig.show(ra)
+    first = polar_rig.sent()
+
+    polar_rig.show(ra, rotation=ROTATION_REFUSED, rotation_id=first["id"])
+    assert module.state == PAState.AIM
+    assert len(module.solves) == 1
+
+    module.key_square()
+    assert module.state == PAState.ROTATE
+    again = polar_rig.sent()
+    assert again["angle_deg"] == first["angle_deg"]
+    assert len(module.solves) == 1
+
+    # MINUS while the mount turns stops the mount. The rotation stays open.
+    module.key_minus()
+    assert polar_rig.sent() == {"type": "stop_movement"}
+    assert module.state == PAState.AIM
+    module.key_square()
+    assert polar_rig.sent()["type"] == "rotate_ra"
+
+    # A mount that goes away ends the wait.
+    polar_rig.show(ra, phase="MOUNT_UNKNOWN", fresh=False)
+    assert module.state == PAState.AIM
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("hour_angle", [100.0, -100.0, 150.0])
+def test_polar_align_refuses_a_start_far_from_the_meridian(polar_rig, hour_angle):
+    module = polar_rig.module
+    module.message = Mock()
+    polar_rig.show((polar_rig.lst_deg - hour_angle) % 360.0)
+    module.key_square()
+    module.key_square()
+    assert module.state == PAState.AIM
+    module.message.assert_called_once_with("Start nearer the meridian", 3)
+    assert module.solves == []
+    assert polar_rig.mount_queue.empty()
+
+
+@pytest.mark.integration
+def test_polar_align_does_not_turn_an_altaz_mount(polar_rig):
+    """An alt-az mount gets a message and the capture by hand."""
+    module = polar_rig.module
+    module.message = Mock()
+    ra = (polar_rig.lst_deg - 30.0) % 360.0
+    polar_rig.show(ra, altaz=True, fresh=False)
+    assert not module._mount_mode()
+    module.key_square()
+    module.message.assert_called_once_with("Alt-az mount: turn by hand", 3)
+    module.key_square()
+    polar_rig.show(ra, altaz=True)
+    assert len(module.solves) == 1
+    assert module.state == PAState.AIM
+    assert polar_rig.mount_queue.empty()
+
+
+@pytest.mark.integration
+def test_polar_align_target_follows_a_mount_that_tracks(polar_rig, monkeypatch):
+    """During the adjustment the mount tracks: the camera stays on the same
+    sky position, and the offset to the target must stay the same."""
+    module = polar_rig.module
+    ra = _capture_three_points(polar_rig, monkeypatch)
+    start = module._current_offset()
+    polar_rig.show(ra, later=600.0)
+    tracked = module._current_offset()
+    assert tracked[0] == pytest.approx(start[0], abs=0.03)
+    assert tracked[1] == pytest.approx(start[1], abs=0.03)
+
+    # A mount that does not track: the camera stays on the same ground
+    # position, and the mount reports the same change of the RA.
+    drift = 600.0 * SIDEREAL_DEG_S
+    polar_rig.show(ra + drift, later=600.0)
+    stopped = module._current_offset()
+    assert stopped[0] == pytest.approx(start[0], abs=0.03)
+    assert stopped[1] == pytest.approx(start[1], abs=0.03)
+
+    # The user moves the mount 1° in RA: the target moves with it.
+    polar_rig.show(ra + 1.0, later=600.0)
+    moved = module._current_offset()
+    assert moved[0] == pytest.approx(start[0], abs=0.03)
+    assert moved[1] == pytest.approx(start[1], abs=0.03)
+
+    # The adjusters move the camera and not the RA axis: the offset shows.
+    polar_rig.show(ra + 1.0, mount_ra=ra, later=600.0)
+    adjusted = module._current_offset()
+    assert math.hypot(adjusted[0] - start[0], adjusted[1] - start[1]) > 0.5
+
+
+@pytest.mark.integration
+def test_polar_align_target_is_fixed_to_the_ground_without_a_mount(
+    polar_rig, monkeypatch
+):
+    """Without mount control the target stays a fixed ground direction, as
+    for a platform that the user turns by hand."""
+    module = polar_rig.module
+    ra = _capture_three_points(polar_rig, monkeypatch)
+    start = module._current_offset()
+    polar_rig.cfg.set_option("mount_control", False)
+    drift = 600.0 * SIDEREAL_DEG_S
+    polar_rig.show(ra + drift, later=600.0)
+    fixed = module._current_offset()
+    assert fixed[0] == pytest.approx(start[0], abs=0.03)
+    assert fixed[1] == pytest.approx(start[1], abs=0.03)

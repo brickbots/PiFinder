@@ -3,9 +3,11 @@
 import datetime
 import json
 
+import numpy as np
 import pytest
 
 from PiFinder import calc_utils
+from PiFinder.polar_alignment import axis_to_altaz_error
 from PiFinder.indi_client import IndiProperty
 from PiFinder.sky_sim import SkySimSettings, SkySimulator
 from PiFinder.types.positioning import FailedSolve, SuccessfulSolve
@@ -145,3 +147,83 @@ def test_settings_from_file(tmp_path):
     path.write_text(json.dumps({"bogus": 1}))
     with pytest.raises(ValueError):
         SkySimSettings.load(path)
+
+
+def test_polar_error_turns_the_mount_pole_onto_the_axis():
+    """The mount pole (Dec 90) lands on the axis of the mount: an alt/az
+    error that axis_to_altaz_error reads back."""
+    sim, _client, _clock = _sim(
+        offset_ra_deg=0.0,
+        offset_dec_deg=0.0,
+        polar_error_alt_deg=0.5,
+        polar_error_az_deg=-0.3,
+        latitude_deg=50.85,
+        longitude_deg=4.35,
+    )
+    ra, dec = sim.true_pointing(10.0, 90.0, NOW)
+    axis = np.array(
+        [
+            np.cos(np.radians(dec)) * np.cos(np.radians(ra)),
+            np.cos(np.radians(dec)) * np.sin(np.radians(ra)),
+            np.sin(np.radians(dec)),
+        ]
+    )
+    t = calc_utils.sf_utils.ts.from_datetime(NOW)
+    lst = (float(t.gast) * 15.0 + 4.35) % 360.0
+    d_alt, d_az = axis_to_altaz_error(axis, 50.85, lst)
+    assert d_alt == pytest.approx(0.5, abs=1e-3)
+    assert d_az == pytest.approx(-0.3, abs=1e-3)
+
+
+def test_no_polar_error_keeps_the_position():
+    sim, _client, _clock = _sim(offset_ra_deg=0.0, offset_dec_deg=0.0)
+    assert sim.true_pointing(123.0, 45.0, NOW) == pytest.approx((123.0, 45.0))
+    sim, _client, _clock = _sim(polar_error_alt_deg=1.0)
+    with pytest.raises(ValueError):
+        sim.true_pointing(123.0, 45.0, NOW)
+
+
+def test_a_continuous_move_is_not_a_sync():
+    sim, client, clock = _sim()
+    client.move(2.0, 20.0)
+    on = IndiProperty(
+        DEVICE, "TELESCOPE_MOTION_WE", "switch", elements={"MOTION_EAST": True}
+    )
+    off = IndiProperty(
+        DEVICE, "TELESCOPE_MOTION_WE", "switch", elements={"MOTION_EAST": False}
+    )
+    for callback in client.listeners:
+        callback("set", DEVICE, "TELESCOPE_MOTION_WE", on)
+    client.move(2.1, 20.0)
+    client.move(2.2, 20.0)
+    assert isinstance(sim.next_message(), FailedSolve)
+    for callback in client.listeners:
+        callback("set", DEVICE, "TELESCOPE_MOTION_WE", off)
+    clock[0] += 3.0
+    assert sim.sync_ra == 0.0
+    solve = sim.next_message()
+    assert isinstance(solve, SuccessfulSolve)
+    ra, _dec = _jnow(solve)
+    assert ra == pytest.approx(2.2 * 15.0 + 1.5, abs=0.01)
+
+
+def test_attitude_without_polar_error_keeps_the_roll():
+    sim, _client, _clock = _sim(offset_ra_deg=0.0, offset_dec_deg=0.0, roll_deg=12.0)
+    assert sim.true_attitude(40.0, 20.0, NOW) == pytest.approx((40.0, 20.0, 12.0))
+
+
+def test_attitude_with_polar_error_matches_the_position():
+    sim, _client, _clock = _sim(
+        offset_ra_deg=0.0,
+        offset_dec_deg=0.0,
+        roll_deg=12.0,
+        polar_error_alt_deg=1.0,
+        polar_error_az_deg=2.0,
+        latitude_deg=50.85,
+        longitude_deg=4.35,
+    )
+    ra, dec, roll = sim.true_attitude(40.0, 20.0, NOW)
+    assert (ra, dec) == pytest.approx(sim.true_pointing(40.0, 20.0, NOW), abs=1e-6)
+    # A tilt of a few degrees turns the roll by a few degrees at most.
+    assert roll != pytest.approx(12.0, abs=1e-6)
+    assert abs(roll - 12.0) < 5.0

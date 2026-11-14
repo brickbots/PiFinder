@@ -17,10 +17,19 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from PiFinder import indi_drivers, satellites, track_rates
+from PiFinder import calc_utils, indi_drivers, satellites, track_rates
+from PiFinder.polar_alignment import get_platform_adjustments
+from PiFinder.polar_alignment.polar_alignment import axis_to_altaz_error
 from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_indi import POSITION, MountControlIndi
-from PiFinder.mountcontrol_interface import MountControlPhases, angular_distance
+from PiFinder.mountcontrol_interface import (
+    RA_ROTATION_OVERSHOOT_DEG,
+    MountControlPhases,
+    angular_distance,
+    local_sidereal_deg,
+    plan_ra_rotation,
+    wrap180,
+)
 from PiFinder.target_follow import FollowPoint, FollowStage, SatelliteTarget
 from PiFinder.sky_sim import SkySimSettings, SkySimulator
 from PiFinder.types.positioning import (
@@ -30,6 +39,7 @@ from PiFinder.types.positioning import (
     SuccessfulSolve,
 )
 from PiFinder.state import Location, SharedStateObj
+from PiFinder.types.mount import ROTATION_DONE, ROTATION_REFUSED
 
 pytestmark = [
     pytest.mark.integration,
@@ -89,12 +99,22 @@ def indi(tmp_path: Path, monkeypatch) -> Iterator[int]:
         proc.kill()
 
 
-def _shared_state() -> Mock:
+# The tests run at this date, so that the hour angles do not depend on the
+# day of the run. The clock goes on from there at the normal rate.
+TEST_DT = datetime.datetime(2026, 11, 12, 22, 0, tzinfo=datetime.timezone.utc)
+TEST_START = time.time()
+
+
+def _test_now() -> datetime.datetime:
+    return TEST_DT + datetime.timedelta(seconds=time.time() - TEST_START)
+
+
+def _shared_state(lat: float = 50.85, lon: float = -4.35) -> Mock:
     shared_state = Mock(spec=SharedStateObj)
     shared_state.location.return_value = Location(
-        lat=50.85, lon=-4.35, altitude=60.0, lock=True
+        lat=lat, lon=lon, altitude=60.0, lock=True
     )
-    shared_state.datetime.return_value = datetime.datetime.now(datetime.timezone.utc)
+    shared_state.datetime.side_effect = _test_now
     shared_state.solution.return_value = None
     return shared_state
 
@@ -124,8 +144,10 @@ def test_init_goto_sync_stop_with_simulator(indi: int) -> None:
 
         # Location (longitude 0..360 East) and time reached the driver.
         assert _wait(
-            lambda: mount.client.get_value(mount.device, "GEOGRAPHIC_COORD", "LONG")
-            == pytest.approx(355.65, abs=1e-3),
+            lambda: (
+                mount.client.get_value(mount.device, "GEOGRAPHIC_COORD", "LONG")
+                == pytest.approx(355.65, abs=1e-3)
+            ),
             5,
         )
         assert mount.client.get_value(
@@ -155,8 +177,10 @@ def test_init_goto_sync_stop_with_simulator(indi: int) -> None:
         dec_before = mount.current_dec
         assert mount._move_mount_manual("north", 1.0)
         assert _wait(
-            lambda: mount.client.get_value(mount.device, POSITION, "DEC")
-            == pytest.approx(dec_before + 1.0, abs=0.1),
+            lambda: (
+                mount.client.get_value(mount.device, POSITION, "DEC")
+                == pytest.approx(dec_before + 1.0, abs=0.1)
+            ),
             30,
         )
 
@@ -272,11 +296,11 @@ def test_reload_switches_model_and_turns_off(indi: int) -> None:
         indi_drivers.stop_driver()
 
 
-def _simulator_mount(indi: int) -> MountControlIndi:
+def _simulator_mount(indi: int, shared_state=None) -> MountControlIndi:
     return MountControlIndi(
         Queue(),
         Queue(),
-        _shared_state(),
+        shared_state or _shared_state(),
         None,
         MountSettings(enabled=True, model=indi_drivers.SIMULATOR),
         indi_port=indi,
@@ -293,17 +317,17 @@ def test_drift_compensation_uses_custom_tracking(indi: int) -> None:
         rate = mount.client.get_value(device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_RA")
         assert mount.adjust_mount_drift_rates(0.001, 0.0)
         assert _wait(
-            lambda: mount.client.get_value(
-                device, "TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"
-            )
-            is True,
+            lambda: (
+                mount.client.get_value(device, "TELESCOPE_TRACK_MODE", "TRACK_CUSTOM")
+                is True
+            ),
             5,
         )
         assert _wait(
-            lambda: mount.client.get_value(
-                device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_RA"
-            )
-            == pytest.approx(rate + 3.6, abs=0.01),
+            lambda: (
+                mount.client.get_value(device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_RA")
+                == pytest.approx(rate + 3.6, abs=0.01)
+            ),
             5,
         )
         assert not any(
@@ -311,10 +335,10 @@ def test_drift_compensation_uses_custom_tracking(indi: int) -> None:
         )
         assert mount.move_mount_to_target(40.0, 10.0)
         assert _wait(
-            lambda: mount.client.get_value(
-                device, "TELESCOPE_TRACK_MODE", "TRACK_SIDEREAL"
-            )
-            is True,
+            lambda: (
+                mount.client.get_value(device, "TELESCOPE_TRACK_MODE", "TRACK_SIDEREAL")
+                is True
+            ),
             5,
         )
     finally:
@@ -571,9 +595,11 @@ def test_gps_lock_during_a_slew_does_not_stop_it(indi: int) -> None:
         # The state machine clears target_reached when it goes to REFINE, so
         # wait for the mount to stand at the target.
         assert _wait(
-            lambda: not mount.is_mount_moving()
-            and mount.current_ra is not None
-            and abs(mount.current_ra - 250.0) < 0.1,
+            lambda: (
+                not mount.is_mount_moving()
+                and mount.current_ra is not None
+                and abs(mount.current_ra - 250.0) < 0.1
+            ),
             120,
         )
         warnings = []
@@ -583,8 +609,10 @@ def test_gps_lock_during_a_slew_does_not_stop_it(indi: int) -> None:
                 warnings.append(message[1])
         assert "Goto interrupted" not in warnings
         assert _wait(
-            lambda: mount.client.get_value(mount.device, "GEOGRAPHIC_COORD", "LAT")
-            == pytest.approx(50.85, abs=1e-3),
+            lambda: (
+                mount.client.get_value(mount.device, "GEOGRAPHIC_COORD", "LAT")
+                == pytest.approx(50.85, abs=1e-3)
+            ),
             40,
         )
     finally:
@@ -885,5 +913,226 @@ def test_drift_compensation_removes_a_drift(indi: int, case: str) -> None:
     finally:
         mount.mount_queue.put({"type": "exit"})
         runner.join(timeout=10)
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def _goto_hour_angle(mount: MountControlIndi, hour_angle: float, dec: float):
+    """Slew to an hour angle, then track. Return the reported position."""
+    location = mount.shared_state.location()
+    lst = local_sidereal_deg(_test_now(), location.lon)
+    assert mount.move_mount_to_target((lst - hour_angle) % 360.0, dec)
+    assert _wait(lambda: mount.target_reached, 90)
+    assert _wait(lambda: not mount.is_slewing(), 10)
+    mount.state = MountControlPhases.MOUNT_TRACKING
+    return mount.current_ra, mount.current_dec
+
+
+def _rotate(mount: MountControlIndi, angle_deg: float, rotation_id: int) -> str:
+    """Send rotate_ra and do the checks of the main loop until the
+    rotation ends. Return the result."""
+    command = {"type": "rotate_ra", "angle_deg": angle_deg, "id": rotation_id}
+    for _step in mount._process_command(command):
+        pass
+
+    def ended() -> bool:
+        mount.check_motion_timeout()
+        return mount._rotation is None
+
+    assert _wait(ended, 60)
+    assert mount.mount_status().rotation_id == rotation_id
+    return mount.mount_status().rotation
+
+
+@pytest.mark.parametrize("angle_deg", [-20.0, 20.0])
+def test_ra_rotation_for_the_polar_alignment(indi: int, angle_deg) -> None:
+    """rotate_ra moves only the RA axis, in the direction of the sign, by
+    the angle plus an overshoot below the margin. The mount is still when
+    the result is done."""
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        # West of the meridian for a turn to the west, east for the east:
+        # both turns go away from the meridian.
+        hour_angle = 30.0 if angle_deg < 0 else -30.0
+        start = _goto_hour_angle(mount, hour_angle, 40.0)
+        assert _rotate(mount, angle_deg, 5) == ROTATION_DONE
+        assert mount.state == MountControlPhases.MOUNT_TRACKING
+        end_ra = mount.current_ra
+        turned = wrap180(end_ra - start[0]) * (1.0 if angle_deg > 0 else -1.0)
+        assert 20.0 <= turned < 20.0 + RA_ROTATION_OVERSHOOT_DEG
+        assert mount.current_dec == pytest.approx(start[1], abs=0.05)
+        time.sleep(2.0)
+        assert mount.current_ra == pytest.approx(end_ra, abs=0.02)
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+@pytest.mark.parametrize("hour_angle", [100.0, -100.0, 150.0])
+def test_ra_rotation_is_refused_far_from_the_meridian(indi: int, hour_angle) -> None:
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        start = _goto_hour_angle(mount, hour_angle, 40.0)
+        assert plan_ra_rotation(hour_angle, 40.0, 50.85, 30.0, 2, 10.0) is None
+        for angle_deg in (30.0, -30.0, 10.0, -10.0):
+            assert _rotate(mount, angle_deg, 6) == ROTATION_REFUSED
+        assert mount.console_queue.get_nowait() == ["WARNING", "RA turn not safe"]
+        time.sleep(1.5)
+        assert mount.current_ra == pytest.approx(start[0], abs=0.02)
+        assert mount.state == MountControlPhases.MOUNT_TRACKING
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def test_ra_rotation_is_refused_during_a_goto(indi: int) -> None:
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        _goto_hour_angle(mount, 30.0, 40.0)
+        assert mount.move_mount_to_target((mount.current_ra - 20.0) % 360.0, 30.0)
+        assert mount.is_slewing()
+        assert _rotate(mount, -20.0, 8) == ROTATION_REFUSED
+        assert mount.console_queue.get_nowait() == ["WARNING", "Mount is slewing"]
+        # The goto goes on to its target.
+        assert _wait(lambda: not mount.is_slewing(), 60)
+        assert _wait(lambda: abs(mount.current_dec - 30.0) < 0.05, 5)
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def test_ra_rotation_is_refused_for_an_altaz_mount(indi: int) -> None:
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        _goto_hour_angle(mount, 30.0, 40.0)
+        assert not mount.is_altaz()
+        mount.start_motion = Mock(wraps=mount.start_motion)
+        assert mount.client.set_switch(mount.device, "TELESCOPE_MOUNT_TYPE", "ALTAZ")
+        assert _wait(mount.is_altaz, 5)
+        assert mount.mount_status().altaz
+        assert _rotate(mount, -20.0, 9) == ROTATION_REFUSED
+        assert mount.console_queue.get_nowait() == ["WARNING", "Not equatorial"]
+        mount.start_motion.assert_not_called()
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+@pytest.mark.parametrize(
+    "hour_angle, lat, lon, dec, ignore_roll",
+    [
+        (30.0, 50.85, -4.35, 20.0, True),
+        (30.0, 50.85, -4.35, 20.0, False),
+        (70.0, 50.85, -4.35, 20.0, False),
+        (-70.0, 50.85, -4.35, 20.0, False),
+        (-30.0, 50.85, -4.35, 20.0, False),
+        (-70.0, -33.9, 18.4, -30.0, False),  # southern site
+    ],
+)
+def test_mount_polar_alignment_finds_the_polar_error(
+    indi: int, hour_angle, lat, lon, dec, ignore_roll
+) -> None:
+    """The mount polar alignment end to end: a mount axis that is off the
+    pole, three solves with two RA rotations in one planned direction
+    between them, then the fit of polar_alignment."""
+    shared_state = _shared_state(lat, lon)
+    location = shared_state.location()
+    mount = _simulator_mount(indi, shared_state)
+    sim = SkySimulator(
+        SkySimSettings(
+            rate_hz=2.0,
+            offset_ra_deg=0.0,
+            offset_dec_deg=0.0,
+            noise_arcsec=3,
+            seed=7,
+            indi_port=indi,
+            polar_error_alt_deg=0.5,
+            polar_error_az_deg=-0.3,
+            latitude_deg=location.lat,
+            longitude_deg=location.lon,
+        ),
+        shared_state.datetime,
+    )
+    sim.next_message()
+
+    def solve_after(start: float) -> SuccessfulSolve:
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            message = sim.next_message()
+            if isinstance(message, SuccessfulSolve) and (
+                message.last_solve_success > start
+            ):
+                return message
+            time.sleep(0.05)
+        raise AssertionError("no solve")
+
+    try:
+        assert mount.init_mount()
+        start_ra, _start_dec = _goto_hour_angle(mount, hour_angle, dec)
+        # The plan of the wizard: one direction and one angle for both
+        # rotations.
+        step = plan_ra_rotation(hour_angle, dec, location.lat, 30.0, 2, 10.0)
+        assert step is not None
+        solves = []
+        for point in range(3):
+            if point:
+                assert _rotate(mount, step, point) == ROTATION_DONE
+            solve = solve_after(time.time() + 1.0)
+            solves.append(
+                (
+                    solve.camera.RA,
+                    solve.camera.Dec,
+                    solve.camera.Roll,
+                    solve.last_solve_success,
+                )
+            )
+        # The mount stayed on its side of the meridian.
+        end_hour_angle = hour_angle - wrap180(mount.current_ra - start_ra)
+        assert end_hour_angle * hour_angle > 0
+        assert abs(end_hour_angle) < 85.0
+
+        # The time of the last solve on the clock of the test.
+        dt = TEST_DT + datetime.timedelta(seconds=solves[-1][3] - TEST_START)
+        t = calc_utils.sf_utils.ts.from_datetime(dt)
+        lst = local_sidereal_deg(dt, location.lon)
+        jyear = 2000.0 + (t.tt - 2451545.0) / 365.25
+        d_alt, d_az, sweep, *_rest = get_platform_adjustments(
+            solves,
+            location.lat,
+            lst,
+            ignore_roll=ignore_roll,
+            observation_jyear=jyear,
+        )
+        # The error that the simulator has: the image of the pole of the
+        # mount frame in the sky.
+        axis_ra, axis_dec = sim._polar_error(0.0, 90.0, dt)
+        want_alt, want_az = axis_to_altaz_error(
+            np.array(
+                [
+                    np.cos(np.radians(axis_dec)) * np.cos(np.radians(axis_ra)),
+                    np.cos(np.radians(axis_dec)) * np.sin(np.radians(axis_ra)),
+                    np.sin(np.radians(axis_dec)),
+                ]
+            ),
+            location.lat,
+            lst,
+        )
+        assert abs(sweep) >= 2 * abs(step)
+        assert abs(sweep) < 2 * (abs(step) + RA_ROTATION_OVERSHOOT_DEG)
+        # The simulator gives the roll of date with a J2000 position. That
+        # moves a fit with the roll by up to 0.1° in this year.
+        tolerance = 0.05 if ignore_roll else 0.1
+        assert d_alt == pytest.approx(want_alt, abs=tolerance)
+        assert d_az == pytest.approx(want_az, abs=tolerance)
+        if lat > 0:
+            assert (want_alt, want_az) == (
+                pytest.approx(0.5, abs=0.01),
+                pytest.approx(-0.3, abs=0.01),
+            )
+    finally:
         mount.disconnect_mount()
         indi_drivers.stop_driver()
