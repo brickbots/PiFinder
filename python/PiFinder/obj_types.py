@@ -37,6 +37,7 @@ OBJ_TYPE_MARKERS = {
     "Ast": "ast",
     "Pla": "planet",
     "AS": "asteroid",
+    "Sat": "sat",
 }
 
 # abbreviations and symbols as used in the NGC/IC catalogues
