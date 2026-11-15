@@ -14,7 +14,7 @@ from PiFinder.object_images.image_utils import (
     project_radec_to_chart,
 )
 from PiFinder.object_images.star_catalog import CatalogState
-from PiFinder.object_sequence import ObjectSequence
+from PiFinder.object_sequence import ObjectSequence, listing_keys
 from PiFinder.composite_object import MagnitudeObject
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
@@ -54,6 +54,8 @@ from PIL import Image
 import logging
 import numpy as np
 import time
+from typing import Optional
+
 from PiFinder.lazy_import import lazy_module
 
 pds = lazy_module("pydeepskylog")
@@ -87,6 +89,44 @@ def _obs_db() -> ObservationsDatabase:
     if _observations_db is None:
         _observations_db = ObservationsDatabase()
     return _observations_db
+
+
+def _listing_index(object_list, listing, hint: Optional[int] = None) -> Optional[int]:
+    """
+    Where ``listing`` sits in ``object_list`` (an ObjectSequence or a list),
+    or None if it isn't there.
+
+    Matched by catalog listing, never by ``==``: CompositeObject equality
+    compares object_id, and several catalog listings can share one sky object
+    (M 31 and NGC 224), so ``list.index`` or ``ObjectSequence.index`` finds
+    whichever sibling listing comes first.
+
+    ``hint`` is the caller's own idea of the position. It wins when that slot
+    holds this listing, which is the only way to tell apart a listing that
+    appears twice (an observing list naming M 31 twice). Otherwise the first
+    slot holding this instance, then the first holding this listing's
+    (catalog_code, sequence). An ObjectSequence is searched on its
+    listing_key column, so no objects are built for the search.
+    """
+    key = (listing.catalog_code, listing.sequence)
+    if hint is not None and 0 <= hint < len(object_list):
+        candidate = object_list[hint]
+        candidate_key = (candidate.catalog_code, candidate.sequence)
+        if candidate is listing or candidate_key == key:
+            return hint
+    if isinstance(object_list, ObjectSequence):
+        wanted = listing_keys(
+            np.array([listing.catalog_code]), np.array([listing.sequence])
+        )[0]
+        hits = np.flatnonzero(object_list.column("listing_key") == wanted)
+        return int(hits[0]) if len(hits) else None
+    for index, candidate in enumerate(object_list):
+        if candidate is listing:
+            return index
+    for index, candidate in enumerate(object_list):
+        if (candidate.catalog_code, candidate.sequence) == key:
+            return index
+    return None
 
 
 # Constants for display modes
@@ -182,6 +222,11 @@ class UIObjectDetails(UIModule):
         self._chart_gen = None  # Cached chart generator instance
         self.object = self.item_definition["object"]
         self.object_list = self.item_definition["object_list"]
+        # The cursor's slot in object_list. A caller that knows it passes
+        # "object_index"; see _listing_index for why it is kept.
+        self.object_index = _listing_index(
+            self.object_list, self.object, self.item_definition.get("object_index")
+        )
         self.object_display_mode = DM_LOCATE
         self.object_image = None
         self._chart_generator = None  # Active generator for progressive chart updates
@@ -1501,13 +1546,17 @@ class UIObjectDetails(UIModule):
             self.active()  # reset activation time
 
     def scroll_object(self, direction: int) -> None:
-        current_index = ObjectSequence.of(self.object_list).index(self.object)
+        current_index = _listing_index(self.object_list, self.object, self.object_index)
+        if current_index is None:
+            # Not in the list it was opened with: nothing to step from.
+            return
         current_index += direction
         if current_index < 0:
             current_index = 0
         if current_index >= len(self.object_list):
             current_index = len(self.object_list) - 1
 
+        self.object_index = current_index
         self.object = self.object_list[current_index]
         self.update_object_info()
         self.update()

@@ -218,7 +218,9 @@ Press **SQUARE** to cycle through additional information for the objects on the 
 
 .. image:: images/user_guide/object_list_02_docs.png
 
-You can see a scrolling list of common names for each object.
+You can see a scrolling list of common names for each object.  The lists of objects that go
+by name open with this view: Planets, Comets, and the star, double star, asterism, and
+variable star catalogs (Str, Nam, SaA, SaR, SaM, RDS, WDS, TLK).
 
 .. image:: images/user_guide/object_list_03_docs.png
 
@@ -467,7 +469,9 @@ like Object type.  Here's a brief explanation of each:
   catalogs at once.
 - **Type**: Limit by object type.  You can select multiple types to include.
 - **Altitude**: The current apparent altitude of an object from your observing location.
-- **Magnitude**: Limit to objects at least as bright as the selected magnitude.
+- **Magnitude**: Limit to objects at least as bright as the selected magnitude.  For a
+  double star the filter uses its brightest star, and for a variable star its brightest
+  magnitude.
 - **Observed**: Include only objects you've logged, never logged, or any logged state.
 
 Catalogs Filter

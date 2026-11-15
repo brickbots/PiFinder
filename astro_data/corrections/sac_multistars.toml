@@ -1,0 +1,373 @@
+# Corrections to the Saguaro Astronomy Club Double Stars list, version 4.0 (SAC_Multistars_Ver40).
+# See README.md in this directory for the format.
+# was values from a build of 4da2a0a2b.
+
+["SaM 1414"]
+why = "A SAC continuation row gives no V, so the cross-match cannot gate it, and the system's first row does not identify it. Evidence: 30 Ori is HIP 25473."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2025473"]
+hip = 25473
+
+["SaM 1862"]
+why = "A SAC continuation row gives no V, so the cross-match cannot gate it, and the system's first row does not identify it. Evidence: WDS BUP203 lies 0.15' from HIP 98909."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2098909"]
+hip = 98909
+
+["SaM 892"]
+why = "SAC's position or magnitude is off, so the cross-match finds no star, or the wrong component. Evidence: 38 Gem is HIP 33202; source's V is the error (V 7.4 vs HIP 33202 4.73)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2033202"]
+hip = 33202
+
+["SaM 1084"]
+why = "SAC's position or magnitude is off, so the cross-match finds no star, or the wrong component. Evidence: WDS STF1364 lies 0.00' from HIP 46781; source's V is the error (V 7.5 vs HIP 46781 8.56)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2046781"]
+hip = 46781
+
+["SaM 1418"]
+why = "SAC's position or magnitude is off, so the cross-match finds no star, or the wrong component. Evidence: 31 Ori is HIP 25737; source's V is the error (V 6 vs HIP 25737 4.71)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2025737"]
+hip = 25737
+
+["SaM 1445"]
+why = "SAC's position or magnitude is off, so the cross-match finds no star, or the wrong component. Evidence: 42 Ori is HIP 26237."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2026237"]
+hip = 26237
+
+["SaM 649"]
+why = "SAC's row lies 3-6' from its star, outside the cross-match's 3' radius for a rounded position. Evidence: V 6.3 fits HIP 80247 6.41, no other star within 3' does."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2080247"]
+hip = 80247
+
+["SaM 958"]
+why = "SAC's row lies 3-6' from its star, outside the cross-match's 3' radius for a rounded position. Evidence: Alpha Her is HIP 84345."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2084345"]
+hip = 84345
+
+["SaM 975"]
+why = "SAC's row lies 3-6' from its star, outside the cross-match's 3' radius for a rounded position. Evidence: 90 Her is HIP 87563; V 5.2 fits HIP 87563 5.17, no other star within 3' does."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2087563"]
+hip = 87563
+
+["SaM 992"]
+why = "SAC's row lies 3-6' from its star, outside the cross-match's 3' radius for a rounded position. Evidence: 110 Her is HIP 92043; V 4.2 fits HIP 92043 4.19, no other star within 3' does."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2092043"]
+hip = 92043
+
+["SaM 993"]
+why = "SAC's row lies 3-6' from its star, outside the cross-match's 3' radius for a rounded position. Evidence: 110 Her is HIP 92043; V 4.2 fits HIP 92043 4.19, no other star within 3' does."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2092043"]
+hip = 92043
+
+["SaM 1136"]
+why = "SAC's row lies 3-6' from its star, outside the cross-match's 3' radius for a rounded position. Evidence: Iota Lep is HIP 24244; V 4.2 fits HIP 24244 4.45, no other star within 3' does."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2024244"]
+hip = 24244
+
+["SaM 1432"]
+why = "SAC's row lies 3-6' from its star, outside the cross-match's 3' radius for a rounded position. Evidence: Lambda Ori is HIP 26207."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2026207"]
+hip = 26207
+
+["SaM 1433"]
+why = "SAC's row lies 3-6' from its star, outside the cross-match's 3' radius for a rounded position. Evidence: Lambda Ori is HIP 26207."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2026207"]
+hip = 26207
+
+["SaM 1477"]
+why = "SAC's row lies 3-6' from its star, outside the cross-match's 3' radius for a rounded position. Evidence: Xi Pav is HIP 90098; V 4.3 fits HIP 90098 4.35, no other star within 3' does."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2090098"]
+hip = 90098
+
+["SaM 1814"]
+why = "SAC's row lies 3-6' from its star, outside the cross-match's 3' radius for a rounded position. Evidence: Delta Ser is HIP 76276; V 4.2 fits HIP 76276 3.80, no other star within 3' does."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2076276"]
+hip = 76276
+
+["SaM 2082"]
+why = "SAC's row lies 3-6' from its star, outside the cross-match's 3' radius for a rounded position. Evidence: Beta Vir is HIP 57757; Zavijava is HIP 57757; V 3.8 fits HIP 57757 3.59, no other star within 3' does."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2057757"]
+hip = 57757
+
+["SaM 2083"]
+why = "SAC's row lies 3-6' from its star, outside the cross-match's 3' radius for a rounded position. Evidence: Beta Vir is HIP 57757; Zavijava is HIP 57757; V 3.8 fits HIP 57757 3.59, no other star within 3' does."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2057757"]
+hip = 57757
+
+["SaM 43"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: [6.5, 7] fits HIP 10176 (6.09) and HIP 10180 (6.82)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2010176"]
+hip = 10176
+
+["SaM 134"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: 94 Aqr is HIP 115126."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%20115126"]
+hip = 115126
+
+["SaM 144"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: [6.6, 7.4] fits HIP 12189 (6.48) and HIP 12184 (7.10)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2012189"]
+hip = 12189
+
+["SaM 211"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: [7, 7.5] fits HIP 73366 (6.84) and HIP 73368 (7.64)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2073366"]
+hip = 73366
+
+["SaM 259"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: WDS STF1122 lies 0.25' from HIP 37882."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2037882"]
+hip = 37882
+
+["SaM 272"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: [6, 6.8] fits HIP 101123 (5.94) and HIP 101120 (6.74)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%20101123"]
+hip = 101123
+
+["SaM 569"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: WDS STF1219 lies 0.21' from HIP 41090."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2041090"]
+hip = 41090
+
+["SaM 628"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: [5.9, 6.6] fits HIP 90968 (5.67) and HIP 90969 (6.31)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2090968"]
+hip = 90968
+
+["SaM 742"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: [5.2, 6] fits HIP 104214 (5.20) and HIP 104217 (6.05)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%20104214"]
+hip = 104214
+
+["SaM 767"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: [4.5, 5.5] fits HIP 102532 (4.27) and HIP 102531 (5.15)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%20102532"]
+hip = 102532
+
+["SaM 794"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: [4.9, 6.1] fits HIP 86614 (4.57) and HIP 86620 (5.81)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2086614"]
+hip = 86614
+
+["SaM 797"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: [5.7, 6.1] fits HIP 88136 (5.74) and HIP 88127 (6.11)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2088136"]
+hip = 88136
+
+["SaM 886"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: 20 Gem is HIP 31158; [6.3, 6.9] fits HIP 31158 (6.26) and HIP 31156 (6.91)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2031158"]
+hip = 31158
+
+["SaM 928"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: SAC's [5.3, 6.5] fits HIP 79043 (5.00) and HIP 79045 (6.25)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2079043"]
+hip = 79043
+
+["SaM 1068"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: [5.7, 6.5] fits HIP 111546 (5.73) and HIP 111544 (6.60)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%20111546"]
+hip = 111546
+
+["SaM 1437"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: Theta2 Ori is HIP 26235."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2026235"]
+hip = 26235
+
+["SaM 1462"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: 59 Ori is HIP 28271."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2028271"]
+hip = 28271
+
+["SaM 1611"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: 57 Per is HIP 21242."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2021242"]
+hip = 21242
+
+["SaM 1657"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: [5.6, 6.5] fits HIP 5737 (5.21) and HIP 5743 (6.44)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%205737"]
+hip = 5737
+
+["SaM 1672"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: [7.8, 8.3] fits HIP 116035 (7.76) and HIP 116036 (8.33)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%20116035"]
+hip = 116035
+
+["SaM 1710"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: SAC's [6.1, 6.8] fits HIP 37843 (6.06) and HIP 37842 (7.03)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2037843"]
+hip = 37843
+
+["SaM 1844"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: Alya is HIP 92946."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2092946"]
+hip = 92946
+
+["SaM 1922"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: SAC's [5.6, 6.4] fits HIP 17579 (5.76) and HIP 17588 (6.43)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2017579"]
+hip = 17579
+
+["SaM 1211"]
+why = "The source's position is too far off for the star cross-match to find the star. Evidence: Xi Lup is HIP 78105; V 5.3 fits HIP 78105 5.14, no other star within 3' does."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2078105"]
+hip = 78105
+
+["SaM 1297"]
+why = "The source's position is too far off for the star cross-match to find the star. Evidence: Alpha Mic is HIP 102831; V 5 fits HIP 102831 4.89, no other star within 3' does."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%20102831"]
+hip = 102831
+
+["SaM 465"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: Omicron Cet is HIP 10826; Mira is HIP 10826."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2010826"]
+hip = 10826
+
+["SaM 307"]
+why = "SAC names this row 'Beta1 Cas' and 'Caph', but at 00 52.8 +56 38 it is BU 1 (HD 5005, the Trapezium of NGC 281). Caph is beta Cas, at 00 09 +59 09."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HD%205005",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=bet%20Cas",
+    "https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt",
+]
+names.remove = ["Beta1 Cas", "Caph"]
+
+["SaM 1709"]
+why = "SAC names this row 'Kappa Pup' and 'Markeb', but it is k Pup (Roman k1/k2 Pup). Markeb is kappa Vel (IAU WGSN)."
+sources = [
+    "https://en.wikipedia.org/wiki/K_Puppis",
+    "https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt",
+]
+names.remove = ["Kappa Pup", "Markeb"]
+names.add = ["k Pup"]
+
+["SaM 1348"]
+why = "SAC names this row 'Nu Oph', but at 16 27.8 -08 22 it is upsilon Oph (HIP 80628): a nu/upsilon confusion."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=ups%20Oph"]
+names.remove = ["Nu Oph"]
+names.add = ["Upsilon Oph"]
+
+["SaM 2003"]
+why = "SAC names this row 'Omicron2 UMa' and 'Muscida', but at 09 10.4 +67 08 it is sigma2 UMa (STF 1306): a sigma/omicron confusion. Muscida is omicron UMa, at 08 30 +60 43."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=sig02%20UMa",
+    "https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt",
+]
+names.remove = ["Omicron2 UMa", "Muscida"]
+names.add = ["Sigma2 UMa"]
+
+["SaM 853"]
+why = "omicron2 Eri is right, but its name is Keid, which the sky object already carries from RASC; Beid is omicron1 Eri (IAU WGSN)."
+sources = ["https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt"]
+names.remove = ["Beid"]
+
+["SaM 860"]
+why = "SAC names this row '65 Eri', but STF 590 at 04 46 -08 48 is 55 Eri."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=55%20Eri"]
+names.remove = ["65 Eri"]
+names.add = ["55 Eri"]
+
+["SaM 835"]
+why = "SAC names this row 'Rho Eri' as well as 'p Eri', but at 01 39.8 -56 12 it is p Eri (DUN 5): Roman p read as Greek rho."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=p%20Eri"]
+names.remove = ["Rho Eri"]
+
+["SaM 1165"]
+why = "SAC names this row '33 Lib', but H N 28 at 14 57.5 -21 25 is Gliese 570 (KX Lib), '33 G. Librae', a Gould number. Flamsteed's 33 Lib is HIP 75848."
+sources = [
+    "https://en.wikipedia.org/wiki/Gliese_570",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=Gliese%20570",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=GJ%20570",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=33%20Lib",
+]
+names.remove = ["33 Lib"]
+names.add = ["Gliese 570"]
+
+["SaM 1771"]
+why = "SAC names nu Sco 'Lesath' (AB row) and 'Laseth' (AC and CD rows). nu Sco is Jabbah (IAU WGSN), which the WGSN supplementary source gives it as its preferred name; Lesath is upsilon Sco, and 'Laseth' misspells it."
+sources = [
+    "https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt",
+    "https://en.wikipedia.org/wiki/Nu_Scorpii",
+]
+names.remove = ["Lesath", "Laseth"]
+
+["SaM 1440"]
+why = "SAC's 'Hatsya' misspells iota Ori's IAU name, Hatysa, which the WGSN supplementary source adds."
+sources = [
+    "https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt",
+    "https://en.wikipedia.org/wiki/Iota_Orionis",
+]
+names.remove = ["Hatsya"]
+
+["SaM 587"]
+why = "SAC's 'Ascellus Australis' misspells delta Cnc's IAU name, Asellus Australis, which the WGSN supplementary source adds."
+sources = ["https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt"]
+names.remove = ["Ascellus Australis"]
+
+["SaM 1252"]
+why = "SAC names this row 'Zeta2 Lyr', but its 4.3/5.9 at 43.7\" is the zeta1-zeta2 Lyr pair with zeta1 (V 4.36) as primary."
+sources = [
+    "Bright Star Catalogue V/50 via VizieR HR 7056 zeta1 Lyr 4.36, HR 7057 zeta2 Lyr 5.73",
+    "WDS, wds_precise.txt as shipped in PiFinder astro_data/WDS (GSU/USNO, 2025-09) 18448+3736 STFA 38",
+]
+names.remove = ["Zeta2 Lyr"]
+names.add = ["Zeta1 Lyr"]
+
+["SaM 457"]
+why = "SAC's 'Burnham pm' on 38 Cet is a note (a Burnham proper-motion pair, BUP 18), not a name."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=38%20Cet"]
+names.remove = ["Burnham pm"]
+
+["SaM 1667"]
+why = "SAC's 'Al Rischa (Alrescha)' holds two spellings in one string; the IAU name is Alrescha, which the WGSN supplementary source adds."
+sources = ["https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt"]
+names.remove = ["Al Rischa (Alrescha)"]
+
+["SaM 1521"]
+why = "SAC names xi Peg 'Menkib', which is xi Per's name (IAU WGSN). xi Peg's own IAU name, Tugongli (2026), is the WGSN supplementary source's to add."
+sources = ["https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt"]
+names.remove = ["Menkib"]
+
+["SaM 1633"]
+why = "SAC lists Fomalhaut as a double, so the D* rule types it D*. Its 14 mag companion at 30\" is See's lambda 478, which Burnham showed is a field star, and WDS has dropped it (Mamajek et al. 2013)."
+sources = [
+    "WDS, wds_precise.txt as shipped in PiFinder astro_data/WDS (GSU/USNO, 2025-09): 22577-2937 KAL 1, SHY 106, MAM 1 only",
+    "https://arxiv.org/pdf/1310.0764 (Mamajek et al. 2013, Fomalhaut C, section on See 1898)",
+    "https://en.wikipedia.org/wiki/Fomalhaut",
+]
+obj_type = "*"
+was.obj_type = "D*"
+
+["SaM 1745"]
+why = "SAC lists zeta Scl as a double, so the D* rule types it D*. Its only pair, B 631, is flagged X (dubious) in WDS."
+sources = [
+    "WDS, wds_precise.txt as shipped in PiFinder astro_data/WDS (GSU/USNO, 2025-09): 00023-2943 B 631 [NX]",
+    "SIMBAD (sim-tap, V and otype) (* zet Scl, SB*)",
+]
+obj_type = "*"
+was.obj_type = "D*"
+
+["SaM 1241"]
+why = "SAC lists Vega AB, so the D* rule types Vega D*. Its WDS companions are all field stars: H 5 39 AB 9.5 at 85\" (U, non-physical), STFB 9 AC 11.0 at 79\" and AE 9.5 at 83\" (S), and faint MET 11 stars, so to an observer it is a single star (the audit: * equally acceptable; planned in #683)."
+sources = [
+    "WDS, wds_precise.txt as shipped in PiFinder astro_data/WDS (GSU/USNO, 2025-09)",
+    "Hipparcos I/239 hip_main.dat (PiFinder astro_data), CCDM fields H55-H62",
+    "Bright Star Catalogue V/50 via VizieR",
+]
+obj_type = "*"
+was.obj_type = "D*"
+
+["SaM 693"]
+why = "SAC's STF 2576 row (8.0/8.0 at 19 46.0 +33 36) lies about 5' from its star, outside the cross-match's 3' radius, and no WDS row names it. STF 2576 AB is HD 186858 = HIP 97222 (V 7.66, K5V+K5V), WDS 19464+3344 FG at 19 45 33.5 +33 36 07."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HD%20186858",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2097222",
+]
+hip = 97222
+
+["SaM 1773"]
+why = "SAC names nu Sco 'Lesath' (AB row) and 'Laseth' (AC and CD rows). nu Sco is Jabbah (IAU WGSN), which the WGSN supplementary source gives it as its preferred name; Lesath is upsilon Sco, and 'Laseth' misspells it."
+sources = [
+    "https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt",
+    "https://en.wikipedia.org/wiki/Nu_Scorpii",
+]
+names.remove = ["Laseth"]

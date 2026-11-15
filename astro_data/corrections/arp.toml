@@ -1,0 +1,11 @@
+# Corrections to the Arp Atlas of Peculiar Galaxies (arp/).
+# See README.md in this directory for the format.
+# was values from a build of 4da2a0a2b.
+
+["Arp 65"]
+why = "arp.sqlite names Arp 65 'NGC 0091', but NGC 91 is a star 1.9' south, which the match guard rejects. Arp 65 is NGC 90 (with NGC 93), and its position is NGC 90's."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%2090",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=Arp%2065",
+]
+same_as = "NGC 90"

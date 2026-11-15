@@ -1,0 +1,80 @@
+# Corrections to the TLK 90 variable stars list (variables/).
+# See README.md in this directory for the format.
+# was values from a build of 4da2a0a2b.
+
+["TLK 76"]
+why = "The position lies 3-30\" from its star, outside the cross-match's 3\" radius for an arcsecond position. Evidence: V 7 fits HIP 98909 8.22, no other star within 0.5' does."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2098909"]
+hip = 98909
+
+["TLK 15"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 0.5\" from HIP 31579; source's V is the error (V 7.83 vs HIP 31579 5.40)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2031579"]
+hip = 31579
+
+["TLK 16"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 0.4\" from HIP 17257; source's V is the error (V 11 vs HIP 17257 6.99)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2017257"]
+hip = 17257
+
+["TLK 17"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 0.5\" from HIP 22552; source's V is the error (V 9.2 vs HIP 22552 6.54)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2022552"]
+hip = 22552
+
+["TLK 19"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: La Superba is HIP 62223; 0.3\" from HIP 62223; source's V is the error (V 7.4 vs HIP 62223 5.42). TLK gives La Superba (Y CVn) a range of 7.4-10.0, which is photographic. Its V range is 4.86-7.32 (GCVS)."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2062223",
+    "GCVS B/gcvs via VizieR (Y CVn SRB 4.86-7.32 V)",
+    "Bright Star Catalogue V/50 via VizieR HR 4846 V 4.99",
+    "SIMBAD (sim-tap, V and otype)",
+]
+hip = 62223
+mag = [4.86, 7.32]
+was.mag = 5.42
+
+["TLK 21"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 0.6\" from HIP 99990; source's V is the error (V 8.9 vs HIP 99990 6.97)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2099990"]
+hip = 99990
+
+["TLK 37"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 0.3\" from HIP 96836; source's V is the error (V 10.2 vs HIP 96836 7.63)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2096836"]
+hip = 96836
+
+["TLK 51"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 0.4\" from HIP 48327; source's V is the error (V 8.3 vs HIP 48327 6.85)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2048327"]
+hip = 48327
+
+["TLK 52"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 0.5\" from HIP 52009; source's V is the error (V 7 vs HIP 52009 4.89)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2052009"]
+hip = 52009
+
+["TLK 63"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 0.5\" from HIP 23680; source's V is the error (V 8.2 vs HIP 23680 6.10)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2023680"]
+hip = 23680
+
+["TLK 65"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 0.4\" from HIP 30564; source's V is the error (V 7.9 vs HIP 30564 6.30)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2030564"]
+hip = 30564
+
+["TLK 72"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 0.5\" from HIP 5914; source's V is the error (V 8.8 vs HIP 5914 6.76)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%205914"]
+hip = 5914
+
+["TLK 83"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 1.5\" from HIP 6759."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%206759"]
+hip = 6759
+
+["TLK 85"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 0.7\" from HIP 92442; source's V is the error (V 9.63 vs HIP 92442 6.82)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2092442"]
+hip = 92442

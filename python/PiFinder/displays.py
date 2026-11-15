@@ -177,7 +177,9 @@ class DisplaySSD1351(DisplayBase):
 
     def __init__(self):
         # init display  (SPI hardware)
-        serial = spi(device=0, port=0, bus_speed_hz=40000000)
+        # 20 MHz: newer 1.5" Waveshare panels stay blank at 40 MHz, which is
+        # about twice the SSD1351 datasheet clock.
+        serial = spi(device=0, port=0, bus_speed_hz=20000000)
         device_serial = ssd1351(serial, rotate=0, bgr=True)
 
         device_serial.capabilities(
