@@ -19,10 +19,16 @@ import time
 from multiprocessing import Queue
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
 
-from PiFinder import config, indi_drivers
+from PiFinder import config, indi_drivers, utils
 from PiFinder import track_rates
 from PiFinder.indi_client import TELESCOPE_INTERFACE, IndiClient, IndiProperty
-from PiFinder.mount_settings import MountSettings
+from PiFinder.mount_rate_signs import (
+    FILE_NAME as RATE_SIGNS_FILE_NAME,
+    PIER_SIDES,
+    RateSigns,
+    RateSignStore,
+)
+from PiFinder.mount_settings import MountSettings, max_wait_min
 from PiFinder.mountcontrol_interface import (
     MountControlBase,
     angular_distance,
@@ -63,16 +69,14 @@ CONNECTION_MODE_WAIT_S = 3.0
 # The sidereal rate of TELESCOPE_TRACK_RATE, in arcseconds per second. With
 # TRACK_RATE_RA at this value the RA of the mount does not change.
 SIDEREAL_RATE_ARCSEC_S = 15.041067
-# The sign check of the custom track rates needs this much motion.
-RATE_CHECK_MIN_S = 0.9
+# The sign check of the custom track rates needs this much motion. The
+# follow sets the rates once a second, and the last position report can be
+# some tenths of a second old: the check must fit in less than a second.
+RATE_CHECK_MIN_S = 0.5
 RATE_CHECK_MIN_DEG_S = 0.002
-# An axis turns its sign after this many measurements in a row against the
-# request: one while the sign is not confirmed on this pier side, else two.
-RATE_FLIPS_UNCONFIRMED = 1
 # A position report older than this is the start of a sign check at the
 # time of the check, not at the time of the report.
 RATE_SAMPLE_MAX_AGE_S = 1.0
-RATE_FLIPS_CONFIRMED = 2
 
 
 def _moved_with(moved_deg_s: float, requested_deg_s: float) -> bool:
@@ -82,10 +86,6 @@ def _moved_with(moved_deg_s: float, requested_deg_s: float) -> bool:
         and abs(moved_deg_s) >= abs(requested_deg_s) / 2.0
         and (moved_deg_s > 0) == (requested_deg_s > 0)
     )
-
-
-def _flips_needed(confirmed: bool) -> int:
-    return RATE_FLIPS_CONFIRMED if confirmed else RATE_FLIPS_UNCONFIRMED
 
 
 def _moved_against(moved_deg_s: float, requested_deg_s: float) -> bool:
@@ -135,6 +135,8 @@ class MountControlIndi(MountControlBase):
         log_queue: Optional[Queue],
         settings: MountSettings,
         load_settings: Optional[Callable[[], MountSettings]] = None,
+        load_max_wait: Optional[Callable[[], float]] = None,
+        rate_sign_store: Optional[RateSignStore] = None,
         indi_host: str = "localhost",
         indi_port: int = 7624,
         target_tolerance_deg: float = 0.01,
@@ -142,6 +144,7 @@ class MountControlIndi(MountControlBase):
         super().__init__(mount_queue, console_queue, shared_state)
         self.settings = settings
         self._load_settings = load_settings or settings_from_config
+        self._load_max_wait = load_max_wait or max_wait_from_config
         self.log_queue = log_queue
         self.indi_host = indi_host
         self.indi_port = indi_port
@@ -164,17 +167,10 @@ class MountControlIndi(MountControlBase):
         self._slew_target: Optional[Tuple[float, float]] = None
         # The track mode is Custom after a drift compensation.
         self._custom_tracking = False
-        # The signs of the custom track rates of this driver (set_track_rates).
-        self._ra_rate_sign = -1.0
-        self._dec_rate_sign = 1.0
+        # The signs of the custom track rates of this driver, for each pier
+        # side (set_track_rates, adjust_mount_drift_rates).
+        self.rate_signs = RateSigns(rate_sign_store)
         self._rate_sample: Optional[tuple] = None
-        self._ra_against = 0
-        self._dec_against = 0
-        # True when a measurement on this pier side agreed with the sign.
-        # The telescope simulator turns its Dec direction with the pier side.
-        self._ra_confirmed = False
-        self._dec_confirmed = False
-        self._rate_pier: Optional[bool] = None
         # The lunar or solar rate as custom rates, for a driver without
         # TRACK_LUNAR or TRACK_SOLAR (see refresh_track_rate), or None.
         self._body_custom_rate: Optional[str] = None
@@ -225,7 +221,9 @@ class MountControlIndi(MountControlBase):
 
     def reload_settings(self) -> None:
         """Apply changed settings at once: disconnect, change the driver if
-        the model changed, and connect again if mount control is on."""
+        the model changed, and connect again if mount control is on. The
+        longest wait at a meet point changes without a new connection."""
+        self.max_wait_min = self._load_max_wait()
         new = self._load_settings()
         if new == self.settings:
             return
@@ -240,10 +238,7 @@ class MountControlIndi(MountControlBase):
         self._last_error = ""
         if not new.enabled or new.model != old.model:
             indi_drivers.stop_driver()
-            self._ra_rate_sign = -1.0
-            self._dec_rate_sign = 1.0
-            self._ra_confirmed = False
-            self._dec_confirmed = False
+            self.rate_signs.reset()
         self.settings = new
         self.client = self._new_client()
         self._last_synced_location = None
@@ -455,6 +450,7 @@ class MountControlIndi(MountControlBase):
             return False
         self.device = found[0]
         logger.info("Telescope device: %s", self.device)
+        self.rate_signs.load(self.settings.model)
 
         if not self._switch_on("CONNECTION", "CONNECT"):
             if not self._configure_connection():
@@ -618,6 +614,11 @@ class MountControlIndi(MountControlBase):
                 ra_rate, dec_rate = body["TRACK_RATE_RA"], body["TRACK_RATE_DE"]
         # The measured drift replaces the minute updates of a body rate.
         self._body_custom_rate = None
+        # The signs of the current pier side. The last correction on the
+        # other side tells nothing about this side.
+        if self.rate_signs.set_pier(self.pier_side()):
+            self._last_drift = None
+            self._rate_sample = None
         self._check_drift_directions(
             drift_rate_adjustment_ra, ra_se, drift_rate_adjustment_dec, dec_se
         )
@@ -648,12 +649,12 @@ class MountControlIndi(MountControlBase):
             return
         last_ra, last_ra_se, last_dec, last_dec_se = self._last_drift
         if _drift_grew(last_ra, last_ra_se, ra_drift, ra_se):
-            self._ra_rate_sign = -self._ra_rate_sign
+            self.rate_signs.ra.turn()
             logger.info(
                 "RA track rate direction of this driver: %+.0f", self._ra_rate_sign
             )
         if _drift_grew(last_dec, last_dec_se, dec_drift, dec_se):
-            self._dec_rate_sign = -self._dec_rate_sign
+            self.rate_signs.dec.turn()
             logger.info(
                 "Dec track rate direction of this driver: %+.0f", self._dec_rate_sign
             )
@@ -754,25 +755,46 @@ class MountControlIndi(MountControlBase):
             )
         return ok
 
-    def _check_pier_side(self) -> None:
-        """A new pier side makes the signs not confirmed. Some drivers turn
-        the direction of an axis with the pier side."""
+    @property
+    def _ra_rate_sign(self) -> float:
+        return self.rate_signs.ra.sign
+
+    @_ra_rate_sign.setter
+    def _ra_rate_sign(self, sign: float) -> None:
+        self.rate_signs.ra.sign = sign
+
+    @property
+    def _dec_rate_sign(self) -> float:
+        return self.rate_signs.dec.sign
+
+    @_dec_rate_sign.setter
+    def _dec_rate_sign(self, sign: float) -> None:
+        self.rate_signs.dec.sign = sign
+
+    def pier_side(self) -> Optional[str]:
+        """PIER_EAST or PIER_WEST from TELESCOPE_PIER_SIDE, or None."""
         if self.device is None:
-            return
-        value = self.client.get_value(self.device, "TELESCOPE_PIER_SIDE", "PIER_EAST")
-        pier = value if isinstance(value, bool) else None
-        if pier != self._rate_pier:
-            self._rate_pier = pier
-            self._ra_confirmed = False
-            self._dec_confirmed = False
+            return None
+        for side in PIER_SIDES:
+            if self.client.get_value(self.device, "TELESCOPE_PIER_SIDE", side) is True:
+                return side
+        return None
+
+    def _check_pier_side(self) -> None:
+        """Use the signs of the current pier side. Some drivers turn the
+        direction of an axis with the pier side."""
+        if self.rate_signs.set_pier(self.pier_side()):
+            self._rate_sample = None
 
     def _check_rate_signs(self) -> None:
         """Turn the sign of an axis that moved against the requested rate.
 
         The motion is measured between two position reports of the driver,
-        over at least RATE_CHECK_MIN_S. A sign that is not confirmed turns
-        after one measurement against the request, so a fast target is not
-        lost. A confirmed sign turns after two in a row.
+        over at least RATE_CHECK_MIN_S. See RateSigns: a sign that is not
+        confirmed turns after one measurement against the request, so a
+        fast target is not lost. A confirmed or stored sign turns after two
+        in a row. Two measurements in a row with the request confirm a sign
+        and store it for the pier side.
         """
         sample = self._rate_sample
         if sample is None or self.current_ra is None or self.current_dec is None:
@@ -784,28 +806,12 @@ class MountControlIndi(MountControlBase):
         self._rate_sample = None
         ra_moved = ((self.current_ra - ra0 + 540.0) % 360.0 - 180.0) / seconds
         dec_moved = (self.current_dec - dec0) / seconds
-        if _moved_with(ra_moved, ra_rate):
-            self._ra_confirmed = True
-        if _moved_with(dec_moved, dec_rate):
-            self._dec_confirmed = True
-        self._ra_against = (
-            self._ra_against + 1 if _moved_against(ra_moved, ra_rate) else 0
+        self.rate_signs.measure(
+            _moved_with(ra_moved, ra_rate),
+            _moved_against(ra_moved, ra_rate),
+            _moved_with(dec_moved, dec_rate),
+            _moved_against(dec_moved, dec_rate),
         )
-        self._dec_against = (
-            self._dec_against + 1 if _moved_against(dec_moved, dec_rate) else 0
-        )
-        if self._ra_against >= _flips_needed(self._ra_confirmed):
-            self._ra_rate_sign = -self._ra_rate_sign
-            self._ra_against = 0
-            self._ra_confirmed = False
-            logger.info("RA track rate sign of this driver: %+.0f", self._ra_rate_sign)
-        if self._dec_against >= _flips_needed(self._dec_confirmed):
-            self._dec_rate_sign = -self._dec_rate_sign
-            self._dec_against = 0
-            self._dec_confirmed = False
-            logger.info(
-                "Dec track rate sign of this driver: %+.0f", self._dec_rate_sign
-            )
 
     def apply_track_rate(self, rate: str) -> bool:
         """Sidereal, lunar or solar tracking: the INDI track mode if the
@@ -1017,6 +1023,10 @@ def settings_from_config() -> MountSettings:
     return MountSettings.from_config(config.Config())
 
 
+def max_wait_from_config() -> float:
+    return max_wait_min(config.Config())
+
+
 def run(
     mount_queue: Queue,
     console_queue: Queue,
@@ -1028,8 +1038,14 @@ def run(
     if log_queue is not None:
         MultiprocLogging.configurer(log_queue)
     mount_control = MountControlIndi(
-        mount_queue, console_queue, shared_state, log_queue, settings_from_config()
+        mount_queue,
+        console_queue,
+        shared_state,
+        log_queue,
+        settings_from_config(),
+        rate_sign_store=RateSignStore(utils.data_dir / RATE_SIGNS_FILE_NAME),
     )
+    mount_control.max_wait_min = max_wait_from_config()
     try:
         mount_control.run()
     except KeyboardInterrupt:

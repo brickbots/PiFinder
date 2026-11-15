@@ -11,13 +11,14 @@ import threading
 import time
 from pathlib import Path
 from queue import Queue
-from typing import Iterator
+from typing import Iterator, Optional
 from unittest.mock import Mock
 
 import numpy as np
 import pytest
 
 from PiFinder import indi_drivers, satellites, track_rates
+from PiFinder.mount_rate_signs import RateSignStore
 from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_indi import POSITION, MountControlIndi
 from PiFinder.mountcontrol_interface import MountControlPhases, angular_distance
@@ -281,13 +282,16 @@ def test_reload_switches_model_and_turns_off(indi: int) -> None:
         indi_drivers.stop_driver()
 
 
-def _simulator_mount(indi: int) -> MountControlIndi:
+def _simulator_mount(
+    indi: int, rate_sign_store: Optional[RateSignStore] = None
+) -> MountControlIndi:
     return MountControlIndi(
         Queue(),
         Queue(),
         _shared_state(),
         None,
         MountSettings(enabled=True, model=indi_drivers.SIMULATOR),
+        rate_sign_store=rate_sign_store,
         indi_port=indi,
     )
 
@@ -650,9 +654,8 @@ def _hour_angle_ra(hour_angle: float) -> float:
 
 
 def _dec_after_rates(mount, dec_rate: float, seconds: float) -> list[float]:
-    """Set the rate once a second, as the target follow does, after a
-    sidereal wait. Returns the Dec after each second."""
-    time.sleep(3.0)
+    """Set the rate once a second, as the target follow does. Returns the
+    Dec after each second."""
     decs = []
     for _second in range(int(seconds)):
         assert mount.set_track_rates(0.0, dec_rate)
@@ -661,27 +664,57 @@ def _dec_after_rates(mount, dec_rate: float, seconds: float) -> list[float]:
     return decs
 
 
-@pytest.mark.parametrize("hour_angle", [-60.0, 60.0])
-def test_fast_dec_rate_finds_its_sign_on_each_pier_side(
-    indi: int, hour_angle: float
+def _visit(mount, hour_angle: float, seconds: int) -> tuple[float, list[float]]:
+    """Goto the hour angle, wait with sidereal tracking, then a Dec rate of
+    0.1°/s. Returns the Dec before the rate and after each second."""
+    mount.target_reached = False
+    assert mount.move_mount_to_target(_hour_angle_ra(hour_angle), 10.0)
+    assert _wait(lambda: mount.target_reached, 90)
+    mount.restore_sidereal_tracking()
+    time.sleep(3.0)
+    start = mount.current_dec
+    decs = _dec_after_rates(mount, 0.1, seconds)
+    mount.restore_sidereal_tracking()
+    return start, decs
+
+
+def test_fast_dec_rate_has_one_sign_for_each_pier_side(
+    indi: int, tmp_path: Path
 ) -> None:
     """The simulator turns the Dec direction of a custom rate with the pier
-    side. After a sidereal wait, in which the driver sends no position, a
-    fast Dec rate moves the mount the right way within two seconds, on both
-    pier sides and after a pier change."""
-    mount = _simulator_mount(indi)
+    side (west at hour angle -60°, east at +60°). After a sidereal wait, in
+    which the driver sends no position, a fast Dec rate moves the right way
+    within two seconds on a side without a stored sign. Two measurements
+    with the request store the sign of that side. A side with a stored sign
+    moves the right way from the start, also after a new connection."""
+    store = RateSignStore(tmp_path / "signs.json")
+    mount = _simulator_mount(indi, store)
     try:
         assert mount.init_mount()
-        for side in (hour_angle, -hour_angle):
-            mount.target_reached = False
-            assert mount.move_mount_to_target(_hour_angle_ra(side), 10.0)
-            assert _wait(lambda: mount.target_reached, 90)
-            mount.restore_sidereal_tracking()
-            decs = _dec_after_rates(mount, 0.1, 4)
+        for hour_angle, pier in ((-60.0, "PIER_WEST"), (60.0, "PIER_EAST")):
+            _start, decs = _visit(mount, hour_angle, 6)
+            assert mount.pier_side() == pier
             # Wrong for at most the first second, then 0.1°/s north.
-            assert decs[-1] - decs[1] == pytest.approx(0.2, abs=0.05), (side, decs)
-            assert decs[-1] - decs[0] > 0.1
-            mount.restore_sidereal_tracking()
+            assert decs[-1] - decs[1] == pytest.approx(0.4, abs=0.05), (pier, decs)
+        stored = store.load(indi_drivers.SIMULATOR)
+        # The RA rate is zero, so only the Dec sign is known.
+        assert stored == {"PIER_WEST": [None, -1.0], "PIER_EAST": [None, 1.0]}
+        # Back on the west side: the stored sign at once.
+        start, decs = _visit(mount, -60.0, 3)
+        assert decs[0] - start == pytest.approx(0.1, abs=0.04), decs
+        assert decs[-1] - start == pytest.approx(0.3, abs=0.05), decs
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+    # A new connection reads the stored signs.
+    mount = _simulator_mount(indi, store)
+    try:
+        assert mount.init_mount()
+        for hour_angle in (60.0, -60.0):
+            start, decs = _visit(mount, hour_angle, 2)
+            assert decs[0] - start == pytest.approx(0.1, abs=0.04), decs
+            assert decs[-1] - start == pytest.approx(0.2, abs=0.05), decs
     finally:
         mount.disconnect_mount()
         indi_drivers.stop_driver()

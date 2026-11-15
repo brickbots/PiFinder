@@ -18,6 +18,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Generator, Iterator, Optional, Any
 
+import pytz
+
 from PiFinder import calc_utils, satellites
 from PiFinder import target_follow, track_rates
 from PiFinder.target_follow import FollowStage, TargetFollow, angular_distance
@@ -174,6 +176,30 @@ def meet_text(seconds: float, meet: target_follow.MeetPoint) -> str:
     return (
         _("Meet in")
         + f" {minutes}:{rest:02d} {meet.alt:.0f}° {satellites.compass(meet.az)}"
+    )
+
+
+def next_pass_text(item: Optional[satellites.SatPass], now: float, zone: str) -> str:
+    """The next pass for a satellite without a meet point in the wait time,
+    in three short lines: "Next pass 21:43", "in 2h05", "max 38° SE". The
+    time is the meet time, in the time zone of the location."""
+    if item is None:
+        return _("No pass in 24 h")
+    when = target_follow.meet_time(item)
+    try:
+        tzinfo: datetime.tzinfo = pytz.timezone(zone)
+    except pytz.UnknownTimeZoneError:
+        tzinfo = datetime.timezone.utc
+    clock = datetime.datetime.fromtimestamp(when, tzinfo).strftime("%H:%M")
+    minutes = max(0, int(round((when - now) / 60.0)))
+    hours, rest = divmod(minutes, 60)
+    wait = f"{hours}h{rest:02d}" if hours else f"{rest} min"
+    return "\n".join(
+        (
+            _("Next pass") + f" {clock}",
+            _("in") + f" {wait}",
+            _("max") + f" {item.max_alt:.0f}° {satellites.compass(item.max_alt_az)}",
+        )
     )
 
 
@@ -353,6 +379,9 @@ class MountControlBase:
         self._follow_motion: Optional[tuple[float, float, float, float]] = None
         # True while a follow keeps the tracking of the mount off.
         self._follow_tracking_off = False
+        # The longest wait at a meet point, in minutes (the setting
+        # mount_control_max_wait_min).
+        self.max_wait_min: float = target_follow.MEET_SEARCH_MINUTES
         # The pointing offset of the last follow goto.
         self._follow_aim_offset: tuple[float, float] = (0.0, 0.0)
         # The track rate: track_rates.SIDEREAL, LUNAR or SOLAR.
@@ -939,9 +968,12 @@ class MountControlBase:
         """Give a satellite below MEET_ALT_DEG its meet point. False, with a
         warning, for a target that the mount cannot follow now.
 
-        A satellite at MEET_ALT_DEG or higher is past its meet point. A
-        satellite that is higher than MIN_ALT_DEG but has no meet point, or
-        a meet point closer than the lead, gets the follow without one.
+        A satellite at MEET_ALT_DEG or higher is past its meet point. The
+        meet point must be in ``max_wait_min``. A satellite that is higher
+        than MIN_ALT_DEG but has no meet point, or a meet point closer than
+        the lead, gets the follow without one. A lower satellite without a
+        meet point gets no follow: the PiFinder tells the next pass in
+        NEXT_PASS_HOURS.
         """
         alt = follow.point(now).alt
         target = follow.target
@@ -950,9 +982,16 @@ class MountControlBase:
             isinstance(target, target_follow.SatelliteTarget)
             and alt < target_follow.MEET_ALT_DEG
         ):
-            meet = target_follow.find_meet(target, now)
-            if meet is None and alt < target_follow.MIN_ALT_DEG:
-                self.warn(_("No pass soon"))
+            # One search for the wait and for the text of the next pass.
+            item = target_follow.find_pass(
+                target, now, target_follow.NEXT_PASS_HOURS * 60.0
+            )
+            if item is not None and (
+                target_follow.meet_time(item) - now <= self.max_wait_min * 60.0
+            ):
+                meet = target_follow.meet_point(target, item)
+            elif alt < target_follow.MIN_ALT_DEG:
+                self.warn(self._next_pass_text(item, now))
                 return False
         if meet is not None and (
             alt < target_follow.MIN_ALT_DEG or meet.time - now > follow.lead_s
@@ -970,6 +1009,11 @@ class MountControlBase:
             self.warn(_("Target too low"))
             return False
         return True
+
+    def _next_pass_text(self, item: Optional[satellites.SatPass], now: float) -> str:
+        location = self.shared_state.location()
+        zone = getattr(location, "timezone", None) or "UTC"
+        return next_pass_text(item, now, zone)
 
     def _follow_aim(self, now: float) -> None:
         """Goto the target: ahead of it if it is fast, or to the meet point."""
