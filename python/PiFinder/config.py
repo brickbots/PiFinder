@@ -60,6 +60,7 @@ class Config:
             self._default_config_dict = json.load(config_file)
 
         self._migrate_asteroid_filters(had_saved_config)
+        self._migrate_satellite_filters(had_saved_config)
 
         # Load the equipment config
         eq_config = self.get_option("equipment")
@@ -120,14 +121,25 @@ class Config:
         Defaults already cover fresh installs. The marker prevents a later
         user choice to disable asteroids from being undone on every startup.
         """
-        marker = "migration.asteroid_filter_v1"
+        self._add_filter_values_once(
+            had_saved_config,
+            "migration.asteroid_filter_v1",
+            (("filter.selected_catalogs", "MP"), ("filter.object_types", "AS")),
+        )
+
+    def _migrate_satellite_filters(self, had_saved_config: bool) -> None:
+        """Enable the new satellite catalog once in persisted filter lists."""
+        self._add_filter_values_once(
+            had_saved_config,
+            "migration.satellite_filter_v1",
+            (("filter.selected_catalogs", "SA"), ("filter.object_types", "Sat")),
+        )
+
+    def _add_filter_values_once(
+        self, had_saved_config: bool, marker: str, additions: tuple
+    ) -> None:
         if not had_saved_config or self._config_dict.get(marker):
             return
-
-        additions = (
-            ("filter.selected_catalogs", "MP"),
-            ("filter.object_types", "AS"),
-        )
         for option, value in additions:
             saved_values = self._config_dict.get(option)
             if isinstance(saved_values, list) and value not in saved_values:

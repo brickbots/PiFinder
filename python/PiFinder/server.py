@@ -6,6 +6,7 @@ import os
 import argparse
 import sys
 import multiprocessing
+import datetime
 from datetime import timezone
 
 import pydeepskylog as pds
@@ -17,6 +18,9 @@ from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
 from PiFinder import web_observations
+from PiFinder import web_satellites
+from PiFinder import satellites as satellite_data
+from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 from PiFinder.equipment import (
     EYEPIECE_LIMITS,
     MOUNT_TYPES,
@@ -1181,6 +1185,227 @@ class Server:
             if path is None:
                 return "", 404
             return send_file(path, mimetype="image/jpeg")
+
+        def _now_utc_source():
+            """The time, and True when it comes from the GPS."""
+            now = self.shared_state.datetime()
+            if now is None:
+                return datetime.datetime.now(timezone.utc), False
+            if now.tzinfo is None:
+                return now.replace(tzinfo=timezone.utc), True
+            return now, True
+
+        def _now_utc():
+            return _now_utc_source()[0]
+
+        def _satellites_redirect(message="", error=""):
+            query = []
+            if message:
+                query.append("msg=" + quote(message))
+            if error:
+                query.append("err=" + quote(error))
+            return redirect("/satellites" + ("?" + "&".join(query) if query else ""))
+
+        @app.route("/satellites")
+        @auth_required
+        def satellites_page():
+            now, time_from_gps = _now_utc_source()
+            show_all = request.args.get("all", "0") == "1"
+            max_mag = request.args.get("maxmag", type=float)
+            if max_mag is None and not show_all:
+                max_mag = web_satellites.DEFAULT_MAX_MAG
+            location = self.shared_state.location()
+            passes, cache = web_satellites.upcoming_passes(
+                now, location, visible_only=not show_all, max_mag=max_mag
+            )
+            groups = web_satellites.group_status(now)
+            return app.jinja_env.get_template("satellites.html").render(
+                title=_("Satellites"),
+                passes=passes,
+                cache=cache,
+                show_all=show_all,
+                max_mag=max_mag,
+                groups=groups,
+                catalog=web_satellites.catalog_summary(now, groups),
+                user_satellites=web_satellites.user_satellites(now),
+                corrected_satellites=web_satellites.corrected_satellites(now),
+                sky_now=web_satellites.sky_now(now, location),
+                time_from_gps=time_from_gps,
+                now_utc=now.strftime("%Y-%m-%d %H:%M"),
+                status_message=request.args.get("msg", ""),
+                error_message=request.args.get("err", ""),
+            )
+
+        @app.route("/satellites/add", methods=["POST"])
+        @auth_required
+        def satellites_add():
+            too_large = _("The file is too large. The limit is 1 MB.")
+            limit = web_satellites.MAX_UPLOAD_BYTES
+            # The request holds the file and the other form fields.
+            if (request.content_length or 0) > 2 * limit:
+                return _satellites_redirect(error=too_large)
+            text = request.form.get("elements", "")
+            upload = request.files.get("file")
+            if upload is not None and upload.filename:
+                content = upload.read(limit + 1)
+                if len(content) > limit:
+                    return _satellites_redirect(error=too_large)
+                text += "\n" + content.decode("utf-8", errors="replace")
+            found, errors = web_satellites.add_elements(
+                text,
+                name=request.form.get("name", ""),
+                norad=request.form.get("norad", ""),
+                std_mag=request.form.get("std_mag", ""),
+            )
+            message = ""
+            if found:
+                message = _("Saved {count}: {names}").format(
+                    count=len(found), names=", ".join(e.name for e in found[:10])
+                )
+            if not found and not errors:
+                errors = [_("Paste element sets or give a NORAD number")]
+            return _satellites_redirect(message, "; ".join(errors[:10]))
+
+        @app.route("/satellites/delete/<int:norad_id>", methods=["POST"])
+        @auth_required
+        def satellites_delete(norad_id):
+            if satellite_data.delete_user_element(norad_id):
+                return _satellites_redirect(_("Deleted {norad}").format(norad=norad_id))
+            return _satellites_redirect(
+                error=_("Not found: {norad}").format(norad=norad_id)
+            )
+
+        @app.route("/satellites/corrected/delete/<int:norad_id>", methods=["POST"])
+        @auth_required
+        def satellites_corrected_delete(norad_id):
+            if satellite_data.delete_corrected_element(norad_id):
+                return _satellites_redirect(_("Deleted {norad}").format(norad=norad_id))
+            return _satellites_redirect(
+                error=_("Not found: {norad}").format(norad=norad_id)
+            )
+
+        @app.route("/satellites/refresh", methods=["POST"])
+        @auth_required
+        def satellites_refresh():
+            """Update one group, or each selected group without a group."""
+            group = request.form.get("group", "")
+            groups = None
+            if group:
+                if group not in satellite_data.CELESTRAK_GROUPS:
+                    return _satellites_redirect(
+                        error=_("Not found: {norad}").format(norad=group)
+                    )
+                if not satellite_data.load_selection().group_enabled(group):
+                    return _satellites_redirect(
+                        error=_("Select {name} first").format(name=group)
+                    )
+                groups = (group,)
+            # The file times come from the system clock, so the check of the
+            # last download uses the system clock too.
+            result = satellite_data.refresh_groups(
+                datetime.datetime.now(timezone.utc), force=True, groups=groups
+            )
+            return _satellites_redirect(*web_satellites.refresh_message(result))
+
+        @app.route("/satellites/enable", methods=["POST"])
+        @auth_required
+        def satellites_enable():
+            """Select a group, or enable or disable one satellite of the user.
+
+            A selected group without a file downloads at once.
+            """
+            kind = request.form.get("kind", "")
+            name = request.form.get("id", "")
+            enabled = request.form.get("enabled", "0") == "1"
+            try:
+                web_satellites.set_enabled(kind, name, enabled)
+            except ValueError:
+                return _satellites_redirect(
+                    error=_("Not found: {norad}").format(norad=name)
+                )
+            if not enabled:
+                return _satellites_redirect(_("Disabled {name}").format(name=name))
+            message = _("Enabled {name}").format(name=name)
+            error = ""
+            if kind == "group":
+                result = web_satellites.download_if_missing(
+                    name, datetime.datetime.now(timezone.utc)
+                )
+                if result is not None:
+                    downloaded, error = web_satellites.refresh_message(result)
+                    if downloaded:
+                        message += ". " + downloaded
+            return _satellites_redirect(message, error)
+
+        @app.route("/satellites/show/<int:norad_id>", methods=["POST"])
+        @auth_required
+        def satellites_show(norad_id):
+            """Open the satellite on the PiFinder, as a push from a planetarium."""
+            now = _now_utc()
+            detail = web_satellites.satellite_detail(
+                norad_id, now, self.shared_state.location(), days=0.0
+            )
+            if detail is None or not detail["enabled"]:
+                return _satellites_redirect(
+                    error=_("Not found: {norad}").format(norad=norad_id)
+                )
+            ra, dec = (
+                (detail["now"]["ra"], detail["now"]["dec"]) if detail["now"] else (0, 0)
+            )
+            obj = CompositeObject.from_dict(
+                {
+                    "id": -1,
+                    "object_id": sys.maxsize - norad_id,
+                    "obj_type": "Sat",
+                    "ra": ra,
+                    "dec": dec,
+                    "const": "",
+                    "size": SizeObject([]),
+                    "mag": MagnitudeObject([]),
+                    "catalog_code": "SA",
+                    "sequence": norad_id,
+                    "names": [detail["name"]],
+                    "description": "",
+                }
+            )
+            self.shared_state.ui_state().add_recent(obj)
+            self.shared_state.ui_state().set_new_pushto(True)
+            self.ui_queue.put("push_object")
+            return redirect(f"/satellites/{norad_id}")
+
+        @app.route("/satellites/<int:norad_id>")
+        @auth_required
+        def satellite_page(norad_id):
+            now, time_from_gps = _now_utc_source()
+            detail = web_satellites.satellite_detail(
+                norad_id, now, self.shared_state.location()
+            )
+            if detail is None:
+                return _satellites_redirect(
+                    error=_("Not found: {norad}").format(norad=norad_id)
+                )
+            return app.jinja_env.get_template("satellite.html").render(
+                title=detail["name"],
+                sat=detail,
+                time_from_gps=time_from_gps,
+                now_utc=now.strftime("%Y-%m-%d %H:%M"),
+            )
+
+        @app.route("/api/satellites/passes")
+        @auth_required
+        def satellites_api_passes():
+            passes, cache = web_satellites.upcoming_passes(
+                _now_utc(),
+                self.shared_state.location(),
+                visible_only=request.args.get("all", "0") != "1",
+            )
+            return jsonify(
+                {
+                    "state": cache.get("state") if cache else None,
+                    "computed": cache.get("computed") if cache else None,
+                    "passes": passes,
+                }
+            )
 
         @app.route("/observations/object/<catalog>/<int:sequence>/chart.png")
         @auth_required

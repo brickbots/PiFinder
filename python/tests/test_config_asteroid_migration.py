@@ -36,8 +36,8 @@ def test_existing_saved_filters_gain_asteroids_once(tmp_path, monkeypatch):
     monkeypatch.setattr(utils, "pifinder_dir", tmp_path)
 
     config = Config()
-    assert config.get_option("filter.selected_catalogs") == ["NGC", "MP"]
-    assert config.get_option("filter.object_types") == ["Gx", "AS"]
+    assert config.get_option("filter.selected_catalogs") == ["NGC", "MP", "SA"]
+    assert config.get_option("filter.object_types") == ["Gx", "AS", "Sat"]
 
     # Once migrated, an explicit user choice remains authoritative.
     config.set_option("filter.selected_catalogs", ["NGC"])
@@ -45,3 +45,24 @@ def test_existing_saved_filters_gain_asteroids_once(tmp_path, monkeypatch):
     reloaded = Config()
     assert reloaded.get_option("filter.selected_catalogs") == ["NGC"]
     assert reloaded.get_option("filter.object_types") == ["Gx"]
+
+
+@pytest.mark.unit
+def test_asteroid_migrated_config_gains_satellites_once(tmp_path, monkeypatch):
+    data_dir = write_config_files(
+        tmp_path,
+        {
+            "filter.selected_catalogs": ["NGC", "MP"],
+            "filter.object_types": ["Gx", "AS"],
+            "migration.asteroid_filter_v1": True,
+        },
+    )
+    monkeypatch.setattr(utils, "data_dir", data_dir)
+    monkeypatch.setattr(utils, "pifinder_dir", tmp_path)
+
+    config = Config()
+    assert config.get_option("filter.selected_catalogs") == ["NGC", "MP", "SA"]
+    assert config.get_option("filter.object_types") == ["Gx", "AS", "Sat"]
+
+    config.set_option("filter.selected_catalogs", ["NGC", "MP"])
+    assert Config().get_option("filter.selected_catalogs") == ["NGC", "MP"]

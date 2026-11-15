@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% macro group_state(g) -%}
+{% if g['state'] == 'ok' -%}
+<span class="green-text text-lighten-1 sat-state"><i class="material-icons tiny">check_circle</i> {{ _('OK') }}</span>
+<span class="grey-text">· {{ g['age_text'] }} {{ _('old') }} · {{ g['count'] }} {% if g['count'] == 1 %}{{ _('set') }}{% else %}{{ _('sets') }}{% endif %}</span>
+{%- elif g['state'] == 'failed' -%}
+<span class="red-text text-lighten-2 sat-state"><i class="material-icons tiny">error</i> {{ _('Failed') }}: {{ g['error'] or _('Download failed') }}</span>
+<br><span class="grey-text">{% if g['retry_in'] %}{{ _('Next try in {wait}').format(wait=g['retry_in']) }}{% endif %}{% if g['age_hours'] is not none %}{% if g['retry_in'] %} · {% endif %}{{ _('Old file: {age}, {count} sets').format(age=g['age_text'], count=g['count']) }}{% endif %}</span>
+{%- elif g['state'] == 'downloading' -%}
+<span class="light-blue-text text-lighten-2 sat-state"><i class="material-icons tiny">sync</i> {{ _('Downloading') }}</span>
+{%- else -%}
+<span class="grey-text sat-state"><i class="material-icons tiny">cloud_off</i> {{ _('Not downloaded') }}</span>
+{%- endif %}
+{%- endmacro %}
+
+{% block content %}
+<style>
+  .sat-state { font-weight: bold; }
+  .sat-state .material-icons { vertical-align: text-bottom; }
+  #satellite_status_table td { padding: 6px 4px; vertical-align: top; }
+  #satellite_group_table td, #satellite_group_table th { padding: 6px 4px; }
+  .sat-message { white-space: pre-line; }
+</style>
+<div class="row valign-wrapper" style="margin: 0px;">
+  <div class="col s12">
+    <h3 class="grey-text">{{ _('Satellites') }}</h3>
+  </div>
+</div>
+
+{% if status_message or error_message %}
+<div class="card grey darken-3" id="satellite_result">
+  <div class="card-content">
+    {% if status_message %}<p class="green-text text-lighten-1 sat-message" id="satellite_result_ok"><i class="material-icons tiny">check_circle</i> {{ status_message }}</p>{% endif %}
+    {% if error_message %}<p class="red-text text-lighten-2 sat-message" id="satellite_result_error"><i class="material-icons tiny">error</i> {{ error_message }}</p>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% set catalog_colors = {'ok': 'green-text text-lighten-1', 'partial': 'orange-text', 'failed': 'red-text text-lighten-2', 'downloading': 'light-blue-text text-lighten-2', 'empty': 'orange-text', 'no_groups': 'orange-text'} %}
+{% set catalog_icons = {'ok': 'check_circle', 'partial': 'warning', 'failed': 'error', 'downloading': 'sync', 'empty': 'warning', 'no_groups': 'warning'} %}
+<div class="card grey darken-2" id="satellite_status">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('Satellite catalog') }}</h5>
+    <p class="{{ catalog_colors.get(catalog['state'], 'grey-text') }} sat-state" id="catalog_state" data-state="{{ catalog['state'] }}" style="white-space: normal;">
+      <i class="material-icons tiny">{{ catalog_icons.get(catalog['state'], 'info') }}</i> {{ catalog['text'] }}
+    </p>
+    {% if not time_from_gps %}
+    <p class="orange-text" id="satellite_time_note"><b>{{ _('Time: system clock ({time} UTC). The PiFinder has no GPS time, so the times can be wrong.').format(time=now_utc) }}</b></p>
+    {% endif %}
+    {% if catalog['groups'] %}
+    <table class="grey-text" id="satellite_status_table">
+      <tbody>
+      {% for g in catalog['groups'] %}
+      <tr class="sat-status-row" data-group="{{ g['group'] }}" data-state="{{ g['state'] }}">
+        <td>{{ g['label'] }}</td>
+        <td>{{ group_state(g) }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('In the sky now') }}</h5>
+    {% if sky_now is none %}
+    <p class="grey-text">{{ _('The PiFinder has no location yet.') }}</p>
+    {% elif sky_now %}
+    <div style="overflow-x:auto;"><table class="grey-text" id="sky_now_table">
+      <thead>
+        <tr>
+          <th>{{ _('Satellite') }}</th>
+          <th>{{ _('Altitude') }}</th>
+          <th>{{ _('Azimuth') }}</th>
+          <th>{{ _('Mag') }}</th>
+          <th>{{ _('Light') }}</th>
+          <th>{{ _('Sets in') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sky_now %}
+        <tr>
+          <td><a href="/satellites/{{ s['norad_id'] }}">{{ s['name'] }}</a></td>
+          <td>{{ s['alt'] | round | int }}°</td>
+          <td>{{ s['az'] | round | int }}° {{ s['dir'] }}</td>
+          <td>{% if s['mag'] is not none %}{{ '%.1f' | format(s['mag']) }}{% else %}-{% endif %}</td>
+          <td>{% if s['sunlit'] %}{{ _('Sunlit') }}{% else %}{{ _('In shadow') }}{% endif %}</td>
+          <td>{% if s['sets_in'] %}{{ s['sets_in'] }}{% else %}{{ _('Does not set') }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}
+    <p class="grey-text">{{ _('No satellite is above the horizon.') }}</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">
+      {% if show_all %}{{ _('All passes') }}{% else %}{{ _('Visible passes') }}{% endif %}
+    </h5>
+    {% if cache and cache['state'] == 'calculating' %}
+    <p class="grey-text" id="pass_state">{{ _('Calculating passes. The page loads again in a few seconds.') }}</p>
+    <script>setTimeout(function () { window.location.reload(); }, 5000);</script>
+    {% elif cache and cache['state'] == 'error' %}
+    <p class="grey-text" id="pass_state">{{ _('The pass calculation failed. See the log.') }}</p>
+    {% elif cache %}
+    <p class="grey-text">
+      {{ _('Computed') }} {{ cache['computed'][:16] | replace('T', ' ') }} UTC,
+      {{ _('times in') }} {{ cache['timezone'] }},
+      {{ _('above') }} {{ cache['min_alt'] | int }}°.
+      {% if max_mag is not none %}{{ _('Brighter than magnitude') }} {{ max_mag }}.{% endif %}
+      {% if show_all %}
+      <a href="/satellites">{{ _('Show bright visible passes') }}</a>
+      {% else %}
+      <a href="/satellites?maxmag=99">{{ _('Show all visible passes') }}</a> ·
+      <a href="/satellites?all=1">{{ _('Show all passes') }}</a>
+      {% endif %}
+    </p>
+    {% if passes %}
+    <div style="overflow-x:auto;"><table class="grey-text" id="pass_table">
+      <thead>
+        <tr>
+          <th>{{ _('Satellite') }}</th>
+          <th>{{ _('Rise') }}</th>
+          <th>{{ _('Highest') }}</th>
+          <th>{{ _('Set') }}</th>
+          <th>{{ _('Visible') }}</th>
+          <th>{{ _('Mag') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in passes %}
+        <tr>
+          <td><a href="/satellites/{{ p['norad_id'] }}">{{ p['name'] }}</a></td>
+          <td>{{ p['rise_local'] }} {{ p['rise_dir'] }}</td>
+          <td>{{ p['culmination_local'] }} {{ p['max_alt'] | round | int }}° {{ p['max_dir'] }}</td>
+          <td>{{ p['set_local'] }} {{ p['set_dir'] }}</td>
+          <td>{% if p['visible'] %}{{ p['visible_start_local'][4:] }} - {{ p['visible_end_local'][4:] }}{% else %}-{% endif %}</td>
+          <td>{% if p['min_mag'] is not none %}{{ '%.1f' | format(p['min_mag']) }}{% else %}-{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}
+    <p class="grey-text">{{ _('No passes in the next 24 hours.') }}</p>
+    {% endif %}
+    {% else %}
+    <p class="grey-text">{{ _('No predictions. The PiFinder needs a location.') }}</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('Add satellites') }}</h5>
+    <p class="grey-text">{{ _('Paste element sets in any of these formats: TLE with or without a name line, or OMM as JSON, CSV, XML or KVN (CelesTrak, Space-Track). You can also upload a file, or give a NORAD number to get the current elements from CelesTrak.') }}</p>
+    <form action="/satellites/add" method="post" enctype="multipart/form-data" id="satellite_add_form">
+      <div class="row">
+        <div class="input-field col s12">
+          <textarea id="elements" name="elements" class="materialize-textarea grey-text" style="font-family: monospace;"></textarea>
+          <label for="elements">{{ _('Element sets') }}</label>
+        </div>
+        <div class="input-field col s12 m6">
+          <input id="name" name="name" type="text" class="grey-text">
+          <label for="name">{{ _('Name (optional, for one element set)') }}</label>
+        </div>
+        <div class="input-field col s12 m3">
+          <input id="norad" name="norad" type="number" min="1" class="grey-text">
+          <label for="norad">{{ _('NORAD number (optional)') }}</label>
+        </div>
+        <div class="input-field col s12 m3">
+          <input id="std_mag" name="std_mag" type="number" step="0.1" class="grey-text">
+          <label for="std_mag">{{ _('Standard magnitude (optional)') }}</label>
+        </div>
+        <div class="file-field input-field col s12">
+          <div class="btn"><span>{{ _('File') }}</span><input type="file" name="file"></div>
+          <div class="file-path-wrapper"><input class="file-path grey-text" type="text"></div>
+        </div>
+      </div>
+      <div class="card-action">
+        <button type="submit" class="btn">{{ _('Add') }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('Your satellites') }}</h5>
+    {% if user_satellites %}
+    <table class="grey-text" id="user_satellite_table">
+      <thead>
+        <tr><th>{{ _('Use') }}</th><th>{{ _('Name') }}</th><th>NORAD</th><th>{{ _('Epoch') }}</th><th>{{ _('Age') }}</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for s in user_satellites %}
+        <tr>
+          <td>
+            <form action="/satellites/enable" method="post" style="display:inline;">
+              <input type="hidden" name="kind" value="user">
+              <input type="hidden" name="id" value="{{ s['norad_id'] }}">
+              <input type="hidden" name="enabled" value="{% if s['enabled'] %}0{% else %}1{% endif %}">
+              <label><input type="checkbox" class="filled-in" {% if s['enabled'] %}checked{% endif %} onchange="this.form.submit()"><span></span></label>
+            </form>
+          </td>
+          <td><a href="/satellites/{{ s['norad_id'] }}">{{ s['name'] }}</a></td>
+          <td>{{ s['norad_id'] }}</td>
+          <td>{{ s['epoch'] }}</td>
+          <td class="{% if s['too_old'] %}red-text{% endif %}">{{ '%.1f' | format(s['age_days']) }} d</td>
+          <td>
+            <form action="/satellites/delete/{{ s['norad_id'] }}" method="post" style="display:inline;">
+              <button type="submit" class="btn-flat grey-text" title="{{ _('Delete') }}"><i class="material-icons">delete</i></button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="grey-text">{{ _('Element sets older than 30 days are not used.') }} {{ _('A satellite without a check mark stays stored, but the PiFinder does not list it.') }}</p>
+    {% else %}
+    <p class="grey-text">{{ _('None yet.') }}</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if corrected_satellites %}
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('Corrected by a follow') }}</h5>
+    <table class="grey-text" id="corrected_satellite_table">
+      <thead>
+        <tr><th>{{ _('Use') }}</th><th>{{ _('Name') }}</th><th>NORAD</th><th>{{ _('Epoch') }}</th><th>{{ _('Age') }}</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for s in corrected_satellites %}
+        <tr>
+          <td>
+            <form action="/satellites/enable" method="post" style="display:inline;">
+              <input type="hidden" name="kind" value="corrected">
+              <input type="hidden" name="id" value="{{ s['norad_id'] }}">
+              <input type="hidden" name="enabled" value="{% if s['enabled'] %}0{% else %}1{% endif %}">
+              <label><input type="checkbox" class="filled-in" {% if s['enabled'] %}checked{% endif %} onchange="this.form.submit()"><span></span></label>
+            </form>
+          </td>
+          <td>{% if s['in_use'] %}<a href="/satellites/{{ s['norad_id'] }}">{{ s['name'] }}</a>{% else %}{{ s['name'] }} <span class="orange-text">({{ _('not in use') }})</span>{% endif %}</td>
+          <td>{{ s['norad_id'] }}</td>
+          <td>{{ s['epoch'] }}</td>
+          <td class="{% if s['too_old'] %}red-text{% endif %}">{{ '%.1f' | format(s['age_days']) }} d</td>
+          <td>
+            <form action="/satellites/corrected/delete/{{ s['norad_id'] }}" method="post" style="display:inline;">
+              <button type="submit" class="btn-flat grey-text" title="{{ _('Delete') }}"><i class="material-icons">delete</i></button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="grey-text">{{ _('A mount follow that you correct with the arrow keys stores a set here. It replaces the set it corrects until a newer set is downloaded.') }}</p>
+  </div>
+</div>
+{% endif %}
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('Downloaded element sets') }}</h5>
+    <p class="grey-text">{{ _('Select the CelesTrak groups that the PiFinder uses. The PiFinder downloads a selected group at once and updates it every 12 hours when it has internet.') }}</p>
+    <p class="grey-text">{{ _('A group without a check mark is not downloaded and not used. Its file stays stored.') }}</p>
+    <table class="grey-text" id="satellite_group_table">
+      <thead>
+        <tr><th>{{ _('Use') }}</th><th>{{ _('Group') }}</th><th>{{ _('Status') }}</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for g in groups %}
+      <tr>
+        <td>
+            <form action="/satellites/enable" method="post" style="display:inline;">
+              <input type="hidden" name="kind" value="group">
+              <input type="hidden" name="id" value="{{ g['group'] }}">
+              <input type="hidden" name="enabled" value="{% if g['enabled'] %}0{% else %}1{% endif %}">
+              <label><input type="checkbox" class="filled-in" {% if g['enabled'] %}checked{% endif %} onchange="this.form.submit()"><span></span></label>
+            </form>
+        </td>
+        <td>
+          {{ g['label'] }} <span class="grey-text text-darken-1">({{ g['group'] }})</span>
+          {% if g['large'] %}<br><span class="orange-text large-group-note">{{ _('Large group: the pass prediction takes long on a Pi') }}</span>{% endif %}
+        </td>
+        <td>
+          {% if g['enabled'] %}{{ group_state(g) }}
+          {% elif g['age_hours'] is not none %}<span class="grey-text">{{ g['count'] }} {{ _('sets') }}, {{ g['age_text'] }} {{ _('old') }}</span>
+          {% else %}<span class="grey-text">{{ _('not downloaded') }}</span>{% endif %}
+        </td>
+        <td>
+          {% if g['enabled'] %}
+          <form action="/satellites/refresh" method="post" style="display:inline;">
+            <input type="hidden" name="group" value="{{ g['group'] }}">
+            <button type="submit" class="btn-flat grey-text">{{ _('Update') }}</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <form action="/satellites/refresh" method="post">
+      <div class="card-action">
+        <button type="submit" class="btn">{{ _('Update selected') }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

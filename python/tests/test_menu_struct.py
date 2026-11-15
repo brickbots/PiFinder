@@ -45,11 +45,26 @@ def test_important_catalog_entries_exist():
 
     catalog_names = [item["name"] for item in by_catalog_menu["items"]]
 
-    assert "Planets" in catalog_names
-    assert "Comets" in catalog_names
-    assert "Asteroids" in catalog_names
-    assert "NGC" in catalog_names
-    assert "Messier" in catalog_names
+    assert catalog_names == [
+        "Messier",
+        "NGC",
+        "Planets",
+        "DSO...",
+        "Stars...",
+        "Small bodies...",
+        "Satellites...",
+    ]
+    submenus = {item["name"]: item for item in by_catalog_menu["items"]}
+    small_bodies = submenus["Small bodies..."]["items"]
+    assert [(i["name"], i["value"]) for i in small_bodies] == [
+        ("Comets", "CM"),
+        ("Asteroids", "MP"),
+    ]
+    satellite_items = submenus["Satellites..."]["items"]
+    assert [i["name"] for i in satellite_items] == ["Satellites", "Sat groups"]
+    assert satellite_items[0]["value"] == "SA"
+    values = {i.get("value") for i in by_catalog_menu["items"]}
+    assert {"M", "NGC", "PL"} <= values
 
     stars_menu = None
     for item in by_catalog_menu["items"]:

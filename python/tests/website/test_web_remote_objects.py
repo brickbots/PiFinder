@@ -17,7 +17,8 @@ These tests extend the coverage in test_web_remote.py, which already covers:
 
 This file adds coverage for the remaining Objects sub-items:
   - Objects > All Filtered
-  - Objects > By Catalog > Planets, Comets, Asteroids, NGC
+  - Objects > By Catalog > Planets, NGC
+  - Objects > By Catalog > Small bodies... > Comets, Asteroids
   - Objects > By Catalog > DSO... (nested submenu)
   - Objects > By Catalog > Stars... (nested submenu)
   - Objects > Custom (UIRADecEntry)
@@ -32,13 +33,13 @@ Objects submenu (entered from root menu Objects → R) items (0-indexed):
   6: Set Filters   (submenu)      ← navigation tested in test_web_remote_filter.py
 
 By Catalog submenu (0-indexed):
-  0: Planets   (UIObjectList, catalog "PL")
-  1: Comets    (UIObjectList, catalog "CM")
-  2: Asteroids (UIObjectList, catalog "MP")
-  3: NGC       (UIObjectList, catalog "NGC")
-  4: Messier   (UIObjectList, catalog "M")  ← already tested
-  5: DSO...    (nested UITextMenu submenu)
-  6: Stars...  (nested UITextMenu submenu)
+  0: Messier          (UIObjectList, catalog "M")  ← already tested
+  1: NGC              (UIObjectList, catalog "NGC")
+  2: Planets          (UIObjectList, catalog "PL")
+  3: DSO...           (nested UITextMenu submenu)
+  4: Stars...         (nested UITextMenu submenu)
+  5: Small bodies...  (nested submenu: 0 Comets "CM", 1 Asteroids "MP")
+  6: Satellites...    (nested submenu: 0 Satellites "SA", 1 Sat groups)
 
 Key sequences from navigate_to_root_menu() (lands on Objects in root menu):
   R      → enter Objects submenu (now at All Filtered, index 0)
@@ -106,10 +107,11 @@ def test_objects_by_catalog_planets(driver):
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # R = Objects submenu; D = By Catalog; R = enter By Catalog at Planets (0); R = enter
+    # R = Objects submenu; D = By Catalog; R = enter By Catalog at Messier (0)
+    # DD = Planets (2); R = enter
     press_keys_and_validate(
         driver,
-        "RDRR",
+        "RDRDDR",
         {
             "ui_type": "UIObjectList",
             "title": "Planets",
@@ -125,11 +127,11 @@ def test_objects_by_catalog_comets(driver):
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # R = Objects submenu; D = By Catalog; R = enter By Catalog at Planets (0)
-    # D = Comets (1); R = enter
+    # R = Objects submenu; D = By Catalog; R = enter By Catalog at Messier (0)
+    # DDDDD = Small bodies... (5); R = enter at Comets (0); R = enter
     press_keys_and_validate(
         driver,
-        "RDRDR",
+        "RDRDDDDDRR",
         {
             "ui_type": "UIObjectList",
             "title": "Comets",
@@ -145,11 +147,11 @@ def test_objects_by_catalog_ngc(driver):
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # R = Objects submenu; D = By Catalog; R = enter By Catalog at Planets (0)
-    # DDD = NGC (3); R = enter
+    # R = Objects submenu; D = By Catalog; R = enter By Catalog at Messier (0)
+    # D = NGC (1); R = enter
     press_keys_and_validate(
         driver,
-        "RDRDDDR",
+        "RDRDR",
         {
             "ui_type": "UIObjectList",
             "title": "NGC",
@@ -165,9 +167,10 @@ def test_objects_by_catalog_asteroids(driver):
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
+    # Small bodies... (5), then Asteroids (1)
     press_keys_and_validate(
         driver,
-        "RDRDDR",
+        "RDRDDDDDRDR",
         {
             "ui_type": "UIObjectList",
             "title": "Asteroids",
@@ -188,11 +191,11 @@ def test_objects_by_catalog_dso_submenu_entry(driver):
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # R = Objects submenu; D = By Catalog; R = enter By Catalog at Planets (0)
-    # DDDDD = DSO... (5); R = enter
+    # R = Objects submenu; D = By Catalog; R = enter By Catalog at Messier (0)
+    # DDD = DSO... (3); R = enter
     press_keys_and_validate(
         driver,
-        "RDRDDDDDR",
+        "RDRDDDR",
         {
             "ui_type": "UITextMenu",
             "title": "DSO...",
@@ -210,7 +213,7 @@ def test_objects_by_catalog_dso_first_item_is_abell(driver):
 
     press_keys_and_validate(
         driver,
-        "RDRDDDDDR",
+        "RDRDDDR",
         {
             "ui_type": "UITextMenu",
             "title": "DSO...",
@@ -231,7 +234,7 @@ def test_objects_by_catalog_dso_enter_catalog(driver):
     # Enter DSO..., navigate to Caldwell (DDDR), enter
     press_keys_and_validate(
         driver,
-        "RDRDDDDDR",  # enter DSO...
+        "RDRDDDR",  # enter DSO...
         {"ui_type": "UITextMenu", "title": "DSO..."},
     )
     press_keys_and_validate(
@@ -257,12 +260,12 @@ def test_objects_by_catalog_stars_submenu_entry(driver):
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # By Catalog: ..., DSO...(5), Stars...(6)
-    # R = Objects submenu; D = By Catalog; R = enter By Catalog at Planets (0)
-    # DDDDDD = Stars... (6); R = enter
+    # By Catalog: ..., DSO...(3), Stars...(4)
+    # R = Objects submenu; D = By Catalog; R = enter By Catalog at Messier (0)
+    # DDDD = Stars... (4); R = enter
     press_keys_and_validate(
         driver,
-        "RDRDDDDDDR",
+        "RDRDDDDR",
         {
             "ui_type": "UITextMenu",
             "title": "Stars...",
@@ -280,7 +283,7 @@ def test_objects_by_catalog_stars_first_item_is_bright_named(driver):
 
     press_keys_and_validate(
         driver,
-        "RDRDDDDDDR",
+        "RDRDDDDR",
         {
             "ui_type": "UITextMenu",
             "title": "Stars...",

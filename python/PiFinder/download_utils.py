@@ -26,11 +26,53 @@ Validator = Callable[[Path], None]
 REQUEST_TIMEOUT = (5, 30)
 
 
+# The kinds of a failed download. See DownloadResult.kind.
+ERROR_HTTP = "http"
+ERROR_NETWORK = "network"
+ERROR_TIMEOUT = "timeout"
+ERROR_DATA = "data"
+ERROR_FILE = "file"
+
+# The number of characters of an error response that a result keeps.
+ERROR_BODY_CHARS = 200
+
+
 class DownloadResult(NamedTuple):
+    """The result of ``download_atomic``.
+
+    A failed download has ``error`` (the exception text) and ``kind``: one of
+    the ERROR_* values. An HTTP error also has ``status_code`` and the start
+    of the response text in ``body``.
+    """
+
     success: bool
     age_days: Optional[float]
     file_mtime: Optional[float]
     error: Optional[str] = None
+    kind: Optional[str] = None
+    status_code: Optional[int] = None
+    body: str = ""
+
+
+def _failure(exc: Exception) -> DownloadResult:
+    """The result for the exception of a failed download."""
+    if isinstance(exc, requests.HTTPError):
+        response = exc.response
+        status = response.status_code if response is not None else None
+        try:
+            body = response.text[:ERROR_BODY_CHARS] if response is not None else ""
+        except (OSError, ValueError, requests.RequestException):
+            body = ""
+        return DownloadResult(False, None, None, str(exc), ERROR_HTTP, status, body)
+    if isinstance(exc, requests.Timeout):
+        kind = ERROR_TIMEOUT
+    elif isinstance(exc, requests.RequestException):
+        kind = ERROR_NETWORK
+    elif isinstance(exc, ValueError):
+        kind = ERROR_DATA
+    else:
+        kind = ERROR_FILE
+    return DownloadResult(False, None, None, str(exc), kind)
 
 
 def _remote_timestamp(headers) -> Optional[float]:
@@ -132,7 +174,7 @@ def download_atomic(
         return DownloadResult(True, age_days, file_mtime)
     except (OSError, ValueError, requests.RequestException) as exc:
         logger.error("Could not download %s: %s", url, exc)
-        return DownloadResult(False, None, None, str(exc))
+        return _failure(exc)
     finally:
         if temporary_path is not None:
             try:

@@ -228,6 +228,7 @@ ARGO_TYPE_MAP: dict[str, str] = {
     "Pla": "STAR",
     "CM": "COMET",
     "AS": "ASTEROID",
+    "Sat": "USER",
     "?": "USER",
 }
 ARGO_TYPE_MAP_INV: dict[str, str] = {}
@@ -251,6 +252,7 @@ CELESTRON_TYPE_MAP: dict[str, str] = {
     "Pla": "Star",
     "CM": "Star",
     "AS": "Star",
+    "Sat": "Star",
     "?": "Star",
 }
 CELESTRON_TYPE_MAP_INV: dict[str, str] = {}
