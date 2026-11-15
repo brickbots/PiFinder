@@ -1376,20 +1376,33 @@ def _magnitudes(std_mag, range_km, phase_deg) -> np.ndarray:
     )
 
 
-def _geometry_many(sats: list[TrackedSatellite], topos, times: list[datetime]):
+def satrec_array(sats: list[TrackedSatellite]) -> SatrecArray:
+    """The SGP4 models of ``sats`` for one vectorized call. Building it costs
+    time for many satellites, so a caller that propagates the same
+    satellites again keeps it."""
+    return SatrecArray([sat.satellite.model for sat in sats])
+
+
+def _geometry_many(
+    sats: list[TrackedSatellite],
+    topos,
+    times: list[datetime],
+    array: Optional[SatrecArray] = None,
+):
     """Positions of n satellites at m times with one SGP4 call.
 
     Returns the Skyfield times, the geocentric positions in km (3, n, m),
     the positions relative to the observer in km (3, n, m), the altitude
     and the azimuth in degrees (n, m). A satellite that SGP4 cannot
-    propagate gets NaN.
+    propagate gets NaN. ``array`` is ``satrec_array(sats)``, when the caller
+    keeps one.
     """
     t = sf_utils.ts.from_datetimes(times)
     days = np.array([dt.timestamp() for dt in times]) / 86400.0
     whole = np.floor(days)
-    _errors, teme_km, _velocity = SatrecArray(
-        [sat.satellite.model for sat in sats]
-    ).sgp4(whole + UNIX_EPOCH_JD, days - whole)
+    if array is None:
+        array = satrec_array(sats)
+    _errors, teme_km, _velocity = array.sgp4(whole + UNIX_EPOCH_JD, days - whole)
     # The rotation matrix goes from GCRS to TEME: use its transpose.
     sat_km = np.einsum("jim,nmj->inm", TEME.rotation_at(t), teme_km)
     relative_km = sat_km - topos.at(t).position.km[:, np.newaxis, :]
@@ -1438,6 +1451,101 @@ def look_many(
         )
         for i in range(len(sats))
     ]
+
+
+@dataclass
+class SkyState:
+    """Positions and brightness of many satellites at one time, as arrays.
+
+    Element i of each array belongs to ``norad_ids[i]``. Angles are in
+    degrees, RA/Dec in J2000. ``mag`` is NaN for a satellite in Earth's
+    shadow, and each value is NaN for a satellite that SGP4 cannot
+    propagate.
+    """
+
+    time: datetime
+    norad_ids: np.ndarray
+    ra: np.ndarray
+    dec: np.ndarray
+    alt: np.ndarray
+    mag: np.ndarray
+
+    @classmethod
+    def empty(cls, dt: datetime) -> "SkyState":
+        nothing = np.zeros(0)
+        return cls(dt, np.zeros(0, dtype=np.int64), nothing, nothing, nothing, nothing)
+
+    @classmethod
+    def from_looks(
+        cls, dt: datetime, norad_ids: list[int], looks: list[SatLook]
+    ) -> "SkyState":
+        """The state of ``look_many`` results at ``dt``, without a second
+        SGP4 call."""
+        if not looks:
+            return cls.empty(_as_utc(dt))
+        return cls(
+            _as_utc(dt),
+            np.array(norad_ids, dtype=np.int64),
+            np.array([now.ra for now in looks], dtype=float),
+            np.array([now.dec for now in looks], dtype=float),
+            np.array([now.alt for now in looks], dtype=float),
+            np.array(
+                [np.nan if now.mag is None else now.mag for now in looks], dtype=float
+            ),
+        )
+
+
+def _radec_of(relative_km: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """RA/Dec in degrees of positions relative to the observer (3, ...)."""
+    range_km = np.linalg.norm(relative_km, axis=0)
+    ra = np.degrees(np.arctan2(relative_km[1], relative_km[0])) % 360.0
+    dec = np.degrees(np.arcsin(relative_km[2] / range_km))
+    return ra, dec
+
+
+def sky_state_many(
+    sats: list[TrackedSatellite],
+    topos,
+    dt: datetime,
+    array: Optional[SatrecArray] = None,
+    sun: Optional[SunContext] = None,
+) -> SkyState:
+    """``look_many`` as arrays: positions and magnitudes of many satellites
+    at one time, with one SGP4 call and no object per satellite."""
+    dt = _as_utc(dt)
+    if not sats:
+        return SkyState.empty(dt)
+    if sun is None:
+        sun = sun_context(topos, dt)
+    t, sat_km, relative_km, alt, _az = _geometry_many(sats, topos, [dt], array)
+    sat_km, relative_km = sat_km[:, :, 0], relative_km[:, :, 0]
+    ra, dec = _radec_of(relative_km)
+    sun_km = sun.sun_geocentric_km[:, np.newaxis]
+    sunlit = in_sunlight(sat_km, sun_km)
+    phase = phase_angle_deg(sat_km, sun_km, topos.at(t).position.km)
+    range_km = np.linalg.norm(relative_km, axis=0)
+    mags = _magnitudes(np.array([sat.std_mag for sat in sats]), range_km, phase)
+    return SkyState(
+        dt,
+        np.array([sat.norad_id for sat in sats], dtype=np.int64),
+        ra,
+        dec,
+        alt[:, 0],
+        np.where(sunlit, mags, np.nan),
+    )
+
+
+def sky_tracks(
+    sats: list[TrackedSatellite], topos, times: list[datetime]
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """J2000 RA, Dec and altitude in degrees of n satellites at m times,
+    each as an (n, m) array, with one SGP4 call."""
+    if not sats:
+        nothing = np.zeros((0, len(times)))
+        return nothing, nothing, nothing
+    _t, _sat_km, relative_km, alt, _az = _geometry_many(sats, topos, times)
+    ra, dec = _radec_of(relative_km)
+    return ra, dec, alt
 
 
 def seconds_until_set(

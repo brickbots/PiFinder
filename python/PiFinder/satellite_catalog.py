@@ -100,6 +100,10 @@ class SatelliteCatalog(Catalog):
     MIN_PASS_ALT_DEG = 10.0
     # The catalog stops its work this long after the last use.
     IDLE_SECONDS = 10 * 60
+    # sky_state uses the positions of the last update up to this age. The
+    # update thread makes them each POSITION_UPDATE_SECONDS, plus its run
+    # time.
+    SKY_STATE_MAX_AGE_SECONDS = 2 * POSITION_UPDATE_SECONDS
 
     def __init__(
         self,
@@ -127,6 +131,11 @@ class SatelliteCatalog(Catalog):
         self._pass_request: Optional[tuple] = None
         self._pass_running = False
         self._topos_cache: Optional[tuple[tuple, object]] = None
+        # The positions of all satellites at one time, as arrays. See
+        # sky_state.
+        self._sky: Optional[satellites.SkyState] = None
+        # The SGP4 models of _tracked for sky_state: (tracked, sats, array).
+        self._sky_models: Optional[tuple[dict, list, object]] = None
         # The time zone of the location at the last position update.
         self._zone: datetime.tzinfo = pytz.utc
         # What the lists showed after the last update. See _list_signature.
@@ -509,6 +518,54 @@ class SatelliteCatalog(Catalog):
             return None
         return satellites.radec_at(sat, cache[1], dt)
 
+    def sky_state(self, dt: datetime.datetime) -> Optional[satellites.SkyState]:
+        """The positions and magnitudes of all satellites, as arrays, at a
+        time at most SKY_STATE_MAX_AGE_SECONDS from ``dt``.
+
+        The chart finds the satellites in its field with it. The state of
+        the last position update serves when it is recent. Otherwise one
+        vectorized SGP4 call makes a new state for the observer of the last
+        update. This is not a use of the catalog: it does not call
+        ``touch``. None when the catalog has no objects or no observer yet.
+        """
+        state = self._sky
+        if state is not None and (
+            abs((dt - state.time).total_seconds()) <= self.SKY_STATE_MAX_AGE_SECONDS
+        ):
+            return state
+        tracked = self._tracked
+        cache = self._topos_cache
+        if not tracked or cache is None:
+            return None
+        models = self._sky_models
+        if models is None or models[0] is not tracked:
+            sats = list(tracked.values())
+            models = (tracked, sats, satellites.satrec_array(sats))
+            self._sky_models = models
+        state = satellites.sky_state_many(models[1], cache[1], dt, models[2])
+        self._sky = state
+        return state
+
+    def live_tracks(
+        self, norad_ids: list[int], times: list[datetime.datetime]
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """RA, Dec and altitude in degrees of the satellites ``norad_ids`` at
+        ``times``, each as an (n, m) array, with one SGP4 call. A NORAD id
+        that the catalog does not track gets NaN. Not a use of the catalog.
+        """
+        tracked = self._tracked
+        cache = self._topos_cache
+        shape = (len(norad_ids), len(times))
+        ra = np.full(shape, np.nan)
+        dec = np.full(shape, np.nan)
+        alt = np.full(shape, np.nan)
+        rows = [i for i, norad in enumerate(norad_ids) if norad in tracked]
+        if not rows or cache is None:
+            return ra, dec, alt
+        sats = [tracked[norad_ids[i]] for i in rows]
+        ra[rows], dec[rows], alt[rows] = satellites.sky_tracks(sats, cache[1], times)
+        return ra, dec, alt
+
     def _next_visible(
         self, norad_id: int, dt: datetime.datetime
     ) -> Optional[satellites.SatPass]:
@@ -662,6 +719,9 @@ class SatelliteCatalog(Catalog):
         zone = _zone(location.timezone)
         self._zone = zone
         looks = satellites.look_many([sat for _obj, sat in pairs], topos, dt)
+        self._sky = satellites.SkyState.from_looks(
+            dt, [sat.norad_id for _obj, sat in pairs], looks
+        )
         consts = _constellations(looks)
         for (obj, sat), now, const in zip(pairs, looks, consts):
             self._update_object(obj, sat, now, zone, const)

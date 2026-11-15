@@ -20,10 +20,16 @@ from PIL import ImageChops, Image
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder import plot
+from PiFinder import satellite_catalog
 from PiFinder.ui.base import UIModule
 from PiFinder import calc_utils
 from PiFinder.composite_object import MagnitudeObject
 from PiFinder.nearby import ClosestObjectsFinder
+from PiFinder.ui.chart_satellites import (
+    REFRESH_SECONDS as SATELLITE_REFRESH_SECONDS,
+    SatelliteLayer,
+    track_segment,
+)
 from PiFinder.ui.center_object import (
     CenterObjectTracker,
     center_object_text,
@@ -39,6 +45,15 @@ logger = logging.getLogger("Chart")
 # Smallest on-screen span (px) worth outlining. Below this the object's marker
 # glyph carries the position and an outline would just be a blob.
 _MIN_OUTLINE_PX = 4
+
+# The marker symbol of a satellite (markers/mrk_sat.png).
+SATELLITE_SYMBOL = OBJ_TYPE_MARKERS[satellite_catalog.OBJ_TYPE]
+# The track line of a satellite in the field, in pixels on a 128 px screen:
+# the gap between the symbol centre and the line, and the shortest and the
+# longest line. Larger screens scale these.
+_TRACK_GAP_PX = 6
+_TRACK_MIN_PX = 4
+_TRACK_MAX_PX = 14
 
 
 def _angular_sep_deg(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
@@ -156,6 +171,24 @@ class UIChart(UIModule):
         self._nearby_finder = ClosestObjectsFinder()
         self._nearby_filter_dirty_time = None
 
+        # --- Satellites at their live positions
+        self._satellite_layer = SatelliteLayer()
+        # The filtered satellite list that _satellite_accepted was built
+        # from, and the map of NORAD id to object.
+        self._satellite_filtered = None
+        self._satellite_accepted = {}
+        # The live RA/Dec of each drawn satellite, by id() of its object.
+        # The center object uses these instead of the 5 s catalog positions.
+        self._live_radec = {}
+        # True when the last frame drew a satellite: the chart then draws
+        # again every SATELLITE_REFRESH_SECONDS, also without a new solve.
+        self._satellites_shown = False
+        self._markers_time = 0.0
+        # The starfield of the last solve, without the markers, and the
+        # chart orientation of that solve.
+        self._starfield_base = None
+        self._orientation = None
+
         # --- Center object + its readout
         # The markers plot_markers() emitted a symbol for this solve; the
         # tracker's candidate set (see ADR 0031).
@@ -180,25 +213,32 @@ class UIChart(UIModule):
 
     def plot_markers(self):
         """
-        Plot the chart's DSO markers, in three deduped layers:
+        Plot the chart's markers, in four deduped layers:
 
         * The **target** cross -- the last-viewed object (``ui_state.target()``)
           -- always drawn at full brightness and independent of ``chart_dso``,
-          with its designator label when it's on-screen.
+          with its designator label when it's on-screen. A satellite target
+          is at its live position at the time of the frame.
         * The **observing list** (loaded from a saved list) -- always on, no
           mag limit, uncapped.
         * **Nearby catalog DSOs** -- objects from the active "All Filtered" set
           that fall inside the field, magnitude-filtered by zoom and capped.
+        * **Satellites** in the field, at their live positions, each with a
+          short track line in its direction of motion. See
+          ``chart_satellites``. The DSO layers skip satellites.
 
-        Only called on the new-solve path, so the radius query runs at most
-        once per solve (~1-2 Hz). ``chart_dso`` scales the two DSO layers but
-        never the target cross.
+        Called on a new solve, and every ``SATELLITE_REFRESH_SECONDS`` while a
+        satellite is on the chart. ``chart_dso`` scales the DSO and satellite
+        layers but never the target cross.
 
         Also records what it drew in ``self._drawn_objects``, which is the
         center object's candidate set -- so with ``chart_dso`` off the early
         return below leaves the target cross as the only candidate.
         """
         self._drawn_objects = []
+        self._live_radec = {}
+        self._satellites_shown = False
+        self._markers_time = time.monotonic()
         if not self.solution:
             return
 
@@ -208,9 +248,13 @@ class UIChart(UIModule):
         # --- Target cross: always drawn, full brightness, chart_dso-independent
         target = self.ui_state.target()
         exclude_ids = set()
-        if target is not None and target.ra is not None and target.dec is not None:
+        exclude_satellites = frozenset()
+        target_radec = self._target_radec(target)
+        if target_radec is not None:
             exclude_ids.add(target.object_id)
-            self._draw_target(target, W, H)
+            if satellite_catalog.is_satellite(target):
+                exclude_satellites = frozenset([target.sequence])
+            self._draw_target(target, W, H, *target_radec)
             self._draw_object_outline(target, self.colors.get(255), center)
             self._drawn_objects.append(target)
 
@@ -223,6 +267,15 @@ class UIChart(UIModule):
             exclude_ids
         )
         self._drawn_objects.extend(marker_objects)
+
+        # --- Satellites in the field, at their live positions
+        field = self._field_satellites(exclude_satellites)
+        for sat in field:
+            marker_list.append(
+                (plot.Angle(degrees=sat.ra)._hours, sat.dec, SATELLITE_SYMBOL)
+            )
+            self._drawn_objects.append(sat.obj)
+            self._live_radec[id(sat.obj)] = (sat.ra, sat.dec)
 
         if marker_list:
             marker_image = self.starfield.plot_markers(
@@ -242,6 +295,90 @@ class UIChart(UIModule):
         line_color = self.colors.get(marker_brightness)
         for obj in outline_objects:
             self._draw_object_outline(obj, line_color, center)
+        self._draw_satellite_tracks(field, line_color)
+
+    def _target_radec(self, target):
+        """The RA/Dec of the target cross, or None without a target.
+
+        A satellite target is at its live position at the time of the frame,
+        not at the position of the last catalog update. The chart then
+        counts as a use of the satellite catalog.
+        """
+        if target is None or target.ra is None or target.dec is None:
+            return None
+        if not satellite_catalog.is_satellite(target):
+            return target.ra, target.dec
+        self._satellites_shown = True
+        dt = self.snapshot.datetime()
+        radec = None
+        if dt is not None:
+            radec = satellite_catalog.live_radec(target, dt)
+        if radec is None:
+            radec = (target.ra, target.dec)
+        self._live_radec[id(target)] = radec
+        return radec
+
+    def _field_satellites(self, exclude):
+        """The satellites to draw in the field: see ``SatelliteLayer.field``.
+
+        None when the satellite catalog is not a selected catalog. The
+        catalog filter decides which satellites can show. Drawn satellites
+        count as a use of the satellite catalog.
+        """
+        if self.catalogs is None:
+            return []
+        catalog = self.catalogs.get_catalog_by_code(satellite_catalog.CATALOG_CODE)
+        center = self._chart_center()
+        dt = self.snapshot.datetime()
+        if catalog is None or not catalog.is_selected() or center is None or dt is None:
+            self._satellite_layer.reset()
+            return []
+        filtered = catalog.get_filtered_objects()
+        if filtered is not self._satellite_filtered:
+            self._satellite_filtered = filtered
+            self._satellite_accepted = {obj.sequence: obj for obj in filtered}
+        field = self._satellite_layer.field(
+            catalog,
+            self._satellite_accepted,
+            self._satellite_filtered,
+            center,
+            self.fov * NEARBY_RADIUS_FACTOR,
+            dt,
+            dso_mag_limit(self.fov),
+            exclude,
+        )
+        if field:
+            self._satellites_shown = True
+            catalog.touch()
+        return field
+
+    def _draw_satellite_tracks(self, field, color):
+        """Draw a short line from each satellite in its direction of motion.
+
+        The line shows where the satellite goes in the next
+        ``chart_satellites.TRACK_SECONDS``, limited in length so it stays
+        visible at each zoom.
+        """
+        if not field:
+            return
+        ras = [sat.ra for sat in field] + [sat.ahead_ra for sat in field]
+        decs = [sat.dec for sat in field] + [sat.ahead_dec for sat in field]
+        xs, ys = self.starfield.radec_to_xy_many(ras, decs)
+        n = len(field)
+        scale = self.display_class.resX / 128.0
+        for i in range(n):
+            # The marker glyph is centred one pixel up and left of the point.
+            segment = track_segment(
+                xs[i] - 1,
+                ys[i] - 1,
+                xs[n + i] - 1,
+                ys[n + i] - 1,
+                _TRACK_GAP_PX * scale,
+                _TRACK_MIN_PX * scale,
+                _TRACK_MAX_PX * scale,
+            )
+            if segment is not None:
+                self.draw.line(segment, fill=color, width=1)
 
     def _chart_center(self):
         """(RA, Dec) the chart is currently centred on, or ``None``."""
@@ -295,15 +432,18 @@ class UIChart(UIModule):
             return
         self.draw.line(pts, fill=line_color, width=1)
 
-    def _draw_target(self, target, W, H):
+    def _draw_target(self, target, W, H, ra=None, dec=None):
         """
         Draw the target cross (+ off-screen pointer) at full brightness, and
         its designator label when the target is on-screen. Rendered separately
         from the ``chart_dso``-scaled DSO layers so it stays fully bright and
-        visible even when ``chart_dso`` is 0.
+        visible even when ``chart_dso`` is 0. ``ra``/``dec`` give the position
+        of the cross; without them it is at ``target.ra``/``target.dec``.
         """
+        if ra is None or dec is None:
+            ra, dec = target.ra, target.dec
         target_image = self.starfield.plot_markers(
-            [(plot.Angle(degrees=target.ra)._hours, target.dec, "target")]
+            [(plot.Angle(degrees=ra)._hours, dec, "target")]
         )
         target_image = ImageChops.multiply(
             target_image,
@@ -313,7 +453,7 @@ class UIChart(UIModule):
 
         # Designator label only when the cross itself is on-screen; off-screen
         # the pointer arrow (drawn above) already communicates direction.
-        tx, ty = self.starfield.radec_to_xy(target.ra, target.dec)
+        tx, ty = self.starfield.radec_to_xy(ra, dec)
         if 0 <= tx < W and 0 <= ty < H:
             self.draw.text(
                 (int(tx) + 6, int(ty) - 4),
@@ -341,7 +481,8 @@ class UIChart(UIModule):
 
         # Observing list: always on, uncapped, no mag limit.
         for obj in self.ui_state.observing_list():
-            if obj.object_id in seen:
+            # Satellites move: the satellite layer draws them.
+            if obj.object_id in seen or satellite_catalog.is_satellite(obj):
                 continue
             seen.add(obj.object_id)
             if obj.size and obj.size.extents:
@@ -353,7 +494,7 @@ class UIChart(UIModule):
 
         # Nearby catalog DSOs: symbols only.
         for obj in self._get_nearby_markers():
-            if obj.object_id in seen:
+            if obj.object_id in seen or satellite_catalog.is_satellite(obj):
                 continue
             seen.add(obj.object_id)
             symbol = OBJ_TYPE_MARKERS.get(obj.obj_type)
@@ -373,7 +514,7 @@ class UIChart(UIModule):
         The BallTree is (re)built only when the catalog filter's ``dirty_time``
         changes (filter edits) or deferred catalogs finish loading (which marks
         the filter dirty) -- otherwise the cached tree is reused. The radius
-        query runs each call, but plot_markers only calls this on a new solve.
+        query runs each call: on a new solve, and on each satellite frame.
         """
         if self.catalogs is None:
             return []
@@ -399,7 +540,11 @@ class UIChart(UIModule):
         mag_limit = dso_mag_limit(self.fov)
         eligible = []
         for obj in candidates:
-            if OBJ_TYPE_MARKERS.get(obj.obj_type) is None:
+            # The index holds the satellite positions of its build time, so
+            # the satellite layer draws them instead.
+            if OBJ_TYPE_MARKERS.get(
+                obj.obj_type
+            ) is None or satellite_catalog.is_satellite(obj):
                 continue
             mag = obj.mag
             if mag is None:
@@ -498,8 +643,9 @@ class UIChart(UIModule):
             for obj in self._drawn_objects
             if obj.ra is not None and obj.dec is not None
         ]
+        positions = [self._live_radec.get(id(obj), (obj.ra, obj.dec)) for obj in drawn]
         xs, ys = self.starfield.radec_to_xy_many(
-            [obj.ra for obj in drawn], [obj.dec for obj in drawn]
+            [ra for ra, _dec in positions], [dec for _ra, dec in positions]
         )
         candidates = list(zip(drawn, xs, ys))
 
@@ -725,49 +871,76 @@ class UIChart(UIModule):
                 image_obj = ImageChops.multiply(
                     image_obj.convert("RGB"), self.colors.red_image
                 )
+                self._starfield_base = image_obj
+                self._orientation = orientation
                 self.screen.paste(image_obj)
-
-                self.plot_markers()
-                self._update_center_object()
-                if orientation is not None:
-                    self._draw_orientation_indicator(orientation)
-
-                # Display RA/DEC in selected format if enabled, anchored just
-                # above the bottom edge (derived so it tracks resolution).
-                radec_y = self.display_class.resY - self.fonts.base.height - 3
-                if self.config_object.get_option("chart_radec") == "HH:MM":
-                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(aligned.RA)
-                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(aligned.Dec)
-                    ra_dec_disp = f"{ra_h:02d}:{ra_m:02d}:{ra_s:02d} / {dec_d:02d}°{dec_m:02d}:{dec_s}"
-                    self.draw.text(
-                        (0, radec_y),
-                        ra_dec_disp,
-                        font=self.fonts.base.font,
-                        fill=self.colors.get(255),
-                    )
-                if self.config_object.get_option("chart_radec") == "Degr":
-                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(aligned.RA)
-                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(aligned.Dec)
-                    ra_dec_disp = f"{aligned.RA:0>6.2f} / {aligned.Dec:0>5.2f}"
-                    self.draw.text(
-                        (0, radec_y),
-                        ra_dec_disp,
-                        font=self.fonts.base.font,
-                        fill=self.colors.get(255),
-                    )
-
+                self._draw_overlays(aligned, orientation)
                 self.last_update = last_estimate_time
-
-                self.draw_reticle()
-
-                # Cache the finished chart so _draw_center_readout can repaint
-                # its strip every frame without the starfield underneath it.
-                self._chart_backdrop = self.screen.copy()
+            elif self._satellite_frame_due():
+                # Satellites move between two solves: draw the markers again
+                # on the starfield of the last solve.
+                self.screen.paste(self._starfield_base)
+                self._draw_overlays(
+                    self.solution.pointing.aligned.estimate, self._orientation
+                )
         else:
             self.plot_no_solve()
 
         self._draw_center_readout()
         return self.screen_update()
+
+    def _draw_overlays(self, aligned, orientation):
+        """Draw everything on top of the starfield: the markers, the
+        orientation indicator, the RA/Dec, the reticle. Then cache the
+        finished chart."""
+
+        self.plot_markers()
+        self._update_center_object()
+        if orientation is not None:
+            self._draw_orientation_indicator(orientation)
+
+        # Display RA/DEC in selected format if enabled, anchored just
+        # above the bottom edge (derived so it tracks resolution).
+        radec_y = self.display_class.resY - self.fonts.base.height - 3
+        if self.config_object.get_option("chart_radec") == "HH:MM":
+            ra_h, ra_m, ra_s = calc_utils.ra_to_hms(aligned.RA)
+            dec_d, dec_m, dec_s = calc_utils.dec_to_dms(aligned.Dec)
+            ra_dec_disp = (
+                f"{ra_h:02d}:{ra_m:02d}:{ra_s:02d} / {dec_d:02d}°{dec_m:02d}:{dec_s}"
+            )
+            self.draw.text(
+                (0, radec_y),
+                ra_dec_disp,
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),
+            )
+        if self.config_object.get_option("chart_radec") == "Degr":
+            ra_h, ra_m, ra_s = calc_utils.ra_to_hms(aligned.RA)
+            dec_d, dec_m, dec_s = calc_utils.dec_to_dms(aligned.Dec)
+            ra_dec_disp = f"{aligned.RA:0>6.2f} / {aligned.Dec:0>5.2f}"
+            self.draw.text(
+                (0, radec_y),
+                ra_dec_disp,
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),
+            )
+
+        self.draw_reticle()
+
+        # Cache the finished chart so _draw_center_readout can repaint
+        # its strip every frame without the starfield underneath it.
+        self._chart_backdrop = self.screen.copy()
+
+    def _satellite_frame_due(self):
+        """True when the last frame drew a satellite and its position is
+        older than ``SATELLITE_REFRESH_SECONDS``."""
+        return (
+            self._satellites_shown
+            and self._starfield_base is not None
+            and self.solution is not None
+            and self.solution.has_pointing()
+            and time.monotonic() - self._markers_time >= SATELLITE_REFRESH_SECONDS
+        )
 
     def plot_no_solve(self):
         """Plot message: Can't plot No solve yet"""
@@ -777,6 +950,8 @@ class UIChart(UIModule):
         self._center_tracker.reset()
         self._center_scroller = None
         self._chart_backdrop = None
+        self._starfield_base = None
+        self._satellites_shown = False
         self.draw.rectangle(
             [0, 0, self.display_class.resX, self.display_class.resY],
             fill=self.colors.get(0),
