@@ -83,6 +83,13 @@ def failed_like_404(group, directory=None, progress_callback=None):
     )
 
 
+def failed_like_no_network(group, directory=None, progress_callback=None):
+    """A network fault: the request does not reach CelesTrak."""
+    return download_utils.DownloadResult(
+        False, None, None, "no route", download_utils.ERROR_NETWORK
+    )
+
+
 def write_groups(directory: Path, selected: list[str], with_files: list[str]) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     for group in with_files:
@@ -196,17 +203,40 @@ def test_retry_waits_grow_then_follow_the_age_rule():
 
 
 @pytest.mark.unit
-def test_failed_group_waits_for_its_retry_time(tmp_path, monkeypatch):
+def test_retry_waits_after_an_http_answer_are_two_hours_or_more():
+    waits = [
+        satellites.retry_wait_seconds(failures, server_answered=True)
+        for failures in range(1, 6)
+    ]
+    two_hours = 2 * 3600.0
+    twelve_hours = satellites.DOWNLOAD_INTERVAL_HOURS * 3600.0
+    assert satellites.MIN_FORCED_DOWNLOAD_SECONDS == two_hours
+    assert waits == [two_hours, two_hours, two_hours, twelve_hours, twelve_hours]
+    assert satellites.retry_wait_seconds(0, server_answered=True) == twelve_hours
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "failed_download, expected",
+    [
+        # CelesTrak answered: each wait is at least 2 h.
+        (failed_like_404, [2 * 3600.0, 2 * 3600.0, 2 * 3600.0, 12 * 3600.0]),
+        # The request did not reach CelesTrak: the short waits.
+        (failed_like_no_network, [5 * 60.0, 15 * 60.0, 60 * 60.0, 12 * 3600.0]),
+    ],
+)
+def test_failed_group_waits_for_its_retry_time(
+    tmp_path, monkeypatch, failed_download, expected
+):
     calls = []
 
     def download(group, directory=None, progress_callback=None):
         calls.append(group)
-        return failed_like_404(group)
+        return failed_download(group)
 
     monkeypatch.setattr(satellites, "download_group", download)
     write_groups(tmp_path, ["last-30-days"], [])
     start = system_now()
-    expected = [5 * 60.0, 15 * 60.0, 60 * 60.0, 12 * 3600.0]
     now = start
     for number, wait in enumerate(expected, start=1):
         result = satellites.refresh_groups(now, False, tmp_path)
@@ -228,7 +258,8 @@ def test_user_update_tries_a_failed_group_at_once(tmp_path, monkeypatch):
     def download(group, directory=None, progress_callback=None):
         calls.append(group)
         if len(calls) == 1:
-            return failed_like_404(group)
+            # A network fault: no request reached CelesTrak.
+            return failed_like_no_network(group)
         satellites.group_file(group, directory).write_text(
             (DATA / "25544.3le").read_text()
         )
@@ -245,14 +276,120 @@ def test_user_update_tries_a_failed_group_at_once(tmp_path, monkeypatch):
     entry = satellites.load_download_status(tmp_path)["last-30-days"]
     assert entry.result == satellites.RESULT_OK and entry.failures == 0
     assert entry.sets == 1 and entry.error == ""
-    # The 5 min rule of a forced download stays.
+    assert entry.last_request == now.timestamp()
+    # The 2 h rule of a forced download stays.
     later = system_now() + datetime.timedelta(seconds=1)
     assert satellites.refresh_groups(later, True, tmp_path).status == "too_soon"
+    assert len(calls) == 2
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "failed_download, answered",
+    [
+        (failed_like_404, True),
+        (failed_like_no_network, False),
+        (
+            lambda group, directory=None, progress_callback=None: (
+                download_utils.DownloadResult(
+                    False, None, None, "timeout", download_utils.ERROR_TIMEOUT
+                )
+            ),
+            False,
+        ),
+        (
+            lambda group, directory=None, progress_callback=None: (
+                download_utils.DownloadResult(
+                    False, None, None, "bad", download_utils.ERROR_DATA
+                )
+            ),
+            True,
+        ),
+    ],
+)
+def test_last_request_is_set_when_celestrak_answered(
+    tmp_path, failed_download, answered
+):
+    now = system_now()
+    satellites.record_download_start("last-30-days", now, tmp_path)
+    satellites.record_download_end(
+        "last-30-days", now, failed_download("last-30-days"), tmp_path
+    )
+    entry = satellites.load_download_status(tmp_path)["last-30-days"]
+    assert entry.result == satellites.RESULT_FAILED
+    assert entry.last_request == (now.timestamp() if answered else None)
+
+
+@pytest.mark.unit
+def test_network_fault_keeps_the_last_request_of_an_http_error(tmp_path):
+    group = "last-30-days"
+    first = system_now()
+    satellites.record_download_end(group, first, failed_like_404(group), tmp_path)
+    later = first + datetime.timedelta(minutes=10)
+    satellites.record_download_end(
+        group, later, failed_like_no_network(group), tmp_path
+    )
+    entry = satellites.load_download_status(tmp_path)[group]
+    assert entry.failures == 2
+    assert entry.last_request == first.timestamp()
+
+
+@pytest.mark.unit
+def test_forced_download_without_a_file_waits_2_h_after_an_http_error(
+    tmp_path, monkeypatch
+):
+    calls = []
+
+    def download(group, directory=None, progress_callback=None):
+        calls.append(group)
+        return failed_like_404(group)
+
+    monkeypatch.setattr(satellites, "download_group", download)
+    write_groups(tmp_path, ["last-30-days"], [])
+    start = system_now()
+    assert satellites.refresh_groups(start, True, tmp_path).status == "failed"
+    assert not satellites.group_file("last-30-days", tmp_path).exists()
+
+    two_hours = satellites.MIN_FORCED_DOWNLOAD_SECONDS
+    for seconds in (1.0, 60.0, two_hours - 1):
+        now = start + datetime.timedelta(seconds=seconds)
+        waits = satellites.forced_download_wait(now, tmp_path)
+        assert waits == {"last-30-days": pytest.approx(two_hours - seconds)}
+        result = satellites.refresh_groups(now, True, tmp_path)
+        assert result.status == "too_soon"
+        assert result.wait_seconds == pytest.approx(two_hours - seconds)
+    assert calls == ["last-30-days"]
+
+    now = start + datetime.timedelta(seconds=two_hours + 1)
+    assert satellites.forced_download_wait(now, tmp_path) == {"last-30-days": 0.0}
+    assert satellites.refresh_groups(now, True, tmp_path).status == "failed"
+    assert calls == ["last-30-days", "last-30-days"]
+
+
+@pytest.mark.unit
+def test_forced_download_without_a_file_is_not_refused_after_a_network_fault(
+    tmp_path, monkeypatch
+):
+    calls = []
+
+    def download(group, directory=None, progress_callback=None):
+        calls.append(group)
+        return failed_like_no_network(group)
+
+    monkeypatch.setattr(satellites, "download_group", download)
+    write_groups(tmp_path, ["last-30-days"], [])
+    now = system_now()
+    assert satellites.refresh_groups(now, True, tmp_path).status == "failed"
+    assert satellites.forced_download_wait(now, tmp_path) == {"last-30-days": 0.0}
+    assert satellites.refresh_groups(now, True, tmp_path).status == "failed"
+    assert calls == ["last-30-days", "last-30-days"]
 
 
 @pytest.mark.unit
 def test_catalog_download_thread_wakes_at_the_retry_time(tmp_path, monkeypatch):
-    monkeypatch.setattr(satellites, "download_group", failed_like_404)
+    # A network fault gives the first short retry wait, below the check
+    # interval of the thread.
+    monkeypatch.setattr(satellites, "download_group", failed_like_no_network)
     write_groups(tmp_path, ["last-30-days", "visual"], ["visual"])
     cat = satellite_catalog.SatelliteCatalog(
         SharedState(system_now()), data_directory=tmp_path, start_threads=False
@@ -307,7 +444,8 @@ def test_status_file_is_written_on_start_and_end(tmp_path, monkeypatch):
                 "error": "CelesTrak has no data",
                 "sets": 0,
                 "failures": 1,
-                "next_retry": now.timestamp() + 5 * 60.0,
+                "next_retry": now.timestamp() + 2 * 3600.0,
+                "last_request": now.timestamp(),
             }
         },
     }

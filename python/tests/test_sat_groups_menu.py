@@ -274,6 +274,11 @@ def test_a_message_waits_while_another_message_shows(display, sat_dir):
         (satellites.GroupRefresh("current"), "Up to date"),
         (satellites.GroupRefresh("too_soon", wait_seconds=200.0), "Wait 4 min"),
         (satellites.GroupRefresh("too_soon", wait_seconds=5.0), "Wait 1 min"),
+        (satellites.GroupRefresh("too_soon", wait_seconds=3540.0), "Wait 59 min"),
+        (satellites.GroupRefresh("too_soon", wait_seconds=3541.0), "Wait 1h00"),
+        (satellites.GroupRefresh("too_soon", wait_seconds=3900.0), "Wait 1h05"),
+        (satellites.GroupRefresh("too_soon", wait_seconds=6300.0), "Wait 1h45"),
+        (satellites.GroupRefresh("too_soon", wait_seconds=7199.5), "Wait 2h00"),
         (satellites.GroupRefresh("busy"), "Download busy"),
         (satellites.GroupRefresh("failed"), "Download failed"),
         (None, "Download failed"),
@@ -281,6 +286,14 @@ def test_a_message_waits_while_another_message_shows(display, sat_dir):
 )
 def test_result_message(result, text):
     assert sat_groups.result_message(result) == text
+
+
+@pytest.mark.unit
+def test_wait_message_fits_a_device_line():
+    # About 16 characters fit a line of the 128 px screen.
+    for seconds in (1.0, 59 * 60.0, 3600.0, 7200.0, 12 * 3600.0):
+        assert len(sat_groups.wait_message(seconds)) <= 16
+    assert sat_groups.wait_message(12 * 3600.0) == "Wait 12h00"
 
 
 @pytest.mark.unit

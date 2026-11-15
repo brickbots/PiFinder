@@ -33,6 +33,7 @@ from PiFinder.nearby import Nearby
 from PiFinder.object_sequence import ObjectSequence
 from PiFinder.catalogs import CatalogState
 from PiFinder.satellite_groups import GROUPS_BY_NAME
+from PiFinder.ui.sat_groups import wait_message
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     draw_text_cached,
@@ -1117,12 +1118,7 @@ class UIObjectList(UITextMenu):
             # A catalog that refuses the refresh returns the seconds to wait.
             wait_seconds = catalog.refresh()
             if wait_seconds:
-                self.message(
-                    _("Wait {minutes} min").format(
-                        minutes=math.ceil(wait_seconds / 60)
-                    ),
-                    2,
-                )  # TRANSLATORS: A catalog download was done a moment ago
+                self.message(wait_message(wait_seconds), 2)
             else:
                 self.message(
                     _("Refreshing..."), 1
