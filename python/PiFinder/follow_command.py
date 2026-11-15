@@ -10,11 +10,11 @@ an asteroid.
 from __future__ import annotations
 
 import logging
-import math
 from datetime import datetime, timedelta
 from typing import Optional
 
 from PiFinder import asteroids, calc_utils, comets, satellite_catalog
+from PiFinder.target_follow import FollowPoint, wrap_degrees
 
 logger = logging.getLogger("FollowCommand")
 
@@ -72,7 +72,7 @@ def _samples_command(obj, dt: datetime, track) -> Optional[dict]:
     for when, (ra, dec) in zip(times, positions):
         ra_now, dec_now = calc_utils.j2000_to_jnow(ra, dec, when)
         samples.append((when.timestamp(), float(ra_now), float(dec_now)))
-    if _arcsec_per_hour(samples[0], samples[1]) < FOLLOW_MIN_ARCSEC_PER_HOUR:
+    if _speed(samples[0], samples[1]) * 3600.0**2 < FOLLOW_MIN_ARCSEC_PER_HOUR:
         return None
     return {
         "type": "follow_target",
@@ -82,7 +82,9 @@ def _samples_command(obj, dt: datetime, track) -> Optional[dict]:
     }
 
 
-def _arcsec_per_hour(first, second) -> float:
+def _speed(first, second) -> float:
+    """The motion on the sky between two samples, in degrees per second."""
     (t0, ra0, dec0), (t1, ra1, dec1) = first, second
-    d_ra = ((ra1 - ra0 + 540.0) % 360.0 - 180.0) * math.cos(math.radians(dec0))
-    return math.hypot(d_ra, dec1 - dec0) * 3600.0 / ((t1 - t0) / 3600.0)
+    seconds = t1 - t0
+    rates = wrap_degrees(ra1 - ra0) / seconds, (dec1 - dec0) / seconds
+    return FollowPoint(ra0, dec0, *rates, alt=0.0).speed

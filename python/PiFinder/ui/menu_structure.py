@@ -22,7 +22,7 @@ from PiFinder.ui.radec_entry import UIRADecEntry
 from PiFinder.ui.telemetry_list import UITelemetryList
 from PiFinder.ui.lm_entry import UILMEntry
 import PiFinder.ui.callbacks as callbacks
-from PiFinder import indi_drivers
+from PiFinder import indi_drivers, mount_settings, track_rates
 import PiFinder.ui.sat_groups as sat_groups
 
 
@@ -110,7 +110,7 @@ _mount_control_menu = {
             "name": _("Track Rate"),
             "class": UITextMenu,
             "select": "single",
-            "config_option": "mount_control_track_rate",
+            "config_option": track_rates.OPTION,
             "post_callback": callbacks.mount_track_rate_changed,
             "items": [
                 {"name": _("Auto"), "value": "auto"},
@@ -124,13 +124,14 @@ _mount_control_menu = {
             "name": _("Max wait"),
             "class": UITextMenu,
             "select": "single",
-            "config_option": "mount_control_max_wait_min",
+            "config_option": mount_settings.MAX_WAIT_OPTION,
             "post_callback": callbacks.mount_settings_changed,
             "items": [
-                {"name": _("15 min"), "value": 15},
-                {"name": _("30 min"), "value": 30},
-                {"name": _("1 h"), "value": 60},
-                {"name": _("2 h"), "value": 120},
+                {
+                    "name": f"{minutes // 60} h" if minutes >= 60 else f"{minutes} min",
+                    "value": minutes,
+                }
+                for minutes in mount_settings.MAX_WAIT_CHOICES_MIN
             ],
         },
         {

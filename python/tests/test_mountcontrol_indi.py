@@ -18,19 +18,18 @@ import numpy as np
 import pytest
 
 from PiFinder import indi_drivers, satellites, track_rates
+from PiFinder.calc_utils import FastAltAz
 from PiFinder.mount_rate_signs import RateSignStore
 from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_indi import POSITION, MountControlIndi
 from PiFinder.mountcontrol_interface import MountControlPhases, angular_distance
 from PiFinder.target_follow import (
-    GMST_AT_J2000_DEG,
-    J2000_JD,
-    SIDEREAL_DEG_PER_DAY,
-    UNIX_EPOCH_JD,
+    MEET_SEARCH_MINUTES,
     FollowPoint,
     FollowStage,
     SatelliteTarget,
-    find_meet,
+    find_pass,
+    meet_point,
 )
 from PiFinder.sky_sim import SkySimSettings, SkySimulator
 from PiFinder.types.positioning import (
@@ -394,7 +393,7 @@ def test_follow_rates_reverse_the_dec_axis_and_tracking_turns_off(indi: int) -> 
             )
 
         assert mount.set_track_rates(0.0, 0.001)
-        first = 3.6 * mount._dec_rate_sign
+        first = 3.6 * mount.rate_signs.dec.sign
         assert _wait(lambda: dec_rate() == pytest.approx(first, abs=0.01), 5)
         assert mount.set_track_rates(0.0, -0.001)
         assert _wait(lambda: dec_rate() == pytest.approx(-first, abs=0.01), 5)
@@ -757,9 +756,10 @@ def _follow_rates(mount, ra_rate: float, dec_rate: float, seconds: float):
 
 def _hour_angle_ra(hour_angle: float) -> float:
     """The RA (degrees) at this hour angle for the simulator, now."""
-    days = time.time() / 86400.0 + UNIX_EPOCH_JD - J2000_JD
-    lon = _shared_state().location().lon
-    return (GMST_AT_J2000_DEG + SIDEREAL_DEG_PER_DAY * days + lon - hour_angle) % 360
+    location = _shared_state().location()
+    now = datetime.datetime.now(datetime.timezone.utc)
+    lst = FastAltAz(location.lat, location.lon, now).local_siderial_time
+    return (lst - hour_angle) % 360
 
 
 def _dec_after_rates(mount, dec_rate: float, seconds: float) -> list[float]:
@@ -924,8 +924,9 @@ def test_follow_waits_at_the_meet_point_then_tracks(indi: int) -> None:
     location = _shared_state().location()
     target = SatelliteTarget(element, location.lat, location.lon, location.altitude)
     search = datetime.datetime(2026, 11, 11, 20, 38, tzinfo=datetime.timezone.utc)
-    meet = find_meet(target, search.timestamp())
-    assert meet is not None
+    item = find_pass(target, search.timestamp(), MEET_SEARCH_MINUTES)
+    assert item is not None
+    meet = meet_point(target, item)
     shift = meet.time - 50.0 - time.time()
     mount = _simulator_mount(indi)
     try:
@@ -1125,9 +1126,9 @@ def test_drift_compensation_removes_a_drift(indi: int, case: str) -> None:
             feed(0.2)
         assert mount.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION
         if wrong_axis == "ra":
-            mount._ra_rate_sign = -mount._ra_rate_sign
+            mount.rate_signs.ra.sign = -mount.rate_signs.ra.sign
         if wrong_axis == "dec":
-            mount._dec_rate_sign = -mount._dec_rate_sign
+            mount.rate_signs.dec.sign = -mount.rate_signs.dec.sign
         # No correction while the drift is measured.
         mount.drift_compensation_window = 1000.0
         # The drift: custom rates that the mount process does not know.

@@ -350,6 +350,7 @@ def test_reload_config_reads_the_max_wait_without_a_new_connection():
         load_settings=lambda: settings,
         load_max_wait=lambda: waits[0],
     )
+    assert mount.max_wait_min == 30.0
     client = mount.client
     waits[0] = 120.0
     for _step in mount._process_command({"type": "reload_config"}):
@@ -498,20 +499,20 @@ def test_mount_uses_the_rate_signs_of_its_pier_side():
     mount.rate_signs.load("SAL-33")
     assert mount.pier_side() is None
     mount._check_pier_side()
-    assert (mount._ra_rate_sign, mount._dec_rate_sign) == (-1.0, 1.0)
+    assert (mount.rate_signs.ra.sign, mount.rate_signs.dec.sign) == (-1.0, 1.0)
     mount.client = FakeClient(
         {"TELESCOPE_PIER_SIDE": {"PIER_EAST": False, "PIER_WEST": True}}
     )
     assert mount.pier_side() == "PIER_WEST"
     mount._check_pier_side()
-    assert mount._dec_rate_sign == -1.0 and mount.rate_signs.dec.confirmed
+    assert mount.rate_signs.dec.sign == -1.0 and mount.rate_signs.dec.confirmed
     # East has no stored sign: the same sign, to learn.
     mount.client.props["TELESCOPE_PIER_SIDE"].elements.update(
         PIER_EAST=True, PIER_WEST=False
     )
     mount._check_pier_side()
-    assert mount._dec_rate_sign == -1.0 and not mount.rate_signs.dec.confirmed
+    assert mount.rate_signs.dec.sign == -1.0 and not mount.rate_signs.dec.confirmed
     # The drift check turns the sign of the current side.
     mount._last_drift = (0.0, 0.0, 1e-4, 1e-6)
     mount._check_drift_directions(0.0, 0.0, 2e-4, 1e-6)
-    assert mount._dec_rate_sign == 1.0
+    assert mount.rate_signs.dec.sign == 1.0

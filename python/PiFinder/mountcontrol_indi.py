@@ -18,10 +18,11 @@ import logging
 import math
 import time
 from multiprocessing import Queue
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Set, Tuple
 
 from PiFinder import config, indi_drivers, utils
 from PiFinder import track_rates
+from PiFinder.target_follow import SIDEREAL_DEG_PER_DAY, wrap_degrees
 from PiFinder.indi_client import TELESCOPE_INTERFACE, IndiClient, IndiProperty
 from PiFinder.mount_rate_signs import (
     FILE_NAME as RATE_SIGNS_FILE_NAME,
@@ -79,7 +80,7 @@ TIME_RESYNC_S = 2.0
 SIDEREAL_DEG_PER_S = 360.98564736629 / 86400.0
 # The sidereal rate of TELESCOPE_TRACK_RATE, in arcseconds per second. With
 # TRACK_RATE_RA at this value the RA of the mount does not change.
-SIDEREAL_RATE_ARCSEC_S = 15.041067
+SIDEREAL_RATE_ARCSEC_S = SIDEREAL_DEG_PER_DAY * 3600.0 / 86400.0
 # The sign check of the custom track rates needs this much motion. The
 # follow sets the rates once a second, and the last position report can be
 # some tenths of a second old: the check must fit in less than a second.
@@ -90,22 +91,15 @@ RATE_CHECK_MIN_DEG_S = 0.002
 RATE_SAMPLE_MAX_AGE_S = 1.0
 
 
-def _moved_with(moved_deg_s: float, requested_deg_s: float) -> bool:
-    """The axis moved clearly in the direction of the request."""
-    return (
-        abs(requested_deg_s) >= RATE_CHECK_MIN_DEG_S
-        and abs(moved_deg_s) >= abs(requested_deg_s) / 2.0
-        and (moved_deg_s > 0) == (requested_deg_s > 0)
-    )
-
-
-def _moved_against(moved_deg_s: float, requested_deg_s: float) -> bool:
-    """The axis moved clearly in the direction opposite to the request."""
-    return (
-        abs(requested_deg_s) >= RATE_CHECK_MIN_DEG_S
-        and abs(moved_deg_s) >= abs(requested_deg_s) / 2.0
-        and (moved_deg_s > 0) != (requested_deg_s > 0)
-    )
+def _motion_sign(moved_deg_s: float, requested_deg_s: float) -> int:
+    """+1 when the axis moved clearly in the direction of the request, -1
+    when it moved clearly in the opposite direction, else 0."""
+    if (
+        abs(requested_deg_s) < RATE_CHECK_MIN_DEG_S
+        or abs(moved_deg_s) < abs(requested_deg_s) / 2.0
+    ):
+        return 0
+    return 1 if (moved_deg_s > 0) == (requested_deg_s > 0) else -1
 
 
 # A drift grew when it is larger than the last one by this many standard
@@ -156,6 +150,7 @@ class MountControlIndi(MountControlBase):
         self.settings = settings
         self._load_settings = load_settings or settings_from_config
         self._load_max_wait = load_max_wait or max_wait_from_config
+        self.max_wait_min = self._load_max_wait()
         self.log_queue = log_queue
         self.indi_host = indi_host
         self.indi_port = indi_port
@@ -620,10 +615,7 @@ class MountControlIndi(MountControlBase):
         """
         if self.device is None:
             return False
-        if (
-            self.client.get_value(self.device, "TELESCOPE_TRACK_MODE", "TRACK_CUSTOM")
-            is None
-        ):
+        if not self._has_custom_tracking():
             logger.info("Mount has no custom tracking, no drift compensation")
             return True
         rates = self.client.get_property(self.device, "TELESCOPE_TRACK_RATE")
@@ -649,15 +641,14 @@ class MountControlIndi(MountControlBase):
         self._check_drift_directions(
             drift_rate_adjustment_ra, ra_se, drift_rate_adjustment_dec, dec_se
         )
-        if not self._custom_tracking:
-            if not self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"):
-                return False
-            self._custom_tracking = True
+        if not self._enter_custom_tracking():
+            return False
         # TELESCOPE_TRACK_RATE is in arcseconds per second. The pointing
         # must move against the drift.
-        new_ra = ra_rate - self._ra_rate_sign * drift_rate_adjustment_ra * 3600.0
-        new_dec = dec_rate - self._dec_rate_sign * drift_rate_adjustment_dec * 3600.0
-        ok = self._set_track_rate_values(new_ra, new_dec)
+        signs = self.rate_signs
+        new_ra = ra_rate - signs.ra.sign * drift_rate_adjustment_ra * 3600.0
+        new_dec = dec_rate - signs.dec.sign * drift_rate_adjustment_dec * 3600.0
+        ok = self._set_track_rate_values(new_ra, new_dec) is not None
         if ok:
             self._last_drift = (
                 drift_rate_adjustment_ra,
@@ -675,19 +666,50 @@ class MountControlIndi(MountControlBase):
         if self._last_drift is None:
             return
         last_ra, last_ra_se, last_dec, last_dec_se = self._last_drift
+        signs = self.rate_signs
         if _drift_grew(last_ra, last_ra_se, ra_drift, ra_se):
-            self.rate_signs.ra.turn()
-            logger.info(
-                "RA track rate direction of this driver: %+.0f", self._ra_rate_sign
-            )
+            signs.turn(signs.ra)
+            logger.info("RA track rate direction of this driver: %+.0f", signs.ra.sign)
         if _drift_grew(last_dec, last_dec_se, dec_drift, dec_se):
-            self.rate_signs.dec.turn()
+            signs.turn(signs.dec)
             logger.info(
-                "Dec track rate direction of this driver: %+.0f", self._dec_rate_sign
+                "Dec track rate direction of this driver: %+.0f", signs.dec.sign
             )
 
-    def _set_track_rate_values(self, ra: float, dec: float) -> bool:
-        """Set TELESCOPE_TRACK_RATE (arcseconds per second).
+    def _has_custom_tracking(self) -> bool:
+        """The driver has the TRACK_CUSTOM track mode."""
+        return (
+            self.device is not None
+            and self.client.get_value(
+                self.device, "TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"
+            )
+            is not None
+        )
+
+    def _enter_custom_tracking(self) -> bool:
+        """Switch to the TRACK_CUSTOM track mode, if it is not on. A new
+        custom tracking has no sign check sample yet."""
+        if self._custom_tracking:
+            return True
+        if not self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"):
+            return False
+        self._custom_tracking = True
+        self._rate_sample = None
+        return True
+
+    def _rate_values(self, ra_deg_s: float, dec_deg_s: float) -> dict[str, float]:
+        """TELESCOPE_TRACK_RATE values that make RA and Dec change at these
+        rates (degrees per second), with the signs of this driver."""
+        return {
+            "TRACK_RATE_RA": SIDEREAL_RATE_ARCSEC_S
+            + self.rate_signs.ra.sign * ra_deg_s * 3600.0,
+            "TRACK_RATE_DE": self.rate_signs.dec.sign * dec_deg_s * 3600.0,
+        }
+
+    def _set_track_rate_values(self, ra: float, dec: float) -> Optional[Set[str]]:
+        """Set TELESCOPE_TRACK_RATE (arcseconds per second). Returns the
+        names of the axes whose sign changed (an empty set for none), or
+        None when the driver refuses the rates.
 
         While tracking, an INDI driver ignores a rate that has the opposite
         sign of its current rate ("Cannot reverse tracking"), and it sends
@@ -695,7 +717,7 @@ class MountControlIndi(MountControlBase):
         changes goes through zero first.
         """
         if self.device is None:
-            return False
+            return None
         rates = self.client.get_property(self.device, "TELESCOPE_TRACK_RATE")
         current = rates.elements if rates is not None else {}
         now_ra = current.get("TRACK_RATE_RA")
@@ -710,10 +732,17 @@ class MountControlIndi(MountControlBase):
                     "TRACK_RATE_DE": 0.0 if reverse_dec else dec,
                 },
             ):
-                return False
-        return self._set_number(
+                return None
+        if not self._set_number(
             "TELESCOPE_TRACK_RATE", {"TRACK_RATE_RA": ra, "TRACK_RATE_DE": dec}
-        )
+        ):
+            return None
+        reversed_axes = set()
+        if reverse_ra:
+            reversed_axes.add("TRACK_RATE_RA")
+        if reverse_dec:
+            reversed_axes.add("TRACK_RATE_DE")
+        return reversed_axes
 
     def set_tracking(self, on: bool) -> bool:
         if self.device is None or not self._has("TELESCOPE_TRACK_STATE"):
@@ -733,36 +762,15 @@ class MountControlIndi(MountControlBase):
         the sign of an axis that moved the wrong way. A mount without
         TRACK_CUSTOM, or one that refuses the rates, returns False.
         """
-        if self.device is None:
+        if not self._has_custom_tracking() or not self._enter_custom_tracking():
             return False
-        if (
-            self.client.get_value(self.device, "TELESCOPE_TRACK_MODE", "TRACK_CUSTOM")
-            is None
-        ):
-            return False
-        if not self._custom_tracking:
-            if not self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"):
-                return False
-            self._custom_tracking = True
-            self._rate_sample = None
         self._check_pier_side()
         self._check_rate_signs()
-        values = {
-            "TRACK_RATE_RA": SIDEREAL_RATE_ARCSEC_S
-            + self._ra_rate_sign * ra_rate_deg_s * 3600.0,
-            "TRACK_RATE_DE": self._dec_rate_sign * dec_rate_deg_s * 3600.0,
-        }
-        rates = self.client.get_property(self.device, "TELESCOPE_TRACK_RATE")
-        current = rates.elements if rates is not None else {}
-        reversed_axes = set()
-        for name, value in values.items():
-            now = current.get(name)
-            if isinstance(now, float) and now * value < 0:
-                reversed_axes.add(name)
-        ok = self._set_track_rate_values(
+        values = self._rate_values(ra_rate_deg_s, dec_rate_deg_s)
+        reversed_axes = self._set_track_rate_values(
             values["TRACK_RATE_RA"], values["TRACK_RATE_DE"]
         )
-        if not ok or (reversed_axes and self._rate_sample is not None):
+        if reversed_axes is None or (reversed_axes and self._rate_sample is not None):
             # The motion right after a reversal tells nothing about the sign.
             self._rate_sample = None
         elif self._rate_sample is None and self.current_ra is not None:
@@ -780,23 +788,7 @@ class MountControlIndi(MountControlBase):
                 0.0 if "TRACK_RATE_RA" in reversed_axes else ra_rate_deg_s,
                 0.0 if "TRACK_RATE_DE" in reversed_axes else dec_rate_deg_s,
             )
-        return ok
-
-    @property
-    def _ra_rate_sign(self) -> float:
-        return self.rate_signs.ra.sign
-
-    @_ra_rate_sign.setter
-    def _ra_rate_sign(self, sign: float) -> None:
-        self.rate_signs.ra.sign = sign
-
-    @property
-    def _dec_rate_sign(self) -> float:
-        return self.rate_signs.dec.sign
-
-    @_dec_rate_sign.setter
-    def _dec_rate_sign(self, sign: float) -> None:
-        self.rate_signs.dec.sign = sign
+        return reversed_axes is not None
 
     def pier_side(self) -> Optional[str]:
         """PIER_EAST or PIER_WEST from TELESCOPE_PIER_SIDE, or None."""
@@ -831,13 +823,10 @@ class MountControlIndi(MountControlBase):
         if seconds < RATE_CHECK_MIN_S:
             return
         self._rate_sample = None
-        ra_moved = ((self.current_ra - ra0 + 540.0) % 360.0 - 180.0) / seconds
+        ra_moved = wrap_degrees(self.current_ra - ra0) / seconds
         dec_moved = (self.current_dec - dec0) / seconds
         self.rate_signs.measure(
-            _moved_with(ra_moved, ra_rate),
-            _moved_against(ra_moved, ra_rate),
-            _moved_with(dec_moved, dec_rate),
-            _moved_against(dec_moved, dec_rate),
+            _motion_sign(ra_moved, ra_rate), _motion_sign(dec_moved, dec_rate)
         )
 
     def apply_track_rate(self, rate: str) -> bool:
@@ -856,20 +845,16 @@ class MountControlIndi(MountControlBase):
         if self.client.get_value(self.device, "TELESCOPE_TRACK_MODE", mode) is not None:
             self.restore_sidereal_tracking()
             return self._set_switch("TELESCOPE_TRACK_MODE", mode)
-        if (
-            self.client.get_value(self.device, "TELESCOPE_TRACK_MODE", "TRACK_CUSTOM")
-            is None
-        ):
+        if not self._has_custom_tracking():
             return False
         values = self._body_rate_values(rate)
-        if values is None:
+        if values is None or not self._enter_custom_tracking():
             return False
-        if not self._custom_tracking:
-            if not self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"):
-                return False
-            self._custom_tracking = True
-        if not self._set_track_rate_values(
-            values["TRACK_RATE_RA"], values["TRACK_RATE_DE"]
+        if (
+            self._set_track_rate_values(
+                values["TRACK_RATE_RA"], values["TRACK_RATE_DE"]
+            )
+            is None
         ):
             return False
         self._body_custom_rate = rate
@@ -884,8 +869,12 @@ class MountControlIndi(MountControlBase):
         if time.time() - self._body_rate_time < track_rates.RATE_STEP_S:
             return
         values = self._body_rate_values(self._body_custom_rate)
-        if values is not None and self._set_track_rate_values(
-            values["TRACK_RATE_RA"], values["TRACK_RATE_DE"]
+        if (
+            values is not None
+            and self._set_track_rate_values(
+                values["TRACK_RATE_RA"], values["TRACK_RATE_DE"]
+            )
+            is not None
         ):
             self._body_rate_time = time.time()
 
@@ -898,14 +887,7 @@ class MountControlIndi(MountControlBase):
         rates = track_rates.body_rates(
             rate, location.lat, location.lon, location.altitude, dt
         )
-        if rates is None:
-            return None
-        ra_rate, dec_rate = rates
-        return {
-            "TRACK_RATE_RA": SIDEREAL_RATE_ARCSEC_S
-            + self._ra_rate_sign * ra_rate * 3600.0,
-            "TRACK_RATE_DE": self._dec_rate_sign * dec_rate * 3600.0,
-        }
+        return None if rates is None else self._rate_values(*rates)
 
     def restore_sidereal_tracking(self) -> None:
         self._body_custom_rate = None
@@ -1139,7 +1121,6 @@ def run(
         settings_from_config(),
         rate_sign_store=RateSignStore(utils.data_dir / RATE_SIGNS_FILE_NAME),
     )
-    mount_control.max_wait_min = max_wait_from_config()
     try:
         mount_control.run()
     except KeyboardInterrupt:

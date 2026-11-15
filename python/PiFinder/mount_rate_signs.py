@@ -102,12 +102,14 @@ class AxisSign:
     along: int = 0
     against: int = 0
 
-    def measure(self, moved_with: bool, moved_against: bool) -> bool:
-        """Count one measurement. True when the sign changed or became
-        confirmed, so the store needs an update."""
-        self.along = self.along + 1 if moved_with else 0
-        self.against = self.against + 1 if moved_against else 0
-        if moved_with and not self.confirmed and self.along >= CONFIRM_COUNT:
+    def measure(self, motion: int) -> bool:
+        """Count one measurement: +1 for a motion in the direction of the
+        request, -1 for the opposite direction, 0 for no clear motion. True
+        when the sign changed or became confirmed, so the store needs an
+        update."""
+        self.along = self.along + 1 if motion > 0 else 0
+        self.against = self.against + 1 if motion < 0 else 0
+        if motion > 0 and not self.confirmed and self.along >= CONFIRM_COUNT:
             self.confirmed = True
             return True
         if self.against >= (TURN_CONFIRMED if self.confirmed else TURN_UNCONFIRMED):
@@ -123,9 +125,7 @@ class AxisSign:
         """Turn the sign from other evidence (the drift compensation). The
         new sign is not confirmed."""
         self.sign = -self.sign
-        self.confirmed = False
-        self.along = 0
-        self.against = 0
+        self.set(None)
 
     def set(self, sign: Optional[float]) -> None:
         """Use a stored sign (confirmed), or keep this sign without
@@ -142,18 +142,15 @@ class RateSigns:
 
     def __init__(self, store: Optional[RateSignStore] = None):
         self.store = store or RateSignStore()
-        self.ra = AxisSign(DEFAULT_RA_SIGN)
-        self.dec = AxisSign(DEFAULT_DEC_SIGN)
         self.model = ""
-        self.pier: Optional[str] = None
-        self._stored: StoredSigns = {}
+        self.reset()
 
     def reset(self) -> None:
         """The default signs, for a new driver."""
         self.ra = AxisSign(DEFAULT_RA_SIGN)
         self.dec = AxisSign(DEFAULT_DEC_SIGN)
-        self.pier = None
-        self._stored = {}
+        self.pier: Optional[str] = None
+        self._stored: StoredSigns = {}
 
     def load(self, model: str) -> None:
         """Read the stored signs of the model, at the connection."""
@@ -183,22 +180,31 @@ class RateSigns:
         )
         return True
 
-    def measure(
-        self,
-        ra_with: bool,
-        ra_against: bool,
-        dec_with: bool,
-        dec_against: bool,
-    ) -> None:
+    def measure(self, ra: int, dec: int) -> None:
+        """Count one measurement of each axis (see AxisSign.measure)."""
         old = (self.ra.sign, self.dec.sign)
-        changed = self.ra.measure(ra_with, ra_against)
-        changed = self.dec.measure(dec_with, dec_against) or changed
+        changed = self.ra.measure(ra)
+        changed = self.dec.measure(dec) or changed
         if old[0] != self.ra.sign:
             logger.info("RA track rate sign of this driver: %+.0f", self.ra.sign)
         if old[1] != self.dec.sign:
             logger.info("Dec track rate sign of this driver: %+.0f", self.dec.sign)
         if changed:
             self._store()
+
+    def turn(self, axis: AxisSign) -> None:
+        """Turn the sign of the axis from other evidence (see AxisSign.turn).
+        The stored sign of the axis on this pier side is wrong: it is
+        cleared, so a new connection does not load it as confirmed."""
+        axis.turn()
+        pier = self.pier
+        stored = self._stored.get(pier) if pier else None
+        index = 0 if axis is self.ra else 1
+        if pier is None or stored is None or stored[index] is None:
+            return
+        stored[index] = None
+        self.store.save(self.model, pier, stored)
+        logger.info("Cleared rate sign of %s on %s: %s", self.model, pier, stored)
 
     def _store(self) -> None:
         if self.pier is None or not self.model:
