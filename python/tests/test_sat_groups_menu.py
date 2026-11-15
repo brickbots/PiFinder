@@ -4,10 +4,8 @@ The tests use a temporary data directory and a mock download. They use no
 network and start no thread that sleeps.
 """
 
-import os
 import subprocess
 import sys
-import time
 from types import SimpleNamespace
 from unittest import mock
 
@@ -16,24 +14,15 @@ import pytest
 # Installs the ``_()`` gettext builtin that PiFinder.ui modules rely on.
 import PiFinder.i18n  # noqa: F401
 
-from PiFinder import satellite_catalog, satellite_groups, satellites, utils
+from PiFinder import satellite_catalog, satellite_groups, satellites
 from PiFinder.displays import get_display
 from PiFinder.ui import menu_structure, sat_groups
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.text_menu import UITextMenu
+from satellite_helpers import make_old, seed_groups
 
 
-@pytest.fixture
-def sat_dir(tmp_path, monkeypatch):
-    directory = tmp_path / "satellites"
-    monkeypatch.setattr(utils, "satellite_data_dir", directory)
-    return directory
-
-
-@pytest.fixture(autouse=True)
-def fresh_state(monkeypatch):
-    monkeypatch.setattr(sat_groups, "downloads", sat_groups.GroupDownloads())
-    monkeypatch.setattr(UIModule, "message_until", 0.0)
+pytestmark = pytest.mark.usefixtures("fresh_sat_messages")
 
 
 @pytest.fixture(scope="module")
@@ -155,9 +144,7 @@ def test_open_menu_follows_a_change_on_the_web_page(display, sat_dir):
 
 @pytest.mark.unit
 def test_toggle_uses_the_stored_state(display, sat_dir):
-    path = satellites.group_file("visual", sat_dir)
-    path.parent.mkdir(parents=True)
-    path.write_text("")
+    seed_groups(sat_dir, ["visual"])
     menu = _group_menu(display)
     _move_to(menu, "visual")
     # The web page disables the group, and no frame is drawn before the key.
@@ -169,9 +156,7 @@ def test_toggle_uses_the_stored_state(display, sat_dir):
 
 @pytest.mark.unit
 def test_toggle_stores_the_selection(display, sat_dir):
-    path = satellites.group_file("visual", sat_dir)
-    path.parent.mkdir(parents=True)
-    path.write_text("")
+    seed_groups(sat_dir, ["visual"])
     menu = _group_menu(display)
     _move_to(menu, "visual")
     menu.key_right()
@@ -194,26 +179,20 @@ def test_deselect_downloads_nothing(display, sat_dir):
 
 
 @pytest.mark.unit
-def test_select_of_a_group_with_a_file_downloads_nothing(display, sat_dir):
-    path = satellites.group_file("weather", sat_dir)
-    path.parent.mkdir(parents=True)
-    path.write_text("")
+@pytest.mark.parametrize(
+    "group, messages",
+    [("weather", []), ("starlink", ["Large group:\nslow passes"])],
+)
+def test_select_of_a_group_with_a_file_downloads_nothing(
+    display, sat_dir, group, messages
+):
+    """A large group shows a message."""
+    seed_groups(sat_dir, [group])
     menu = _group_menu(display)
-    _move_to(menu, "weather")
+    _move_to(menu, group)
     menu.key_right()
     assert sat_groups.downloads.thread is None
-    assert _messages(menu) == []
-
-
-@pytest.mark.unit
-def test_large_group_shows_a_message(display, sat_dir):
-    path = satellites.group_file("starlink", sat_dir)
-    path.parent.mkdir(parents=True)
-    path.write_text("")
-    menu = _group_menu(display)
-    _move_to(menu, "starlink")
-    menu.key_right()
-    assert _messages(menu) == ["Large group:\nslow passes"]
+    assert _messages(menu) == messages
 
 
 @pytest.mark.unit
@@ -235,28 +214,34 @@ def test_select_downloads_the_group_in_a_thread(display, sat_dir):
 
 
 @pytest.mark.unit
-def test_large_group_download_shows_both_messages(display, sat_dir):
-    result = satellites.GroupRefresh("failed", failed=("starlink",))
+@pytest.mark.parametrize(
+    "group, refresh, messages",
+    [
+        # A large group shows its message and the download messages.
+        (
+            "starlink",
+            {"return_value": satellites.GroupRefresh("failed", failed=("starlink",))},
+            [
+                "Large group:\nslow passes",
+                "Downloading\nStarlink*",
+                "Download failed\nStarlink*",
+            ],
+        ),
+        # An error in the download is a failed download.
+        (
+            "weather",
+            {"side_effect": OSError("x")},
+            ["Downloading\nWeather", "Download failed\nWeather"],
+        ),
+    ],
+)
+def test_failed_download_shows_failed(display, sat_dir, group, refresh, messages):
     menu = _group_menu(display)
-    _move_to(menu, "starlink")
-    with mock.patch.object(satellites, "refresh_groups", return_value=result):
+    _move_to(menu, group)
+    with mock.patch.object(satellites, "refresh_groups", **refresh):
         menu.key_right()
         sat_groups.downloads.thread.join(timeout=10)
-    assert _messages(menu) == [
-        "Large group:\nslow passes",
-        "Downloading\nStarlink*",
-        "Download failed\nStarlink*",
-    ]
-
-
-@pytest.mark.unit
-def test_download_error_shows_failed(display, sat_dir):
-    menu = _group_menu(display)
-    _move_to(menu, "weather")
-    with mock.patch.object(satellites, "refresh_groups", side_effect=OSError("x")):
-        menu.key_right()
-        sat_groups.downloads.thread.join(timeout=10)
-    assert _messages(menu)[-1] == "Download failed\nWeather"
+    assert _messages(menu) == messages
 
 
 @pytest.mark.unit
@@ -392,12 +377,9 @@ def _update_now_menu(display):
 
 
 def _write_group_files(directory, groups, age_seconds):
-    directory.mkdir(parents=True, exist_ok=True)
+    seed_groups(directory, groups)
     for group in groups:
-        path = satellites.group_file(group, directory)
-        path.write_text("")
-        stamp = time.time() - age_seconds
-        os.utime(path, (stamp, stamp))
+        make_old(satellites.group_file(group, directory), age_seconds / 3600.0)
 
 
 @pytest.mark.unit

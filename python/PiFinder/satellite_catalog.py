@@ -37,24 +37,22 @@ from typing import Callable, Optional
 
 import numpy as np
 import pytz
+from skyfield.api import wgs84
 
 import PiFinder.satellites as satellites
 from PiFinder.calc_utils import sf_utils
-from PiFinder.catalog_base import (
-    CatalogState,
-    CatalogStatus,
-    VirtualIDManager,
-)
+from PiFinder.catalog_base import CatalogState, CatalogStatus
 from PiFinder.catalogs import Catalog, ObjectLabel
-from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject
+from PiFinder.observing_nights import zone_for
 from PiFinder.state import SharedStateObj
 from PiFinder.utils import Timer, satellite_data_dir
 
 
 logger = logging.getLogger("SatelliteCatalog")
 
-CATALOG_CODE = "SA"
-OBJ_TYPE = "Sat"
+CATALOG_CODE = satellites.CATALOG_CODE
+OBJ_TYPE = satellites.OBJ_TYPE
 
 # The mark before the start time of the next pass in the object list. It is
 # the Nerd Font up arrow (UIModule._UP_ARROW): the device fonts have no U+2191.
@@ -87,8 +85,6 @@ def live_radec(obj, dt: datetime.datetime) -> Optional[tuple[float, float]]:
 class SatelliteCatalog(Catalog):
     POSITION_UPDATE_SECONDS = 5
     WAITING_FOR_DATA_SECONDS = 10
-    PASS_UPDATE_SECONDS = 30 * 60
-    PASS_HOURS = 24.0
     # The wait before the next check of the file ages.
     DOWNLOAD_RETRY_SECONDS = 60 * 60
     # The wait after an error in the download thread.
@@ -97,7 +93,6 @@ class SatelliteCatalog(Catalog):
     MIN_DOWNLOAD_WAIT_SECONDS = 30
     # The reason of an empty catalog is read again after this time.
     EMPTY_REASON_SECONDS = 1.0
-    MIN_PASS_ALT_DEG = 10.0
     # The catalog stops its work this long after the last use.
     IDLE_SECONDS = 10 * 60
     # sky_state uses the positions of the last update up to this age. The
@@ -113,7 +108,6 @@ class SatelliteCatalog(Catalog):
         clock: Callable[[], float] = time.monotonic,
     ):
         global _active_catalog
-        self._virtual_id_manager = VirtualIDManager()
         super().__init__(CATALOG_CODE, "Satellites")
         self.shared_state = shared_state
         self.data_directory = data_directory
@@ -181,7 +175,7 @@ class SatelliteCatalog(Catalog):
         and the element files did not change. Otherwise the update thread
         builds the objects again in the background."""
         logger.info("Satellite catalog in use: work starts")
-        if self.initialized and not self._files_differ():
+        if self.initialized and not self._files_changed(record=False):
             try:
                 self.do_timed_task()
             except Exception:  # a failed update must not stop the caller
@@ -340,29 +334,21 @@ class SatelliteCatalog(Catalog):
             listener(result)
 
     def _element_files(self) -> list[Path]:
-        files = [
-            satellites.group_file(group, self.data_directory)
-            for group in satellites.selected_groups(self.data_directory)
+        return [
+            path
+            for path in satellites.element_files(self.data_directory)
+            if path.exists()
         ]
-        files.append(satellites.user_file(self.data_directory))
-        files.append(satellites.corrected_file(self.data_directory))
-        files.append(satellites.user_mag_file(self.data_directory))
-        files.append(satellites.selection_file(self.data_directory))
-        return [path for path in files if path.exists()]
 
-    def _current_mtimes(self) -> dict[str, float]:
-        return {str(path): path.stat().st_mtime for path in self._element_files()}
-
-    def _files_differ(self) -> bool:
-        """True when the element files changed since the last update."""
-        return self._current_mtimes() != self._file_mtimes
-
-    def _files_changed(self) -> bool:
-        mtimes = self._current_mtimes()
-        if mtimes != self._file_mtimes:
+    def _files_changed(self, record: bool = True) -> bool:
+        """True when the element files changed since the last update. With
+        ``record``, the file times of now count as the last update."""
+        mtimes = {str(path): path.stat().st_mtime for path in self._element_files()}
+        if mtimes == self._file_mtimes:
+            return False
+        if record:
             self._file_mtimes = mtimes
-            return True
-        return False
+        return True
 
     # -- status ---------------------------------------------------------------
 
@@ -476,7 +462,7 @@ class SatelliteCatalog(Catalog):
         key = (location.lat, location.lon, location.altitude)
         cache = self._topos_cache
         if cache is None or cache[0] != key:
-            cache = (key, satellites.observer_topos(*key))
+            cache = (key, wgs84.latlon(*key))
             self._topos_cache = cache
         return cache[1]
 
@@ -603,7 +589,7 @@ class SatelliteCatalog(Catalog):
                 )
             )
         elif self._pass_time is not None:
-            lines.append(f"No visible pass in {self.PASS_HOURS:.0f} h")
+            lines.append(f"No visible pass in {satellites.PASS_HOURS:.0f} h")
         else:
             lines.append("Passes: calculating")
         age = sat.elements.age_days(now.time)
@@ -630,31 +616,13 @@ class SatelliteCatalog(Catalog):
             return next_pass.min_mag
         return sat.std_mag
 
-    def _make_object(self, sat: satellites.TrackedSatellite) -> CompositeObject:
-        return CompositeObject.from_dict(
-            {
-                "id": -1,
-                "obj_type": OBJ_TYPE,
-                "ra": 0.0,
-                "dec": 0.0,
-                "const": "",
-                "size": SizeObject([]),
-                "mag": MagnitudeObject([]),
-                "mag_str": "-",
-                "names": [sat.name],
-                "catalog_code": CATALOG_CODE,
-                "sequence": sat.norad_id,
-                "description": "",
-            }
-        )
-
     def _update_object(
         self,
         obj: CompositeObject,
         sat: satellites.TrackedSatellite,
         now: satellites.SatLook,
         zone: datetime.tzinfo,
-        const: Optional[str] = None,
+        const: Optional[str],
     ) -> None:
         if not (math.isfinite(now.ra) and math.isfinite(now.dec)):
             # SGP4 cannot propagate this element set to the current time.
@@ -664,11 +632,7 @@ class SatelliteCatalog(Catalog):
         next_pass = self._next_visible(sat.norad_id, now.time)
         obj.ra, obj.dec = now.ra, now.dec
         obj.alt, obj.az = now.alt, now.az
-        obj.const = (
-            const
-            if const is not None
-            else sf_utils.radec_to_constellation(now.ra, now.dec)
-        )
+        obj.const = const or ""
         mag = round(self._list_magnitude(sat, now, next_pass), 1)
         # Most magnitudes do not change between two updates.
         if obj.mag.mags != [mag]:
@@ -704,7 +668,7 @@ class SatelliteCatalog(Catalog):
             if (sat := self._tracked.get(obj.sequence)) is not None
         ]
         topos = self._topos(location)
-        zone = _zone(location.timezone)
+        zone = zone_for(location.timezone)
         self._zone = zone
         looks = satellites.look_many([sat for _obj, sat in pairs], topos, dt)
         self._sky = satellites.SkyState.from_looks(
@@ -718,20 +682,15 @@ class SatelliteCatalog(Catalog):
         )
 
     def _rebuild(self, dt: datetime.datetime, location) -> frozenset:
-        elements = satellites.load_all_elements(dt, self.data_directory)
-        user_mags = satellites.load_user_mags(self.data_directory)
-        tracked: dict[int, satellites.TrackedSatellite] = {}
-        for element in elements:
-            try:
-                tracked[element.norad_id] = satellites.TrackedSatellite.from_elements(
-                    element, user_mags
-                )
-            except ValueError as exc:
-                logger.warning("Skipping %s: %s", element.name, exc)
+        tracked = {
+            sat.norad_id: sat
+            for sat in satellites.load_tracked(dt, self.data_directory)
+        }
         self._tracked = tracked
-        self.replace_objects([self._make_object(sat) for sat in tracked.values()])
+        self.replace_objects(
+            [satellites.make_object(sat.norad_id, sat.name) for sat in tracked.values()]
+        )
         up_now = self._update_objects(dt, location)
-        self._virtual_id_manager.mint_ids(self)
         logger.info("Satellite catalog has %d objects", len(tracked))
         self._start_pass_update(dt, location)
         return up_now
@@ -767,19 +726,10 @@ class SatelliteCatalog(Catalog):
 
     def _update_passes(self, dt: datetime.datetime, location) -> None:
         with Timer("Satellite pass prediction"):
-            topos = satellites.observer_topos(
-                location.lat, location.lon, location.altitude
+            found = satellites.predict_passes(
+                self._tracked.values(), self._topos(location), dt
             )
-            start = dt - datetime.timedelta(minutes=15)
-            # A geostationary satellite has no passes.
-            tracked = [
-                sat for sat in self._tracked.values() if not sat.elements.geostationary
-            ]
-            found = satellites.find_passes_many(
-                tracked, topos, start, self.PASS_HOURS, self.MIN_PASS_ALT_DEG
-            )
-            passes = {sat.norad_id: items for sat, items in zip(tracked, found)}
-            self._passes = passes
+            self._passes = {sat.norad_id: items for sat, items in found}
             self._pass_time = dt
 
     def _passes_stale(self, dt: datetime.datetime, location) -> bool:
@@ -790,10 +740,7 @@ class SatelliteCatalog(Catalog):
         """
         if self._pass_basis is None:
             return False
-        requested, lat, lon = self._pass_basis
-        moved = abs(lat - location.lat) > 0.5 or abs(lon - location.lon) > 0.5
-        old = abs((dt - requested).total_seconds()) > self.PASS_UPDATE_SECONDS
-        return moved or old
+        return satellites.passes_stale(*self._pass_basis, dt, location)
 
     # -- update ---------------------------------------------------------------
 
@@ -863,10 +810,3 @@ def _constellations(looks: list[satellites.SatLook]) -> list[Optional[str]]:
         for index, name in zip(np.flatnonzero(finite).tolist(), names.tolist()):
             result[index] = name
     return result
-
-
-def _zone(name: Optional[str]) -> datetime.tzinfo:
-    try:
-        return pytz.timezone(name or "UTC")
-    except pytz.exceptions.UnknownTimeZoneError:
-        return pytz.utc

@@ -4,6 +4,7 @@ This module imports nothing heavy. The device menu reads the groups from here
 at import time. ``PiFinder.satellites`` imports and re-exports these names.
 """
 
+import math
 from dataclasses import dataclass
 
 
@@ -64,3 +65,8 @@ CELESTRAK_GROUPS = tuple(group.name for group in AVAILABLE_GROUPS)
 GROUPS_BY_NAME = {group.name: group for group in AVAILABLE_GROUPS}
 # The groups that a PiFinder without a stored selection uses.
 DEFAULT_GROUPS = ("visual", "stations")
+
+
+def wait_minutes(seconds: float) -> int:
+    """The whole minutes of a wait before the next download, at least 1."""
+    return max(1, math.ceil(seconds / 60.0))

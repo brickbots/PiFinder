@@ -8,6 +8,7 @@ stays in memory for some time (see ``PassTable``).
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
 import logging
 import math
@@ -16,9 +17,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 
-import pytz
+from skyfield.api import wgs84
 
 import PiFinder.satellites as satellites
+from PiFinder.observing_nights import zone_for
+from PiFinder.satellite_groups import wait_minutes
 from PiFinder.utils import Timer, satellite_data_dir
 
 
@@ -26,23 +29,11 @@ from PiFinder.utils import Timer, satellite_data_dir
 DEFAULT_MAX_MAG = 4.0
 # The largest element file that the web form accepts.
 MAX_UPLOAD_BYTES = 1_000_000
-# The pass table: its time window, its minimum altitude and its row limit.
-PASS_HOURS = 24.0
-MIN_PASS_ALT_DEG = 10.0
+# The row limit of the pass table. Its time window, its minimum altitude and
+# its good time are the PASS_* values of ``satellites``.
 PASS_TABLE_ROWS = 200
-# A pass table is good for this long, and for a location change up to
-# PASS_TABLE_MOVE_DEG in latitude and in longitude.
-PASS_TABLE_SECONDS = 30 * 60
-PASS_TABLE_MOVE_DEG = 0.5
 
 logger = logging.getLogger("WebSatellites")
-
-
-def _zone(name: Optional[str]):
-    try:
-        return pytz.timezone(name or "UTC")
-    except pytz.exceptions.UnknownTimeZoneError:
-        return pytz.utc
 
 
 def _local(iso: Optional[str], zone) -> str:
@@ -67,12 +58,14 @@ def _label(group: str) -> str:
     return info.label if info is not None else group
 
 
+def _hours_minutes(minutes: int) -> str:
+    return f"{minutes // 60} h {minutes % 60:02d} min"
+
+
 def _wait_text(seconds: float) -> str:
     """A short time to wait: "3 min", "2 h 05 min"."""
-    minutes = max(1, math.ceil(seconds / 60.0))
-    if minutes >= 60:
-        return f"{minutes // 60} h {minutes % 60:02d} min"
-    return f"{minutes} min"
+    minutes = wait_minutes(seconds)
+    return _hours_minutes(minutes) if minutes >= 60 else f"{minutes} min"
 
 
 def _age_text(hours: float) -> str:
@@ -135,16 +128,19 @@ def group_status(now: datetime.datetime, directory: Path = satellite_data_dir) -
 
 
 def catalog_summary(
-    now: datetime.datetime, groups: list, directory: Path = satellite_data_dir
+    groups: list,
+    tracked: list[satellites.TrackedSatellite],
+    directory: Path = satellite_data_dir,
 ) -> dict:
     """The state of the satellite catalog, as the device computes it.
 
-    ``groups`` is the result of ``group_status``. Returns the state ("ok",
-    "partial", "failed", "downloading", "empty" or "no_groups"), the text,
-    the number of satellites in the catalog and the selected group rows.
+    ``groups`` is the result of ``group_status``, ``tracked`` the result of
+    ``satellites.load_tracked``. Returns the state ("ok", "partial",
+    "failed", "downloading", "empty" or "no_groups"), the text, the number
+    of satellites in the catalog and the selected group rows.
     """
     selected = [row for row in groups if row["enabled"]]
-    count = len(satellites.load_all_elements(now, directory))
+    count = len(tracked)
     failed = [row["label"] for row in selected if row["state"] == "failed"]
     downloading = [row for row in selected if row["state"] == "downloading"]
     if count:
@@ -175,12 +171,23 @@ def catalog_summary(
     return {"state": state, "text": text, "count": count, "groups": selected}
 
 
-def user_satellites(
-    now: datetime.datetime, directory: Path = satellite_data_dir
+def own_rows(
+    kind: str,
+    now: datetime.datetime,
+    tracked: list[satellites.TrackedSatellite],
+    directory: Path = satellite_data_dir,
 ) -> list:
+    """The rows of the user sets of ``kind`` (see ``satellites.OWN_KINDS``).
+
+    ``tracked`` is the result of ``satellites.load_tracked``. A row is in use
+    when the catalog uses the set: it is enabled and no newer set of the
+    satellite exists.
+    """
     selection = satellites.load_selection(directory)
+    source = satellites.OWN_KINDS[kind][2]
+    in_use = {sat.norad_id for sat in tracked if sat.elements.source == source}
     rows = []
-    for element in satellites.load_user_elements(directory):
+    for element in satellites.load_own_elements(kind, directory):
         age = element.age_days(now)
         rows.append(
             {
@@ -191,35 +198,7 @@ def user_satellites(
                 "too_old": abs(age) > satellites.MAX_ELEMENT_AGE_DAYS,
                 "line1": element.line1,
                 "line2": element.line2,
-                "enabled": selection.user_enabled(element.norad_id),
-            }
-        )
-    rows.sort(key=lambda row: str(row["name"]))
-    return rows
-
-
-def corrected_satellites(
-    now: datetime.datetime, directory: Path = satellite_data_dir
-) -> list:
-    """The rows of the corrected sets. A row is in use when the catalog uses
-    the set: it is enabled and no newer set of the satellite exists."""
-    selection = satellites.load_selection(directory)
-    in_use = {
-        e.norad_id
-        for e in satellites.load_all_elements(now, directory)
-        if e.source == "corrected"
-    }
-    rows = []
-    for element in satellites.load_corrected_elements(directory):
-        age = element.age_days(now)
-        rows.append(
-            {
-                "norad_id": element.norad_id,
-                "name": element.name,
-                "epoch": element.epoch.strftime("%Y-%m-%d %H:%M"),
-                "age_days": age,
-                "too_old": abs(age) > satellites.MAX_ELEMENT_AGE_DAYS,
-                "enabled": selection.corrected_enabled(element.norad_id),
+                "enabled": selection.enabled(kind, element.norad_id),
                 "in_use": element.norad_id in in_use,
             }
         )
@@ -227,24 +206,11 @@ def corrected_satellites(
     return rows
 
 
-def _element_files(directory: Path) -> list[Path]:
-    """The files that decide the satellites and their passes."""
-    files = [
-        satellites.group_file(group, directory)
-        for group in satellites.selected_groups(directory)
-    ]
-    files.append(satellites.user_file(directory))
-    files.append(satellites.corrected_file(directory))
-    files.append(satellites.user_mag_file(directory))
-    files.append(satellites.selection_file(directory))
-    return files
-
-
 def _files_key(directory: Path) -> tuple:
     """The name, the time and the size of each file. A change of a file or
     of the selection changes this key."""
     key = []
-    for path in _element_files(directory):
+    for path in satellites.element_files(directory):
         try:
             stat = path.stat()
         except OSError:
@@ -274,12 +240,9 @@ def _good_for(
     inputs: PassInputs, now: datetime.datetime, location, files: tuple
 ) -> bool:
     """True when a computation with ``inputs`` is good for this request."""
-    age = abs((now - inputs.computed).total_seconds())
-    moved = (
-        abs(inputs.lat - location.lat) > PASS_TABLE_MOVE_DEG
-        or abs(inputs.lon - location.lon) > PASS_TABLE_MOVE_DEG
+    return inputs.files == files and not satellites.passes_stale(
+        inputs.computed, inputs.lat, inputs.lon, now, location
     )
-    return age <= PASS_TABLE_SECONDS and not moved and inputs.files == files
 
 
 @dataclass(frozen=True)
@@ -298,8 +261,8 @@ class PassTableResult:
             "state": "ready",
             "computed": self.computed.isoformat(),
             "timezone": self.timezone,
-            "min_alt": MIN_PASS_ALT_DEG,
-            "hours": PASS_HOURS,
+            "min_alt": satellites.MIN_PASS_ALT_DEG,
+            "hours": satellites.PASS_HOURS,
         }
 
 
@@ -315,7 +278,7 @@ def _rows_to_keep(
     passes" are the same as with the full result.
     """
     rows = sorted(rows, key=lambda row: row.item.rise)
-    end = computed + datetime.timedelta(seconds=PASS_TABLE_SECONDS)
+    end = computed + datetime.timedelta(seconds=satellites.PASS_GOOD_SECONDS)
     late = [row for row in rows if row.item.set >= end]
     if len(late) <= PASS_TABLE_ROWS:
         return tuple(rows)
@@ -328,26 +291,13 @@ def compute_pass_table(
 ) -> PassTableResult:
     """The passes of the selected satellites in the next PASS_HOURS."""
     files = _files_key(directory)
-    user_mags = satellites.load_user_mags(directory)
-    tracked = []
-    for element in satellites.load_all_elements(now, directory):
-        try:
-            tracked.append(
-                satellites.TrackedSatellite.from_elements(element, user_mags)
-            )
-        except ValueError:
-            continue
-    # A geostationary satellite has no passes. The sky table lists it.
-    tracked = [sat for sat in tracked if not sat.elements.geostationary]
-    topos = satellites.observer_topos(location.lat, location.lon, location.altitude)
-    start = now - datetime.timedelta(minutes=15)
-    found = satellites.find_passes_many(
-        tracked, topos, start, PASS_HOURS, MIN_PASS_ALT_DEG
+    found = satellites.predict_passes(
+        satellites.load_tracked(now, directory),
+        wgs84.latlon(location.lat, location.lon, location.altitude),
+        now,
     )
     rows = [
-        PassRow(sat.norad_id, sat.name, item)
-        for sat, items in zip(tracked, found)
-        for item in items
+        PassRow(sat.norad_id, sat.name, item) for sat, items in found for item in items
     ]
     return PassTableResult(
         inputs=PassInputs(now, location.lat, location.lon, files),
@@ -363,9 +313,9 @@ def _start_thread(target: Callable[[], None]) -> None:
 class PassTable:
     """The pass table of the web server, in the memory of its process.
 
-    A request gets the table when it is good: less than PASS_TABLE_SECONDS
+    A request gets the table when it is good: less than PASS_GOOD_SECONDS
     old, for the same element files and selection, and for a location less
-    than PASS_TABLE_MOVE_DEG away. Otherwise the request starts a
+    than PASS_MOVE_DEG away. Otherwise the request starts a
     computation in a background thread and gets the state "calculating".
     Only one computation runs at a time. A computation that fails gives the
     state "error" until the inputs change or the time limit ends.
@@ -469,7 +419,7 @@ def upcoming_passes(
     state, result = table.get(now, location)
     if result is None:
         return [], {"state": state}
-    zone = _zone(result.timezone)
+    zone = zone_for(result.timezone)
     rows = []
     for row in result.rows:
         item = row.item
@@ -518,12 +468,7 @@ def add_elements(
                 errors.append(f"CelesTrak: {exc}")
     name = name.strip()
     if name and len(found) == 1:
-        element = found[0]
-        found = [
-            satellites.SatElements(
-                name[:40], element.norad_id, element.line1, element.line2, "user"
-            )
-        ]
+        found = [dataclasses.replace(found[0], name=name[:40], source="user")]
     if found:
         satellites.save_user_elements(found, directory)
     if std_mag.strip() and found:
@@ -548,12 +493,8 @@ def set_enabled(
     """
     if kind == "group":
         satellites.set_group_enabled(name, enabled, directory)
-    elif kind == "user":
-        satellites.set_user_enabled(int(name), enabled, directory)
-    elif kind == "corrected":
-        satellites.set_corrected_enabled(int(name), enabled, directory)
     else:
-        raise ValueError(f"not a group or a satellite: {kind}")
+        satellites.set_enabled(kind, int(name), enabled, directory)
 
 
 def download_if_missing(
@@ -604,32 +545,22 @@ def _duration(seconds: Optional[float]) -> str:
     if seconds is None:
         return ""
     minutes, rest = divmod(int(seconds), 60)
-    if minutes >= 60:
-        return f"{minutes // 60} h {minutes % 60:02d} min"
-    return f"{minutes} min {rest:02d} s"
+    return _hours_minutes(minutes) if minutes >= 60 else f"{minutes} min {rest:02d} s"
 
 
 def sky_now(
     now: datetime.datetime,
     location,
-    directory: Path = satellite_data_dir,
+    tracked: list[satellites.TrackedSatellite],
 ) -> Optional[list]:
-    """The enabled satellites above the horizon, the highest first.
+    """The satellites of ``tracked`` above the horizon, the highest first.
 
-    Returns None when the PiFinder has no location.
+    ``tracked`` is the result of ``satellites.load_tracked``. Returns None
+    when the PiFinder has no location.
     """
-    if location is None or not getattr(location, "lock", False):
+    if not _has_location(location):
         return None
-    user_mags = satellites.load_user_mags(directory)
-    tracked = []
-    for element in satellites.load_all_elements(now, directory):
-        try:
-            tracked.append(
-                satellites.TrackedSatellite.from_elements(element, user_mags)
-            )
-        except ValueError:
-            continue
-    topos = satellites.observer_topos(location.lat, location.lon, location.altitude)
+    topos = wgs84.latlon(location.lat, location.lon, location.altitude)
     looks = satellites.look_many(tracked, topos, now)
     up = [(sat, look) for sat, look in zip(tracked, looks) if look.alt > 0]
     up.sort(key=lambda pair: -pair[1].alt)
@@ -660,15 +591,9 @@ def satellite_detail(
     days: float = 3.0,
     directory: Path = satellite_data_dir,
 ) -> Optional[dict]:
-    elements = {
-        e.norad_id: e
-        for e in satellites.load_all_elements(now, directory, include_disabled=True)
-    }.get(norad_id)
+    elements, enabled = satellites.find_elements(norad_id, now, directory)
     if elements is None:
         return None
-    enabled = any(
-        e.norad_id == norad_id for e in satellites.load_all_elements(now, directory)
-    )
     sat = satellites.TrackedSatellite.from_elements(
         elements, satellites.load_user_mags(directory)
     )
@@ -686,10 +611,10 @@ def satellite_detail(
         "now": None,
         "passes": [],
     }
-    if location is None or not getattr(location, "lock", False):
+    if not _has_location(location):
         return result
-    zone = _zone(location.timezone)
-    topos = satellites.observer_topos(location.lat, location.lon, location.altitude)
+    zone = zone_for(location.timezone)
+    topos = wgs84.latlon(location.lat, location.lon, location.altitude)
     look = satellites.look(sat, topos, now)
     result["now"] = {
         "alt": look.alt,

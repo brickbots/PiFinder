@@ -14,6 +14,21 @@
 {%- endif %}
 {%- endmacro %}
 
+{% macro enable_toggle(kind, id, enabled) -%}
+<form action="/satellites/enable" method="post" style="display:inline;">
+  <input type="hidden" name="kind" value="{{ kind }}">
+  <input type="hidden" name="id" value="{{ id }}">
+  <input type="hidden" name="enabled" value="{% if enabled %}0{% else %}1{% endif %}">
+  <label><input type="checkbox" class="filled-in" {% if enabled %}checked{% endif %} onchange="this.form.submit()"><span></span></label>
+</form>
+{%- endmacro %}
+
+{% macro delete_form(action) -%}
+<form action="{{ action }}" method="post" style="display:inline;">
+  <button type="submit" class="btn-flat grey-text" title="{{ _('Delete') }}"><i class="material-icons">delete</i></button>
+</form>
+{%- endmacro %}
+
 {% block content %}
 <style>
   .sat-state { font-weight: bold; }
@@ -105,8 +120,19 @@
       {% if show_all %}{{ _('All passes') }}{% else %}{{ _('Visible passes') }}{% endif %}
     </h5>
     {% if cache and cache['state'] == 'calculating' %}
-    <p class="grey-text" id="pass_state">{{ _('Calculating passes. The page loads again in a few seconds.') }}</p>
-    <script>setTimeout(function () { window.location.reload(); }, 5000);</script>
+    <p class="grey-text" id="pass_state">{{ _('Calculating passes. The page loads again when they are ready.') }}</p>
+    <script>
+      (function poll() {
+        setTimeout(function () {
+          fetch('/api/satellites/passes', { credentials: 'same-origin' })
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+              if (data.state === 'calculating') { poll(); } else { window.location.reload(); }
+            })
+            .catch(poll);
+        }, 3000);
+      })();
+    </script>
     {% elif cache and cache['state'] == 'error' %}
     <p class="grey-text" id="pass_state">{{ _('The pass calculation failed. See the log.') }}</p>
     {% elif cache %}
@@ -201,23 +227,12 @@
       <tbody>
         {% for s in user_satellites %}
         <tr>
-          <td>
-            <form action="/satellites/enable" method="post" style="display:inline;">
-              <input type="hidden" name="kind" value="user">
-              <input type="hidden" name="id" value="{{ s['norad_id'] }}">
-              <input type="hidden" name="enabled" value="{% if s['enabled'] %}0{% else %}1{% endif %}">
-              <label><input type="checkbox" class="filled-in" {% if s['enabled'] %}checked{% endif %} onchange="this.form.submit()"><span></span></label>
-            </form>
-          </td>
+          <td>{{ enable_toggle('user', s['norad_id'], s['enabled']) }}</td>
           <td><a href="/satellites/{{ s['norad_id'] }}">{{ s['name'] }}</a></td>
           <td>{{ s['norad_id'] }}</td>
           <td>{{ s['epoch'] }}</td>
           <td class="{% if s['too_old'] %}red-text{% endif %}">{{ '%.1f' | format(s['age_days']) }} d</td>
-          <td>
-            <form action="/satellites/delete/{{ s['norad_id'] }}" method="post" style="display:inline;">
-              <button type="submit" class="btn-flat grey-text" title="{{ _('Delete') }}"><i class="material-icons">delete</i></button>
-            </form>
-          </td>
+          <td>{{ delete_form('/satellites/delete/%d' % s['norad_id']) }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -240,23 +255,12 @@
       <tbody>
         {% for s in corrected_satellites %}
         <tr>
-          <td>
-            <form action="/satellites/enable" method="post" style="display:inline;">
-              <input type="hidden" name="kind" value="corrected">
-              <input type="hidden" name="id" value="{{ s['norad_id'] }}">
-              <input type="hidden" name="enabled" value="{% if s['enabled'] %}0{% else %}1{% endif %}">
-              <label><input type="checkbox" class="filled-in" {% if s['enabled'] %}checked{% endif %} onchange="this.form.submit()"><span></span></label>
-            </form>
-          </td>
+          <td>{{ enable_toggle('corrected', s['norad_id'], s['enabled']) }}</td>
           <td>{% if s['in_use'] %}<a href="/satellites/{{ s['norad_id'] }}">{{ s['name'] }}</a>{% else %}{{ s['name'] }} <span class="orange-text">({{ _('not in use') }})</span>{% endif %}</td>
           <td>{{ s['norad_id'] }}</td>
           <td>{{ s['epoch'] }}</td>
           <td class="{% if s['too_old'] %}red-text{% endif %}">{{ '%.1f' | format(s['age_days']) }} d</td>
-          <td>
-            <form action="/satellites/corrected/delete/{{ s['norad_id'] }}" method="post" style="display:inline;">
-              <button type="submit" class="btn-flat grey-text" title="{{ _('Delete') }}"><i class="material-icons">delete</i></button>
-            </form>
-          </td>
+          <td>{{ delete_form('/satellites/corrected/delete/%d' % s['norad_id']) }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -278,14 +282,7 @@
       <tbody>
       {% for g in groups %}
       <tr>
-        <td>
-            <form action="/satellites/enable" method="post" style="display:inline;">
-              <input type="hidden" name="kind" value="group">
-              <input type="hidden" name="id" value="{{ g['group'] }}">
-              <input type="hidden" name="enabled" value="{% if g['enabled'] %}0{% else %}1{% endif %}">
-              <label><input type="checkbox" class="filled-in" {% if g['enabled'] %}checked{% endif %} onchange="this.form.submit()"><span></span></label>
-            </form>
-        </td>
+        <td>{{ enable_toggle('group', g['group'], g['enabled']) }}</td>
         <td>
           {{ g['label'] }} <span class="grey-text text-darken-1">({{ g['group'] }})</span>
           {% if g['large'] %}<br><span class="orange-text large-group-note">{{ _('Large group: the pass prediction takes long on a Pi') }}</span>{% endif %}

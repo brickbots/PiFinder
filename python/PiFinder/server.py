@@ -20,7 +20,6 @@ from PiFinder.db.observations_db import (
 from PiFinder import web_observations
 from PiFinder import web_satellites
 from PiFinder import satellites as satellite_data
-from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 from PiFinder.equipment import (
     EYEPIECE_LIMITS,
     MOUNT_TYPES,
@@ -34,7 +33,7 @@ from PiFinder.keyboard_interface import KeyboardInterface
 from PiFinder.multiproclogging import MultiprocLogging
 
 from flask import Flask, request, jsonify, send_file, redirect, session, make_response
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from flask_babel import Babel, gettext  # type: ignore[import-untyped]
 from werkzeug.routing import IntegerConverter
 from waitress import serve as waitress_serve
@@ -1199,12 +1198,19 @@ class Server:
             return _now_utc_source()[0]
 
         def _satellites_redirect(message="", error=""):
-            query = []
-            if message:
-                query.append("msg=" + quote(message))
-            if error:
-                query.append("err=" + quote(error))
-            return redirect("/satellites" + ("?" + "&".join(query) if query else ""))
+            query = urlencode(
+                [
+                    (key, text)
+                    for key, text in (("msg", message), ("err", error))
+                    if text
+                ]
+            )
+            return redirect("/satellites" + ("?" + query if query else ""))
+
+        def _not_found(name):
+            return _satellites_redirect(
+                error=_("Not found: {norad}").format(norad=name)
+            )
 
         @app.route("/satellites")
         @auth_required
@@ -1219,6 +1225,7 @@ class Server:
                 now, location, visible_only=not show_all, max_mag=max_mag
             )
             groups = web_satellites.group_status(now)
+            tracked = satellite_data.load_tracked(now)
             return app.jinja_env.get_template("satellites.html").render(
                 title=_("Satellites"),
                 passes=passes,
@@ -1226,10 +1233,10 @@ class Server:
                 show_all=show_all,
                 max_mag=max_mag,
                 groups=groups,
-                catalog=web_satellites.catalog_summary(now, groups),
-                user_satellites=web_satellites.user_satellites(now),
-                corrected_satellites=web_satellites.corrected_satellites(now),
-                sky_now=web_satellites.sky_now(now, location),
+                catalog=web_satellites.catalog_summary(groups, tracked),
+                user_satellites=web_satellites.own_rows("user", now, tracked),
+                corrected_satellites=web_satellites.own_rows("corrected", now, tracked),
+                sky_now=web_satellites.sky_now(now, location, tracked),
                 time_from_gps=time_from_gps,
                 now_utc=now.strftime("%Y-%m-%d %H:%M"),
                 status_message=request.args.get("msg", ""),
@@ -1266,23 +1273,21 @@ class Server:
                 errors = [_("Paste element sets or give a NORAD number")]
             return _satellites_redirect(message, "; ".join(errors[:10]))
 
-        @app.route("/satellites/delete/<int:norad_id>", methods=["POST"])
+        @app.route(
+            "/satellites/delete/<int:norad_id>",
+            methods=["POST"],
+            defaults={"kind": "user"},
+        )
+        @app.route(
+            "/satellites/corrected/delete/<int:norad_id>",
+            methods=["POST"],
+            defaults={"kind": "corrected"},
+        )
         @auth_required
-        def satellites_delete(norad_id):
-            if satellite_data.delete_user_element(norad_id):
+        def satellites_delete(norad_id, kind):
+            if satellite_data.delete_element(kind, norad_id):
                 return _satellites_redirect(_("Deleted {norad}").format(norad=norad_id))
-            return _satellites_redirect(
-                error=_("Not found: {norad}").format(norad=norad_id)
-            )
-
-        @app.route("/satellites/corrected/delete/<int:norad_id>", methods=["POST"])
-        @auth_required
-        def satellites_corrected_delete(norad_id):
-            if satellite_data.delete_corrected_element(norad_id):
-                return _satellites_redirect(_("Deleted {norad}").format(norad=norad_id))
-            return _satellites_redirect(
-                error=_("Not found: {norad}").format(norad=norad_id)
-            )
+            return _not_found(norad_id)
 
         @app.route("/satellites/refresh", methods=["POST"])
         @auth_required
@@ -1292,9 +1297,7 @@ class Server:
             groups = None
             if group:
                 if group not in satellite_data.CELESTRAK_GROUPS:
-                    return _satellites_redirect(
-                        error=_("Not found: {norad}").format(norad=group)
-                    )
+                    return _not_found(group)
                 if not satellite_data.load_selection().group_enabled(group):
                     return _satellites_redirect(
                         error=_("Select {name} first").format(name=group)
@@ -1320,9 +1323,7 @@ class Server:
             try:
                 web_satellites.set_enabled(kind, name, enabled)
             except ValueError:
-                return _satellites_redirect(
-                    error=_("Not found: {norad}").format(norad=name)
-                )
+                return _not_found(name)
             if not enabled:
                 return _satellites_redirect(_("Disabled {name}").format(name=name))
             message = _("Enabled {name}").format(name=name)
@@ -1346,28 +1347,13 @@ class Server:
                 norad_id, now, self.shared_state.location(), days=0.0
             )
             if detail is None or not detail["enabled"]:
-                return _satellites_redirect(
-                    error=_("Not found: {norad}").format(norad=norad_id)
-                )
+                return _not_found(norad_id)
             ra, dec = (
-                (detail["now"]["ra"], detail["now"]["dec"]) if detail["now"] else (0, 0)
+                (detail["now"]["ra"], detail["now"]["dec"])
+                if detail["now"]
+                else (0.0, 0.0)
             )
-            obj = CompositeObject.from_dict(
-                {
-                    "id": -1,
-                    "object_id": sys.maxsize - norad_id,
-                    "obj_type": "Sat",
-                    "ra": ra,
-                    "dec": dec,
-                    "const": "",
-                    "size": SizeObject([]),
-                    "mag": MagnitudeObject([]),
-                    "catalog_code": "SA",
-                    "sequence": norad_id,
-                    "names": [detail["name"]],
-                    "description": "",
-                }
-            )
+            obj = satellite_data.make_object(norad_id, detail["name"], ra, dec)
             self.shared_state.ui_state().add_recent(obj)
             self.shared_state.ui_state().set_new_pushto(True)
             self.ui_queue.put("push_object")
@@ -1381,9 +1367,7 @@ class Server:
                 norad_id, now, self.shared_state.location()
             )
             if detail is None:
-                return _satellites_redirect(
-                    error=_("Not found: {norad}").format(norad=norad_id)
-                )
+                return _not_found(norad_id)
             return app.jinja_env.get_template("satellite.html").render(
                 title=detail["name"],
                 sat=detail,
