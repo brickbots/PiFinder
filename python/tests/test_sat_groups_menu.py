@@ -138,6 +138,33 @@ def test_menu_reads_the_selection_again_when_it_becomes_active(display, sat_dir)
 
 
 @pytest.mark.unit
+def test_open_menu_follows_a_change_on_the_web_page(display, sat_dir):
+    menu = _group_menu(display)
+    assert "visual" in menu._selected_values
+    # The web page disables the group while the menu is on the screen.
+    satellites.set_group_enabled("visual", False, sat_dir)
+    menu.update()
+    assert "visual" not in menu._selected_values
+    satellites.set_group_enabled("visual", True, sat_dir)
+    menu.update()
+    assert "visual" in menu._selected_values
+
+
+@pytest.mark.unit
+def test_toggle_uses_the_stored_state(display, sat_dir):
+    path = satellites.group_file("visual", sat_dir)
+    path.parent.mkdir(parents=True)
+    path.write_text("")
+    menu = _group_menu(display)
+    _move_to(menu, "visual")
+    # The web page disables the group, and no frame is drawn before the key.
+    satellites.set_group_enabled("visual", False, sat_dir)
+    menu.key_right()
+    assert "visual" in satellites.selected_groups(sat_dir)
+    assert "visual" in menu._selected_values
+
+
+@pytest.mark.unit
 def test_toggle_stores_the_selection(display, sat_dir):
     path = satellites.group_file("visual", sat_dir)
     path.parent.mkdir(parents=True)
