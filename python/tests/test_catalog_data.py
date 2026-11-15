@@ -21,10 +21,10 @@ def test_object_counts():
         "Ta2": 200,
         "H": 400,
         "SaA": 114,
-        "SaM": 2162,
+        "SaM": 2157,
         "SaR": 333,
         "Str": 78,
-        "EGC": 91,
+        "EGC": 102,
         "RDS": 110,
         "B": 343,
         "Sh2": 313,
@@ -34,11 +34,12 @@ def test_object_counts():
         "Har": 147,
         "Lyn": 1151,
         "PK": 1510,
+        "Nam": 578,
     }
 
     # catalog count
     num_catalogs = len(list(db.get_catalogs()))
-    assert num_catalogs == 22
+    assert num_catalogs == 23
     actual_catalogs = [row["catalog_code"] for row in db.get_catalogs()]
     expected_catalogs = list(catalog_counts.keys())
     missing_catalogs = set(expected_catalogs) - set(actual_catalogs)
@@ -302,8 +303,9 @@ def check_ic_objects():
             "name": "Heart Nebula",
             "ra": 38.200,  # RA = 02h 32m 48s
             "dec": 61.450,  # Dec = +61° 27' 00"
-            # "obj_type": "Nb", # Emission nebula
-            "obj_type": "OC",  # Open cluster at the heart of the nebula
+            # The import merges IC 1805 with Sh2 190 (the nebula) and Lyn 77
+            # (the cluster) into one object: a cluster with nebulosity.
+            "obj_type": "C+N",
             "const": "Cas",  # Cassiopeia
         },
         {
