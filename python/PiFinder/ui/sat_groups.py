@@ -75,6 +75,21 @@ def reason_text(error: str) -> str:
     return _("Download failed")
 
 
+def wait_message(seconds: float) -> str:
+    """The short wait text of the device: "Wait 4 min", "Wait 1h45".
+
+    The text fits a line of the 128 px screen.
+    """
+    minutes = max(1, math.ceil(seconds / 60.0))
+    if minutes < 60:
+        # TRANSLATORS: A catalog download was done a short time ago
+        return _("Wait {minutes} min").format(minutes=minutes)
+    # TRANSLATORS: A wait of hours and minutes, for example "Wait 1h45"
+    return _("Wait {hours}h{minutes:02d}").format(
+        hours=minutes // 60, minutes=minutes % 60
+    )
+
+
 def result_message(result: Any) -> str:
     """The text for the result of ``satellites.refresh_groups``."""
     status = getattr(result, "status", None)
@@ -83,8 +98,7 @@ def result_message(result: Any) -> str:
     if status == "current":
         return _("Up to date")
     if status == "too_soon":
-        minutes = max(1, math.ceil(result.wait_seconds / 60.0))
-        return _("Wait {minutes} min").format(minutes=minutes)
+        return wait_message(result.wait_seconds)
     if status == "busy":
         return _("Download busy")
     return _("Download failed")

@@ -580,9 +580,9 @@ def refresh_message(result: satellites.GroupRefresh) -> tuple[str, str]:
         reason = result.error_of(group) or "download failed"
         errors.append(f"{_label(group)}: {reason}.")
     for group, seconds in result.refused:
-        minutes = math.ceil(seconds / 60.0)
         errors.append(
-            f"{_label(group)}: the last download is too recent. Wait {minutes} min."
+            f"{_label(group)}: the last download is too recent. "
+            f"Wait {_wait_text(seconds)}."
         )
     message = ""
     if result.downloaded:

@@ -56,7 +56,7 @@
       {% endif %}
     </p>
     {% elif sat['passes'] %}
-    <table class="grey-text responsive-table" id="satellite_pass_table">
+    <div style="overflow-x:auto;"><table class="grey-text" id="satellite_pass_table">
       <thead>
         <tr>
           <th>{{ _('Rise') }}</th><th>{{ _('Highest') }}</th><th>{{ _('Set') }}</th>
@@ -74,7 +74,7 @@
         </tr>
         {% endfor %}
       </tbody>
-    </table>
+    </table></div>
     {% else %}
     <p class="grey-text">{{ _('No passes above 10° in the next 3 days.') }}</p>
     {% endif %}
