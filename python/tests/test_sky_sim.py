@@ -10,6 +10,7 @@ from PiFinder import calc_utils
 from PiFinder.polar_alignment import axis_to_altaz_error
 from PiFinder.indi_client import IndiProperty
 from PiFinder.sky_sim import SkySimSettings, SkySimulator
+from PiFinder.state import Location
 from PiFinder.types.positioning import FailedSolve, SuccessfulSolve
 
 pytestmark = pytest.mark.unit
@@ -55,14 +56,30 @@ class FakeClient:
         for callback in self.listeners:
             callback("set", DEVICE, "EQUATORIAL_EOD_COORD", self.position)
 
+    def locate(self, lon):
+        """The driver reports a new longitude (degrees East, 0..360)."""
+        prop = IndiProperty(
+            DEVICE,
+            "GEOGRAPHIC_COORD",
+            "number",
+            state="Ok",
+            elements={"LAT": 50.85, "LONG": lon, "ELEV": 60.0},
+        )
+        for callback in self.listeners:
+            callback("set", DEVICE, "GEOGRAPHIC_COORD", prop)
 
-def _sim(**settings):
+
+def _sim(location=None, **settings):
     values = dict(offset_ra_deg=1.5, offset_dec_deg=-0.8, noise_arcsec=0.0, seed=1)
     values.update(settings)
     clock = [1000.0]
     client = FakeClient()
     sim = SkySimulator(
-        SkySimSettings(**values), lambda: NOW, client=client, clock=lambda: clock[0]
+        SkySimSettings(**values),
+        lambda: NOW,
+        client=client,
+        clock=lambda: clock[0],
+        location=location,
     )
     return sim, client, clock
 
@@ -103,6 +120,27 @@ def test_a_sync_is_tracked_and_a_slew_is_not():
     client.move(3.0, 22.0)
     client.move(3.0, 22.0)
     assert (sim.sync_ra, sim.sync_dec) == pytest.approx((1.5, -0.8))
+
+
+def test_a_new_location_of_the_mount_is_not_a_sync():
+    """The mount gets the true longitude -4.35. Its reported RA moves by the
+    change of longitude; the telescope does not move."""
+    true_location = Location(lat=50.85, lon=-4.35, lock=True)
+    sim, client, clock = _sim(location=lambda: true_location)
+    client.move(2.0, 20.0)
+    client.move(2.0, 20.0)
+    # With longitude 0 the mount reports 4.35° too much RA.
+    before = sim.next_message()
+    assert _jnow(before) == pytest.approx((30.0 - 4.35 + 1.5, 19.2), abs=1e-6)
+    client.locate(355.65)
+    client.move(2.0 - 4.35 / 15.0, 20.0)
+    assert sim.sync_jumps == []
+    clock[0] += 1.0
+    after = sim.next_message()
+    assert _jnow(after) == pytest.approx(_jnow(before), abs=1e-6)
+    # A sync after the location still counts.
+    client.move(2.1 - 4.35 / 15.0, 19.2)
+    assert sim.sync_jumps == [pytest.approx((1.5, -0.8))]
 
 
 def test_startup_positions_are_not_a_sync():

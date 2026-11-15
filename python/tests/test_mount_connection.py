@@ -1,6 +1,7 @@
 """USB and WiFi mount connections: the driver properties that PiFinder sets,
 the settings and presets, and the Mount web form."""
 
+import datetime
 import json
 import time
 from pathlib import Path
@@ -53,10 +54,14 @@ class FakeClient:
 
 
 def _mount(client, connection, address="", port="/dev/ttyACM0", baud=115200):
+    shared_state = Mock(spec=SharedStateObj)
+    # No location and no time yet.
+    shared_state.location.return_value = None
+    shared_state.datetime.return_value = None
     mount = MountControlIndi(
         Queue(),
         Queue(),
-        Mock(spec=SharedStateObj),
+        shared_state,
         None,
         MountSettings(True, "SAL-33", connection, port, baud, address),
     )
@@ -391,6 +396,41 @@ def test_location_waits_while_the_mount_slews():
     mount.current_time = 0.0
     mount.periodic_mount_task()
     mount.sync_mount_location_and_time.assert_called_once()
+
+
+def test_no_new_site_during_a_follow():
+    """A new location during a follow would move the reported RA under the
+    pointing offset of the follow. It waits until the follow ends."""
+    mount = _mount(FakeClient({}), "usb")
+    mount.sync_mount_location_and_time = Mock()
+    mount._follow = Mock()
+    mount.update_site()
+    mount.last_periodic_update = 0.0
+    mount.periodic_mount_task()
+    mount.sync_mount_location_and_time.assert_not_called()
+    mount._follow = None
+    mount.update_site()
+    mount.sync_mount_location_and_time.assert_called_once()
+
+
+def test_time_is_sent_again_when_the_pifinder_clock_changes():
+    """A GPS fix corrects the clock of PiFinder: the mount gets the new
+    time, and the base class hears of the frame change."""
+    client = FakeClient({"TIME_UTC": {"UTC": "", "OFFSET": ""}})
+    mount = _mount(client, "usb")
+    offset = [0.0]
+    mount.shared_state.datetime.side_effect = lambda: datetime.datetime.now(
+        datetime.timezone.utc
+    ) + datetime.timedelta(seconds=offset[0])
+    mount.mount_site_changed = Mock()
+    assert mount.sync_mount_location_and_time()
+    assert not mount.sync_mount_location_and_time()
+    assert len(client.sent) == 1
+    offset[0] = 60.0
+    assert mount.sync_mount_location_and_time()
+    assert len(client.sent) == 2
+    shift = mount.mount_site_changed.call_args.args[0]
+    assert shift == pytest.approx(60.0 * 360.98564736629 / 86400.0, rel=0.01)
 
 
 MOTION_DRIVER = {
