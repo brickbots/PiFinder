@@ -301,6 +301,10 @@ class Catalog(CatalogBase):
         the catalog calls this on each update. A dynamic catalog does its
         work only while it is in use. This catalog does nothing."""
 
+    def prepare_search(self) -> None:
+        """Make the objects ready for a name search. A dynamic catalog that
+        has no objects yet builds them. This catalog does nothing."""
+
     def is_selected(self):
         """
         Convenience function to see if this catalog is in the
@@ -710,6 +714,7 @@ class Catalogs:
             return ObjectSequence()
         parts = []
         for catalog in self.__catalogs:
+            catalog.prepare_search()
             if isinstance(catalog, ArrayCatalog):
                 parts.append(catalog.search(field, pattern))
             else:

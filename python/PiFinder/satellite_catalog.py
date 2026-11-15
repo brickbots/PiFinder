@@ -430,6 +430,18 @@ class SatelliteCatalog(Catalog):
             self._topos_cache = cache
         return cache[1]
 
+    def prepare_search(self) -> None:
+        """A name search uses the catalog: a catalog that nobody used since
+        the start has no objects yet, so it builds them now. The search runs
+        in a background thread."""
+        self.touch()
+        if self.initialized:
+            return
+        try:
+            self.do_timed_task()
+        except Exception:  # the other catalogs must still give results
+            logger.exception("Satellite catalog build for a search failed")
+
     def tracked(self, norad_id: int) -> Optional[satellites.TrackedSatellite]:
         """The satellite with its element set. A mount follow uses it.
 
