@@ -819,8 +819,8 @@ def main(
         _new_filter.load_from_config(cfg)
         catalogs.set_catalog_filter(_new_filter)
 
-        # The result of a satellite download that the user asked for in the
-        # object list shows on any screen.
+        # The result of a satellite download that the user asked for with
+        # "Update now" in the Sat groups menu shows on any screen.
         satellite_catalog = catalogs.get_catalog_by_code("SA")
         if isinstance(satellite_catalog, SatelliteCatalog):
             satellite_catalog.on_refresh_done = sat_groups.downloads.post_result

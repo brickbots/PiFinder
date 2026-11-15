@@ -45,7 +45,7 @@ from PiFinder.catalog_base import (
     CatalogStatus,
     VirtualIDManager,
 )
-from PiFinder.catalogs import Catalog
+from PiFinder.catalogs import Catalog, ObjectLabel
 from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 from PiFinder.state import SharedStateObj
 from PiFinder.utils import Timer, satellite_data_dir
@@ -372,6 +372,24 @@ class SatelliteCatalog(Catalog):
     def get_data_label(self) -> Optional[str]:
         return None
 
+    # -- labels ---------------------------------------------------------------
+
+    def label_options(self) -> list[ObjectLabel]:
+        """The left column of the satellite list: the name (the default),
+        the NORAD number or the COSPAR id."""
+        return [
+            ObjectLabel("name", "Name", name_label),
+            ObjectLabel("norad", "NORAD", norad_label),
+            ObjectLabel("cospar", "COSPAR", self.cospar_label),
+        ]
+
+    def cospar_label(self, obj: CompositeObject) -> str:
+        """The COSPAR id of a satellite object, for example "1998-067A".
+        A satellite without one gives its NORAD number."""
+        sat = self._tracked.get(obj.sequence)
+        cospar = sat.elements.cospar_id if sat is not None else ""
+        return cospar or norad_label(obj)
+
     def get_status(self) -> CatalogStatus:
         """The state of the catalog.
 
@@ -509,7 +527,11 @@ class SatelliteCatalog(Catalog):
         else:
             lines.append("Passes: calculating")
         age = sat.elements.age_days(now.time)
-        lines.append(f"NORAD {sat.norad_id}, TLE {age:.1f} d old")
+        lines.append(f"NORAD {sat.norad_id}")
+        cospar = sat.elements.cospar_id
+        if cospar:
+            lines.append(f"COSPAR {cospar}")
+        lines.append(f"TLE {age:.1f} d old")
         if sat.elements.source == "user":
             lines.append("Source: web entry")
         return "\n".join(lines)
@@ -729,6 +751,16 @@ class SatelliteCatalog(Catalog):
                 self.invalidate_filter_cache()
                 if self.catalog_filter is not None:
                     self.catalog_filter.mark_catalog_content_dirty()
+
+
+def name_label(obj: CompositeObject) -> str:
+    """The name of a satellite object, for example "ISS (ZARYA)"."""
+    return obj.names[0] if obj.names else norad_label(obj)
+
+
+def norad_label(obj: CompositeObject) -> str:
+    """The NORAD number of a satellite object, for example "25544"."""
+    return str(obj.sequence)
 
 
 def _constellations(looks: list[satellites.SatLook]) -> list[Optional[str]]:

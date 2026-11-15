@@ -131,6 +131,22 @@ class ElementParseError(ValueError):
     """The text holds no element set that can be used."""
 
 
+# The launch year, the launch number of that year and the piece code.
+_COSPAR_FIELD = re.compile(r"^(\d{2})(\d{3})([A-Z]{1,3})$")
+
+
+def cospar_from_tle_field(field: str) -> str:
+    """The international designator of a TLE field: "98067A" gives
+    "1998-067A". Years 57-99 are 19xx and years 00-56 are 20xx. A field
+    that is empty or has another form gives ""."""
+    match = _COSPAR_FIELD.match(field.strip())
+    if match is None:
+        return ""
+    year, number, piece = match.groups()
+    century = "19" if int(year) >= 57 else "20"
+    return f"{century}{year}-{number}{piece}"
+
+
 @dataclass(frozen=True)
 class SatElements:
     """One element set, normalized to TLE lines."""
@@ -154,6 +170,15 @@ class SatElements:
 
     def to_tle(self) -> str:
         return f"{self.name}\n{self.line1}\n{self.line2}\n"
+
+    @property
+    def cospar_id(self) -> str:
+        """The international designator, for example "1998-067A".
+
+        TLE line 1 holds it in columns 10-17 as "98067A". Years 57-99 are
+        19xx and years 00-56 are 20xx. An empty or bad field gives "".
+        """
+        return cospar_from_tle_field(self.line1[9:17])
 
     @property
     def revs_per_day(self) -> float:

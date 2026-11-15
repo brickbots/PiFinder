@@ -148,7 +148,10 @@ By Catalog
       groups.  Sat groups selects the CelesTrak groups, as the satellites web
       page does.  A group with a "*" is large, and its passes are slow to
       calculate.  When you select a group that has no file, the PiFinder
-      downloads it.
+      downloads it.  "Update now", the first item of Sat groups, downloads
+      the selected groups again.  A group can download once in 2 hours.  In
+      the satellite list, hold SQUARE and choose ID to show the name, the
+      NORAD number or the COSPAR id in the left column.
 Recent
    The objects you've viewed this session, most recent first.  It starts empty
    each session.

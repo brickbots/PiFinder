@@ -8,6 +8,9 @@ messages one at a time, on any screen. The menu shows them too.
 A selected group whose last download failed has a "!" mark. A select of
 such a group shows the reason.
 
+"Update now", the first item of the menu, downloads the selected groups
+again. A group downloads at most once in MIN_FORCED_DOWNLOAD_SECONDS (2 h).
+
 ``PiFinder.satellites`` imports Skyfield and SGP4. This module loads it only
 when a callback runs, so the menu structure stays light at import time.
 """
@@ -33,6 +36,7 @@ if TYPE_CHECKING:
 
 
 satellites = lazy_module("PiFinder.satellites")
+satellite_catalog = lazy_module("PiFinder.satellite_catalog")
 
 logger = logging.getLogger("UI.SatGroups")
 
@@ -211,6 +215,37 @@ def selected_groups(ui_module: UIModule) -> list[str]:
     if key != _selection_cache[0]:
         _selection_cache = (key, list(satellites.selected_groups(directory)))
     return list(_selection_cache[1])
+
+
+def update_now(ui_module: UIModule) -> None:
+    """The callback of "Update now": a forced download of the selected groups.
+
+    The messages go to the queue. A download that is too soon after the
+    last one gives the wait. The satellite catalog downloads in its thread
+    and posts the result. Without a catalog, each group downloads in the
+    thread of ``downloads``.
+    """
+    directory = utils.satellite_data_dir
+    groups = satellites.selected_groups(directory)
+    if not groups:
+        downloads.post(_("No groups") + "\n" + _("selected"))
+        return
+    now = datetime.now(timezone.utc)
+    waits = satellites.forced_download_wait(now, directory, groups)
+    wait = min(waits.values(), default=0.0)
+    if wait > 0:
+        downloads.post(wait_message(wait))
+        return
+    # TRANSLATORS: A download of the satellite groups starts
+    downloads.post(_("Updating..."))
+    catalog = satellite_catalog.active_catalog()
+    if catalog is None:
+        for group in groups:
+            downloads.request(group, directory)
+        return
+    wait_seconds = catalog.refresh()
+    if wait_seconds:
+        downloads.post(wait_message(wait_seconds))
 
 
 def toggle_group(ui_module: UIModule, group: str, selected: bool) -> None:

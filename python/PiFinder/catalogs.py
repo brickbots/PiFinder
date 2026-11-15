@@ -4,8 +4,9 @@ import time
 import datetime
 import threading
 from collections import OrderedDict
+from dataclasses import dataclass
 from pprint import pformat
-from typing import List, Dict, Optional, Union
+from typing import Callable, List, Dict, Optional, Union
 
 import numpy as np
 
@@ -57,6 +58,20 @@ NAME_MODE_CATALOGS = frozenset(
 def default_display_mode_for(catalog_code: str) -> str:
     """The DisplayModes member name a list of this catalog opens in."""
     return "NAME" if catalog_code in NAME_MODE_CATALOGS else "LOCATE"
+
+
+@dataclass(frozen=True)
+class ObjectLabel:
+    """One text that the left column of an object list can show.
+
+    ``key`` is stored in the config. ``menu_name`` is the English text of the
+    marking menu slot; the UI translates it. ``text`` gives the text of one
+    object.
+    """
+
+    key: str
+    menu_name: str
+    text: Callable[[CompositeObject], str]
 
 
 # collection of all catalog-related classes
@@ -331,6 +346,12 @@ class Catalog(CatalogBase):
     def default_display_mode(self) -> str:
         """The DisplayModes member name this catalog's object list opens in."""
         return default_display_mode_for(self.catalog_code)
+
+    def label_options(self) -> List[ObjectLabel]:
+        """The labels that the object list of this catalog can show in its
+        left column. The first label is the default. An empty list means one
+        label: the designation of the object."""
+        return []
 
     def has(self, sequence: int, filtered=True):
         return sequence in self.filtered_objects_seq
