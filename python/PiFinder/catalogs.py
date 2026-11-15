@@ -47,9 +47,10 @@ logger = logging.getLogger("Catalog")
 # open in NAME mode: their sequence is only a position in the list, and an
 # observer knows the object by its name (Algol, RX Peg, Winter Triangle). All
 # other catalogs open in LOCATE mode. The registry is in code, not in
-# objects.db, because planets and comets are built at run time.
+# objects.db, because planets, comets and satellites are built at run time.
+# A satellite ("SA") goes by its name (ISS, HST), not by its sequence.
 NAME_MODE_CATALOGS = frozenset(
-    {"PL", "CM", "Str", "Nam", "SaA", "SaR", "TLK", "SaM", "RDS", "WDS"}
+    {"PL", "CM", "SA", "Str", "Nam", "SaA", "SaR", "TLK", "SaM", "RDS", "WDS"}
 )
 
 

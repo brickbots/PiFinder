@@ -18,9 +18,10 @@ from PiFinder.catalogs import (
 )
 from PiFinder.comet_catalog import CometCatalog
 from PiFinder.composite_object import CompositeObject
+from PiFinder.satellite_catalog import SatelliteCatalog
 from PiFinder.ui.object_list import DisplayModes, UIObjectList, _name_group
 
-NAME_MODE = ["PL", "CM", "Str", "Nam", "SaA", "SaR", "TLK", "SaM", "RDS", "WDS"]
+NAME_MODE = ["PL", "CM", "SA", "Str", "Nam", "SaA", "SaR", "TLK", "SaM", "RDS", "WDS"]
 LOCATE_MODE = [
     "M",
     "NGC",
@@ -84,6 +85,7 @@ def test_dynamic_catalogs_inherit_the_default():
     # registry as every other Catalog.
     assert PlanetCatalog.default_display_mode is Catalog.default_display_mode
     assert CometCatalog.default_display_mode is Catalog.default_display_mode
+    assert SatelliteCatalog.default_display_mode is Catalog.default_display_mode
 
 
 @pytest.mark.unit
@@ -98,6 +100,17 @@ def test_names_catalog_opens_in_name_mode(catalog_code, catalogs):
 def test_deep_sky_catalog_opens_in_locate_mode(catalog_code, catalogs):
     module = _object_list({"objects": "catalog", "value": catalog_code}, catalogs)
     assert module.current_mode is DisplayModes.LOCATE
+
+
+@pytest.mark.unit
+def test_satellite_list_opens_in_name_mode():
+    # The menu item of Satellites... > Satellites. The satellite catalog is
+    # built at run time; before and after, its list opens in NAME mode.
+    item = {"objects": "catalog", "value": "SA"}
+    before = _object_list(item, Catalogs([]))
+    assert before.current_mode is DisplayModes.NAME
+    after = _object_list(item, Catalogs([Catalog("SA", "Satellites")]))
+    assert after.current_mode is DisplayModes.NAME
 
 
 @pytest.mark.unit
