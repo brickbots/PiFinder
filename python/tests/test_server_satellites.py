@@ -4,9 +4,10 @@ import datetime
 import inspect
 import io
 import os
+import re
 import time
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 import pytest
 
@@ -271,7 +272,7 @@ def test_update_route_downloads_one_group(web, monkeypatch):
     make_old(directory / "stations.tle")
 
     response = client.post("/satellites/refresh", data={"group": "visual"})
-    assert redirect_query(response)["msg"] == ["Downloaded: visual"]
+    assert redirect_query(response)["msg"] == ["Downloaded: Brightest."]
     assert downloads.groups == ["visual"]
 
     response = client.post("/satellites/refresh", data={"group": "visual"})
@@ -280,8 +281,8 @@ def test_update_route_downloads_one_group(web, monkeypatch):
 
     response = client.post("/satellites/refresh")
     query = redirect_query(response)
-    assert query["msg"] == ["Downloaded: stations"]
-    assert "visual" in query["err"][0] and "Wait 5 min" in query["err"][0]
+    assert query["msg"] == ["Downloaded: Space stations."]
+    assert "Brightest" in query["err"][0] and "Wait 5 min" in query["err"][0]
     assert downloads.groups == ["visual", "stations"]
 
     response = client.post("/satellites/refresh", data={"group": "amateur"})
@@ -300,7 +301,7 @@ def test_selecting_a_group_without_a_file_downloads_it(web, monkeypatch):
         "/satellites/enable", data={"kind": "group", "id": "amateur", "enabled": "1"}
     )
     query = redirect_query(response)
-    assert "Downloaded: amateur" in query["msg"][0]
+    assert "Downloaded: Amateur radio." in query["msg"][0]
     assert "err" not in query
     assert downloads.groups == ["amateur"]
     assert satellites.selected_groups(directory) == ("visual", "stations", "amateur")
@@ -352,3 +353,93 @@ def test_geostationary_page_says_always_up(web):
     assert 'id="satellite_geostationary"' in page
     assert "Always up: alt" in page
     assert 'id="satellite_pass_table"' not in page
+
+
+def status_rows(page: str) -> dict:
+    """The state of each row of the status card, by group."""
+    found = re.findall(
+        r'class="sat-status-row" data-group="([^"]+)" data-state="([^"]+)"', page
+    )
+    return dict(found)
+
+
+@pytest.mark.unit
+def test_status_card_shows_each_selected_group(web, monkeypatch):
+    client, _shared_state, directory = web
+    satellites.set_group_enabled("last-30-days", True, directory)
+    satellites.set_group_enabled("amateur", True, directory)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    failed = satellites.DownloadResult(
+        False, None, None, "404", "http", 404, "No GP data found"
+    )
+    satellites.record_download_start("last-30-days", now, directory)
+    satellites.record_download_end("last-30-days", now, failed, directory)
+    satellites.record_download_start("amateur", now, directory)
+
+    page = client.get("/satellites").get_data(as_text=True)
+    assert 'id="satellite_status"' in page
+    assert status_rows(page) == {
+        "visual": "ok",
+        "stations": "ok",
+        "last-30-days": "failed",
+        "amateur": "downloading",
+    }
+    assert "Failed: CelesTrak has no data" in page
+    assert "Next try in 5 min" in page
+    assert "Downloading" in page
+    assert 'data-state="downloading"' in page
+    assert "Time: GPS" in page
+
+
+@pytest.mark.unit
+def test_status_card_says_why_there_are_no_satellites(web, monkeypatch):
+    client, _shared_state, directory = web
+    satellites.set_group_enabled("visual", False, directory)
+    satellites.set_group_enabled("stations", False, directory)
+    page = client.get("/satellites").get_data(as_text=True)
+    assert 'data-state="no_groups"' in page
+    assert "No group is selected." in page
+
+    satellites.set_group_enabled("last-30-days", True, directory)
+    page = client.get("/satellites").get_data(as_text=True)
+    assert "No satellites yet" in page
+    assert status_rows(page) == {"last-30-days": "none"}
+
+    monkeypatch.setattr(
+        satellites,
+        "download_group",
+        lambda group, directory=None, progress_callback=None: (
+            satellites.DownloadResult(
+                False, None, None, "404", "http", 404, "No GP data found"
+            )
+        ),
+    )
+    response = client.post("/satellites/refresh")
+    query = redirect_query(response)
+    assert query["err"] == ["Launched in the last 30 days: CelesTrak has no data."]
+    page = client.get("/satellites").get_data(as_text=True)
+    assert 'id="catalog_state" data-state="failed"' in page
+    assert "The download failed: Launched in the last 30 days." in page
+
+
+@pytest.mark.unit
+def test_update_message_has_a_line_for_each_group(web, monkeypatch):
+    client, _shared_state, directory = web
+    satellites.set_group_enabled("last-30-days", True, directory)
+    satellites.set_group_enabled("amateur", True, directory)
+    monkeypatch.setattr(
+        satellites,
+        "download_group",
+        lambda group, directory=None, progress_callback=None: (
+            satellites.DownloadResult(False, None, None, "x", "network")
+        ),
+    )
+    query = redirect_query(client.post("/satellites/refresh"))
+    lines = query["err"][0].split("\n")
+    assert "Launched in the last 30 days: No network." in lines
+    assert "Amateur radio: No network." in lines
+    assert any("Brightest" in line and "Wait 5 min" in line for line in lines)
+    page = client.get("/satellites?err=" + quote(query["err"][0])).get_data(
+        as_text=True
+    )
+    assert 'id="satellite_result_error"' in page

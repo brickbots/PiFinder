@@ -16,6 +16,13 @@ The next use updates the positions at once and starts the work again.
 
 The shared state is a proxy to another process, so each call to it is slow.
 One update reads the time and the location once.
+
+A group whose download failed does not stop the catalog: the catalog uses
+each selected group that has a file. The automatic download of a failed
+group waits longer after each failure (see
+``satellites.FAILED_RETRY_SECONDS``). When the catalog has no objects,
+``get_status`` tells why: no group is selected, a download failed, or no
+data came yet.
 """
 
 from __future__ import annotations
@@ -80,8 +87,12 @@ class SatelliteCatalog(Catalog):
     PASS_HOURS = 24.0
     # The wait before the next check of the file ages.
     DOWNLOAD_RETRY_SECONDS = 60 * 60
-    # The wait after a download that failed.
+    # The wait after an error in the download thread.
     DOWNLOAD_FAILED_RETRY_SECONDS = 60
+    # The shortest wait between two checks of the download thread.
+    MIN_DOWNLOAD_WAIT_SECONDS = 30
+    # The reason of an empty catalog is read again after this time.
+    EMPTY_REASON_SECONDS = 1.0
     MIN_PASS_ALT_DEG = 10.0
     # The catalog stops its work this long after the last use.
     IDLE_SECONDS = 10 * 60
@@ -100,7 +111,6 @@ class SatelliteCatalog(Catalog):
         self.data_directory = data_directory
         self._task_lock = threading.Lock()
         self._is_downloading = False
-        self._download_failed = False
         self.download_progress: Optional[int] = None
         self._last_state = CatalogState.READY
         self._file_mtimes: dict[str, float] = {}
@@ -125,6 +135,9 @@ class SatelliteCatalog(Catalog):
         self._update_wake = threading.Event()
         self._download_wake = threading.Event()
         self._next_download_check: Optional[float] = None
+        self._empty_reason_cache: Optional[tuple[float, dict]] = None
+        # Called with the GroupRefresh of a download that the user asked for.
+        self.on_refresh_done: Optional[Callable[[satellites.GroupRefresh], None]] = None
         _active_catalog = self
 
         if start_threads:
@@ -238,9 +251,20 @@ class SatelliteCatalog(Catalog):
             self._download_wake.clear()
 
     def _download_wait_seconds(self, result: satellites.GroupRefresh) -> float:
-        if result.status == "failed":
-            return self.DOWNLOAD_FAILED_RETRY_SECONDS
-        return self.DOWNLOAD_RETRY_SECONDS
+        """The wait until the next check: DOWNLOAD_RETRY_SECONDS, or less
+        when the retry time of a failed group comes first."""
+        now = time.time()
+        status = satellites.load_download_status(self.data_directory)
+        wait = float(self.DOWNLOAD_RETRY_SECONDS)
+        for group in satellites.selected_groups(self.data_directory):
+            entry = status.get(group)
+            if (
+                entry is not None
+                and entry.result == satellites.RESULT_FAILED
+                and entry.next_retry is not None
+            ):
+                wait = min(wait, entry.next_retry - now)
+        return max(float(self.MIN_DOWNLOAD_WAIT_SECONDS), wait)
 
     def _refresh_sources(
         self, force: bool = False, groups: Optional[tuple[str, ...]] = None
@@ -267,8 +291,6 @@ class SatelliteCatalog(Catalog):
             if started:
                 self._is_downloading = False
                 self.download_progress = None
-        if started:
-            self._download_failed = result.status == "failed"
         logger.info("Satellite download: %s %s", result.status, result.failed)
         return result
 
@@ -287,10 +309,20 @@ class SatelliteCatalog(Catalog):
         if wait > 0:
             logger.info("Satellite refresh refused: wait %.0f s", wait)
             return math.ceil(wait)
-        threading.Thread(
-            target=self._refresh_sources, kwargs={"force": True}, daemon=True
-        ).start()
+        threading.Thread(target=self._user_refresh, daemon=True).start()
         return None
+
+    def _user_refresh(self) -> None:
+        """The forced download of ``refresh``. The result goes to
+        ``on_refresh_done``, so the user sees it on any screen."""
+        try:
+            result = self._refresh_sources(force=True)
+        except Exception:  # the user gets a message, not a dead thread
+            logger.exception("Satellite download failed")
+            result = satellites.GroupRefresh("failed")
+        listener = self.on_refresh_done
+        if listener is not None:
+            listener(result)
 
     def _element_files(self) -> list[Path]:
         files = [
@@ -341,22 +373,51 @@ class SatelliteCatalog(Catalog):
         return None
 
     def get_status(self) -> CatalogStatus:
-        if self._is_downloading and not self._tracked:
+        """The state of the catalog.
+
+        A catalog with objects is READY (or NO_GPS), and ``data["total"]``
+        holds the number of objects. An empty catalog is DOWNLOADING,
+        NO_GPS, CALCULATING (not built yet) or ERROR. An ERROR has
+        ``data["reason"]``: "no_groups", "failed" (``data["groups"]`` holds
+        the failed groups), "no_data" (a selected group has no file yet) or
+        "too_old" (each element set is too old).
+        """
+        total = len(self._tracked)
+        data: Optional[dict] = None
+        if total:
+            if self.shared_state.altaz_ready():
+                current = CatalogState.READY
+            else:
+                current = CatalogState.NO_GPS
+            data = {"total": total}
+        elif self._is_downloading:
             current = CatalogState.DOWNLOADING
+            data = {"progress": self.download_progress}
         elif not self.shared_state.altaz_ready():
             current = CatalogState.NO_GPS
-        elif self.initialized:
-            current = CatalogState.READY
-        elif self._download_failed and not self._element_files():
-            current = CatalogState.ERROR
-        else:
+        elif not self.initialized:
             current = CatalogState.CALCULATING
-        data = None
-        if current == CatalogState.DOWNLOADING:
-            data = {"progress": self.download_progress}
+        else:
+            data = self._empty_reason()
+            if data.get("reason") == "downloading":
+                current = CatalogState.DOWNLOADING
+                data = {"progress": None}
+            else:
+                current = CatalogState.ERROR
         status = CatalogStatus(current, self._last_state, data)
         self._last_state = current
         return status
+
+    def _empty_reason(self) -> dict:
+        """Why the built catalog has no objects. The list asks on each
+        frame, so the answer is kept for EMPTY_REASON_SECONDS."""
+        now = self._clock()
+        cache = self._empty_reason_cache
+        if cache is not None and now - cache[0] < self.EMPTY_REASON_SECONDS:
+            return cache[1]
+        reason = satellites.catalog_empty_reason(self.data_directory)
+        self._empty_reason_cache = (now, reason)
+        return reason
 
     # -- positions ------------------------------------------------------------
 
@@ -653,8 +714,8 @@ class SatelliteCatalog(Catalog):
                 dt = pytz.UTC.localize(dt)
             self._last_update = self._clock()
             if self._files_changed() or not self.initialized:
-                if not self._element_files():
-                    return
+                # Without element files the catalog is built empty, and
+                # get_status tells why.
                 up_now = self._rebuild(dt, location)
                 self.initialized = True
                 self._list_state = None

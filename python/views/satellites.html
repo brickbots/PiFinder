@@ -1,22 +1,69 @@
 {% extends "base.html" %}
 
+{% macro group_state(g) -%}
+{% if g['state'] == 'ok' -%}
+<span class="green-text text-lighten-1 sat-state"><i class="material-icons tiny">check_circle</i> {{ _('OK') }}</span>
+<span class="grey-text">· {{ g['age_text'] }} {{ _('old') }} · {{ g['count'] }} {% if g['count'] == 1 %}{{ _('set') }}{% else %}{{ _('sets') }}{% endif %}</span>
+{%- elif g['state'] == 'failed' -%}
+<span class="red-text text-lighten-2 sat-state"><i class="material-icons tiny">error</i> {{ _('Failed') }}: {{ g['error'] or _('Download failed') }}</span>
+<br><span class="grey-text">{% if g['retry_in'] %}{{ _('Next try in {wait}').format(wait=g['retry_in']) }}{% endif %}{% if g['age_hours'] is not none %}{% if g['retry_in'] %} · {% endif %}{{ _('Old file: {age}, {count} sets').format(age=g['age_text'], count=g['count']) }}{% endif %}</span>
+{%- elif g['state'] == 'downloading' -%}
+<span class="light-blue-text text-lighten-2 sat-state"><i class="material-icons tiny">sync</i> {{ _('Downloading') }}</span>
+{%- else -%}
+<span class="grey-text sat-state"><i class="material-icons tiny">cloud_off</i> {{ _('Not downloaded') }}</span>
+{%- endif %}
+{%- endmacro %}
+
 {% block content %}
+<style>
+  .sat-state { font-weight: bold; }
+  .sat-state .material-icons { vertical-align: text-bottom; }
+  #satellite_status_table td { padding: 6px 4px; vertical-align: top; }
+  #satellite_group_table td, #satellite_group_table th { padding: 6px 4px; }
+  .sat-message { white-space: pre-line; }
+</style>
 <div class="row valign-wrapper" style="margin: 0px;">
   <div class="col s12">
     <h3 class="grey-text">{{ _('Satellites') }}</h3>
   </div>
 </div>
 
-{% if status_message %}
-<div class="row"><div class="col s12"><p class="grey-text"><b>{{ status_message }}</b></p></div></div>
-{% endif %}
-{% if error_message %}
-<div class="row"><div class="col s12"><p class="red-text">{{ error_message }}</p></div></div>
+{% if status_message or error_message %}
+<div class="card grey darken-3" id="satellite_result">
+  <div class="card-content">
+    {% if status_message %}<p class="green-text text-lighten-1 sat-message" id="satellite_result_ok"><i class="material-icons tiny">check_circle</i> {{ status_message }}</p>{% endif %}
+    {% if error_message %}<p class="red-text text-lighten-2 sat-message" id="satellite_result_error"><i class="material-icons tiny">error</i> {{ error_message }}</p>{% endif %}
+  </div>
+</div>
 {% endif %}
 
-{% if not time_from_gps %}
-<div class="row" id="satellite_time_note"><div class="col s12"><p class="orange-text"><b>{{ _('The PiFinder has no GPS time. This page uses the system clock ({time} UTC), which can be wrong.').format(time=now_utc) }}</b></p></div></div>
-{% endif %}
+{% set catalog_colors = {'ok': 'green-text text-lighten-1', 'partial': 'orange-text', 'failed': 'red-text text-lighten-2', 'downloading': 'light-blue-text text-lighten-2', 'empty': 'orange-text', 'no_groups': 'orange-text'} %}
+{% set catalog_icons = {'ok': 'check_circle', 'partial': 'warning', 'failed': 'error', 'downloading': 'sync', 'empty': 'warning', 'no_groups': 'warning'} %}
+<div class="card grey darken-2" id="satellite_status">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('Status') }}</h5>
+    <p class="{{ catalog_colors.get(catalog['state'], 'grey-text') }} sat-state" id="catalog_state" data-state="{{ catalog['state'] }}" style="white-space: normal;">
+      <i class="material-icons tiny">{{ catalog_icons.get(catalog['state'], 'info') }}</i> {{ catalog['text'] }}
+    </p>
+    {% if time_from_gps %}
+    <p class="grey-text" id="satellite_time_source">{{ _('Time: GPS') }}</p>
+    {% else %}
+    <p class="orange-text" id="satellite_time_note"><b>{{ _('Time: system clock ({time} UTC). The PiFinder has no GPS time, so the times can be wrong.').format(time=now_utc) }}</b></p>
+    {% endif %}
+    {% if catalog['groups'] %}
+    <table class="grey-text" id="satellite_status_table">
+      <tbody>
+      {% for g in catalog['groups'] %}
+      <tr class="sat-status-row" data-group="{{ g['group'] }}" data-state="{{ g['state'] }}">
+        <td>{{ g['label'] }}</td>
+        <td>{{ group_state(g) }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</div>
 
 <div class="card grey darken-2">
   <div class="card-content">
@@ -228,7 +275,7 @@
     <p class="grey-text">{{ _('A group without a check mark is not downloaded and not used. Its file stays stored.') }}</p>
     <table class="grey-text" id="satellite_group_table">
       <thead>
-        <tr><th>{{ _('Use') }}</th><th>{{ _('Group') }}</th><th>{{ _('Sets') }}</th><th>{{ _('Age') }}</th><th></th></tr>
+        <tr><th>{{ _('Use') }}</th><th>{{ _('Group') }}</th><th>{{ _('Status') }}</th><th></th></tr>
       </thead>
       <tbody>
       {% for g in groups %}
@@ -245,8 +292,11 @@
           {{ g['label'] }} <span class="grey-text text-darken-1">({{ g['group'] }})</span>
           {% if g['large'] %}<br><span class="orange-text large-group-note">{{ _('Large group: the pass prediction takes long on a Pi') }}</span>{% endif %}
         </td>
-        <td>{% if g['age_hours'] is not none %}{{ g['count'] }}{% else %}-{% endif %}</td>
-        <td>{% if g['age_hours'] is not none %}{{ g['age_hours'] | round(1) }} h {{ _('old') }}{% else %}{{ _('not downloaded') }}{% endif %}</td>
+        <td>
+          {% if g['enabled'] %}{{ group_state(g) }}
+          {% elif g['age_hours'] is not none %}<span class="grey-text">{{ g['count'] }} {{ _('sets') }}, {{ g['age_text'] }} {{ _('old') }}</span>
+          {% else %}<span class="grey-text">{{ _('not downloaded') }}</span>{% endif %}
+        </td>
         <td>
           {% if g['enabled'] %}
           <form action="/satellites/refresh" method="post" style="display:inline;">

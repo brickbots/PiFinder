@@ -1223,13 +1223,15 @@ class Server:
             passes, cache = web_satellites.upcoming_passes(
                 now, location, visible_only=not show_all, max_mag=max_mag
             )
+            groups = web_satellites.group_status(now)
             return app.jinja_env.get_template("satellites.html").render(
                 title=_("Satellites"),
                 passes=passes,
                 cache=cache,
                 show_all=show_all,
                 max_mag=max_mag,
-                groups=web_satellites.group_status(now),
+                groups=groups,
+                catalog=web_satellites.catalog_summary(now, groups),
                 user_satellites=web_satellites.user_satellites(now),
                 corrected_satellites=web_satellites.corrected_satellites(now),
                 sky_now=web_satellites.sky_now(now, location),

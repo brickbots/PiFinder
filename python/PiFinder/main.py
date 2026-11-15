@@ -48,6 +48,7 @@ from PiFinder.battery_bq25895 import (
 
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
+from PiFinder.satellite_catalog import SatelliteCatalog
 from PiFinder.calc_utils import sf_utils
 from PiFinder.state_utils import sleep_for_framerate
 from PiFinder.state_snapshot import SnapshotBlock, StateReader, attach_writer
@@ -55,6 +56,7 @@ from PiFinder.state_snapshot import SnapshotBlock, StateReader, attach_writer
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.base import CurrentSnapshot, UIModule
 from PiFinder.ui.menu_manager import MenuManager
+from PiFinder.ui import sat_groups
 
 from PiFinder.state import SharedStateObj, UIState
 
@@ -875,6 +877,12 @@ def main(
         _new_filter.load_from_config(cfg)
         catalogs.set_catalog_filter(_new_filter)
 
+        # The result of a satellite download that the user asked for in the
+        # object list shows on any screen.
+        satellite_catalog = catalogs.get_catalog_by_code("SA")
+        if isinstance(satellite_catalog, SatelliteCatalog):
+            satellite_catalog.on_refresh_done = sat_groups.downloads.post_result
+
         # Initialize Gaia chart generator in background to avoid first-use delay
         console.write("   Gaia Charts")
         console.update()
@@ -1153,6 +1161,9 @@ def main(
                 # Monotonic clock: a backwards GPS/NTP time step must not
                 # silence the watcher (same reason PlayEarcon stamps
                 # monotonic, see ADR 0008).
+                # A satellite download result waits for the end of the
+                # message on the screen, then shows on any screen.
+                sat_groups.show_next_message(menu_manager)
                 if time.monotonic() - last_battery_watch >= BATTERY_POLL_INTERVAL:
                     last_battery_watch = time.monotonic()
                     battery_state = shared_state.battery()
