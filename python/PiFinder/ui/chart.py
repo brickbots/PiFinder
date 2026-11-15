@@ -322,8 +322,9 @@ class UIChart(UIModule):
         """The satellites to draw in the field: see ``SatelliteLayer.field``.
 
         None when the satellite catalog is not a selected catalog. The
-        catalog filter decides which satellites can show. Drawn satellites
-        count as a use of the satellite catalog.
+        catalog filter decides which satellites can show. The open chart counts
+        as a use of a selected satellite catalog, so the catalog builds its
+        objects and keeps its positions current while the chart is open.
         """
         if self.catalogs is None:
             return []
@@ -333,6 +334,7 @@ class UIChart(UIModule):
         if catalog is None or not catalog.is_selected() or center is None or dt is None:
             self._satellite_layer.reset()
             return []
+        catalog.touch()
         filtered = catalog.get_filtered_objects()
         if filtered is not self._satellite_filtered:
             self._satellite_filtered = filtered
@@ -349,7 +351,6 @@ class UIChart(UIModule):
         )
         if field:
             self._satellites_shown = True
-            catalog.touch()
         return field
 
     def _draw_satellite_tracks(self, field, color):

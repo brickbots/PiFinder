@@ -380,6 +380,14 @@ class TestChartSatellites:
         chart.plot_markers()
         assert [o.sequence for o in chart._drawn_objects] == [1]
 
+    def test_open_chart_uses_a_selected_catalog_with_no_satellite_in_view(self):
+        # The only satellite is far from the chart center.
+        cat = FakeSatCatalog(ra=[200.0], dec=[-40.0], alt=[40], mag=[3])
+        chart = _chart(cat)
+        chart.plot_markers()
+        assert chart._drawn_objects == []
+        assert cat.touches == 1
+
     def test_no_satellites_when_the_catalog_is_not_selected(self):
         cat = FakeSatCatalog(ra=[10.0], dec=[20.0], alt=[40], mag=[3], selected=False)
         chart = _chart(cat)
