@@ -76,6 +76,9 @@ class DummyCatalog:
     def is_selected(self):
         return True
 
+    def prepare_search(self):
+        pass
+
     def get_objects(self):
         return self._objects
 

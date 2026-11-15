@@ -30,7 +30,12 @@ from PiFinder.mountcontrol_interface import (
     plan_ra_rotation,
     wrap180,
 )
-from PiFinder.target_follow import FollowPoint, FollowStage, SatelliteTarget
+from PiFinder.target_follow import (
+    FollowPoint,
+    FollowStage,
+    SatelliteTarget,
+    find_meet,
+)
 from PiFinder.sky_sim import SkySimSettings, SkySimulator
 from PiFinder.types.positioning import (
     PointingAxis,
@@ -740,6 +745,72 @@ def test_follow_a_moving_target_end_to_end(indi: int, monkeypatch) -> None:
         )
         assert error < 0.05
         assert mount._follow is follow and follow.aim_count <= 2
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def test_follow_waits_at_the_meet_point_then_tracks(indi: int) -> None:
+    """The ISS of the fixture elements, low and rising at the press: the
+    mount slews to the meet point, waits there with the sidereal tracking,
+    and tracks at the meet time. The follow clock is some seconds before
+    the meet time of a known pass."""
+    element = satellites.parse_elements(
+        (Path(__file__).parent / "data" / "satellites" / "25544.3le").read_text()
+    )[0][0]
+    location = _shared_state().location()
+    target = SatelliteTarget(element, location.lat, location.lon, location.altitude)
+    search = datetime.datetime(2026, 11, 11, 20, 38, tzinfo=datetime.timezone.utc)
+    meet = find_meet(target, search.timestamp())
+    assert meet is not None
+    shift = meet.time - 50.0 - time.time()
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        mount.state = MountControlPhases.MOUNT_TRACKING
+        mount.clock = lambda: time.time() + shift
+        assert 0.0 < target.point(mount.clock()).alt < 15.0
+        for _step in mount._process_command(
+            {
+                "type": "follow_target",
+                "kind": "satellite",
+                "name": element.name,
+                "line1": element.line1,
+                "line2": element.line2,
+            }
+        ):
+            pass
+        assert mount.state == MountControlPhases.MOUNT_TARGET_FOLLOW
+        follow = mount._follow
+        assert follow.meet is not None
+        assert follow.meet.time == pytest.approx(meet.time)
+        texts = set()
+        at_meet = None
+        tracking_since = None
+        deadline = time.time() + 120
+        while time.time() < deadline:
+            now = mount.clock()
+            stage = follow.stage
+            mount._follow_step(now)
+            texts.add(mount.status_text().split(" ")[0])
+            if stage == FollowStage.WAIT and follow.stage == FollowStage.TRACK:
+                tracking_since = time.time()
+                at_meet = angular_distance(
+                    mount.current_ra, mount.current_dec, follow.aim_ra, follow.aim_dec
+                )
+            if tracking_since and time.time() - tracking_since > 15:
+                break
+            time.sleep(0.1)
+        assert tracking_since is not None, follow.stage
+        assert "Meet" in texts
+        # The sidereal tracking held the meet point during the wait.
+        assert at_meet is not None and at_meet < 0.05
+        assert mount._follow is follow and follow.aim_count == 1
+        point = follow.point(mount._position_time(mount.clock()))
+        error = angular_distance(
+            mount.current_ra, mount.current_dec, point.ra, point.dec
+        )
+        assert error < 0.2
     finally:
         mount.disconnect_mount()
         indi_drivers.stop_driver()
