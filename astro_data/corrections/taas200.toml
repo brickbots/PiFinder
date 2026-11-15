@@ -1,0 +1,8 @@
+# Corrections to the TAAS 200 list (TAAS_200.csv).
+# See README.md in this directory for the format.
+# was values from a build of 4da2a0a2b.
+
+["NGC 1502"]
+why = "Catalog's only name 'Part of Kemble's Cascade' [Ta2] is a description (the cluster lies at the end of the Kemble's Cascade asterism), not a name."
+sources = ["https://en.wikipedia.org/wiki/NGC_1502"]
+names.remove = ["Part of Kemble's Cascade"]

@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg
+from PiFinder.calc_utils import ra_to_deg, dms_to_dec
 from .catalog_import_utils import (
     NewCatalogObject,
     delete_catalog_from_database,
@@ -52,9 +52,9 @@ def load_bright_stars():
             ra_m = float(dfs[4])
             ra_deg = ra_to_deg(ra_h, ra_m, 0)
 
-            dec_d = int(dfs[5])
-            dec_m = float(dfs[6])
-            dec_deg = dec_to_deg(dec_d, dec_m, 0)
+            # The sign is read on its own, so Mintaka at "-0,17" stays south.
+            dec_sign = "-" if dfs[5].startswith("-") else "+"
+            dec_deg = dms_to_dec(dec_sign, abs(int(dfs[5])), float(dfs[6]), 0)
 
             mag = MagnitudeObject([float(dfs[7].strip())])
 
