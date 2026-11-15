@@ -281,6 +281,10 @@ class CompositeObject:
     # when the satellite is up, else the UTC timestamp of the start of the
     # next visible pass.
     next_pass_ts: Optional[float] = field(default=None)
+    # Satellites: the altitude and the azimuth in degrees at the last position
+    # update. None for other objects.
+    alt: Optional[float] = field(default=None)
+    az: Optional[float] = field(default=None)
     logged: bool = field(default=False)
     last_filtered_time: float = 0
     last_filtered_result: bool = True

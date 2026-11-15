@@ -32,7 +32,12 @@ from PiFinder import utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.nearby import Nearby
 from PiFinder.object_sequence import ObjectSequence
-from PiFinder.catalogs import CatalogState, ObjectLabel, default_display_mode_for
+from PiFinder.catalogs import (
+    CatalogState,
+    ObjectLabel,
+    default_display_mode_for,
+    default_sort_for,
+)
 from PiFinder.designations import parse_designation
 from PiFinder.satellite_groups import GROUPS_BY_NAME
 from PiFinder.ui.sat_groups import wait_message
@@ -296,9 +301,9 @@ class UIObjectList(UITextMenu):
         # The labels of the left column, and the one that shows
         self._init_labels()
 
-        # Initialize sort default
-        self.sort_cycle = cycle(SortOrder)
-        self.current_sort = next(self.sort_cycle)
+        # The sort order the list opens in. The user's choice in the marking
+        # menu replaces it for the life of this list.
+        self.current_sort = self._default_sort()
 
         marker_path = Path(utils.pifinder_dir, "markers")
         self.markers = {}
@@ -382,8 +387,9 @@ class UIObjectList(UITextMenu):
     def _init_display_mode(self) -> None:
         """
         Start in the default display mode of the list's catalog: NAME for
-        catalogs whose objects go by name (planets, stars, doubles), LOCATE
-        for the others and for lists that mix catalogs. The cycle is advanced
+        catalogs whose objects go by name (planets, stars, doubles), INFO for
+        satellites, LOCATE for the others and for lists that mix catalogs.
+        The cycle is advanced
         to that mode, so SQUARE goes on to the next mode in the usual order.
         """
         start_mode = DisplayModes.LOCATE
@@ -400,6 +406,22 @@ class UIObjectList(UITextMenu):
         self.current_mode = next(self.mode_cycle)
         while self.current_mode != start_mode:
             self.current_mode = next(self.mode_cycle)
+
+    def _default_sort(self) -> SortOrder:
+        """
+        The sort order of the list's catalog (Catalog.default_sort), or the
+        first sort order. Lists that mix catalogs get the first sort order.
+        """
+        if self.item_definition.get("objects") != "catalog":
+            return SortOrder.CATALOG_SEQUENCE
+        catalog_code = self.item_definition.get("value", "")
+        catalog = self.catalogs.get_catalog_by_code(catalog_code)
+        name = (
+            catalog.default_sort
+            if catalog is not None
+            else default_sort_for(catalog_code)
+        )
+        return SortOrder[name] if name is not None else SortOrder.CATALOG_SEQUENCE
 
     def _init_labels(self) -> None:
         """
@@ -795,7 +817,16 @@ class UIObjectList(UITextMenu):
         full_name = f"{','.join(obj.names)}" if obj.names else ""
         return full_name
 
-    def create_info_text(self, obj: CompositeObject) -> str:
+    def create_info_text(self, obj: CompositeObject, catalog=None) -> str:
+        """
+        The INFO-mode text. The catalog of the object gives it when its
+        list_info_text gives a value. Else the magnitude, the size and a
+        check mark when the object is logged.
+        """
+        if catalog is not None:
+            text = catalog.list_info_text(obj)
+            if text is not None:
+                return text
         obj_mag = self._safe_obj_mag(obj)
         mag = f"m{obj_mag:2.0f}" if obj_mag != MagnitudeObject.UNKNOWN_MAG else "m--"
         size_str = str(obj.size)
@@ -1047,6 +1078,8 @@ class UIObjectList(UITextMenu):
             if self.current_mode == DisplayModes.LOCATE
             else None
         )
+        # The catalog of each catalog code of this frame's rows.
+        row_catalogs: dict = {}
         for i in range(
             self._current_item_index - half, self._current_item_index + half + 1
         ):
@@ -1061,7 +1094,9 @@ class UIObjectList(UITextMenu):
                 elif self.current_mode == DisplayModes.NAME:
                     item_text = self.create_name_text(_menu_item)
                 elif self.current_mode == DisplayModes.INFO:
-                    item_text = self.create_info_text(_menu_item)
+                    item_text = self.create_info_text(
+                        _menu_item, self._catalog_of(_menu_item, row_catalogs)
+                    )
 
                 # figure out line position / color / font
                 line_font, line_color, line_pos = self.get_line_font_color_pos(
@@ -1094,6 +1129,14 @@ class UIObjectList(UITextMenu):
         self._draw_scrollbar()
 
         self.screen_update()
+
+    def _catalog_of(self, obj: CompositeObject, found: dict):
+        """The catalog of ``obj``, or None. ``found`` keeps the catalogs that
+        this frame found."""
+        code = obj.catalog_code
+        if code not in found:
+            found[code] = self.catalogs.get_catalog_by_code(code)
+        return found[code]
 
     def row_text(self, label: str, text: str, font, label_x: int) -> RowText:
         """

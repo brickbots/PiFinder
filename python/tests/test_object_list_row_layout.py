@@ -10,6 +10,7 @@ stays still. On the other rows a cut label ends with "…".
 import datetime
 import functools
 from pathlib import Path
+from typing import Optional
 
 import pytest
 from PIL import Image, ImageDraw
@@ -282,10 +283,16 @@ def test_with_scrolling_off_the_focus_label_is_cut():
 # -- a rendered list ----------------------------------------------------------
 
 
-def render_list(width: int, item_definition: dict, catalogs: Catalogs):
+def render_list(
+    width: int,
+    item_definition: dict,
+    catalogs: Catalogs,
+    mode: Optional[DisplayModes] = None,
+):
     """Build a full UIObjectList on a headless display and draw one frame.
 
-    The title bar is left out: screen_update is not called.
+    With ``mode``, SQUARE goes to that display mode first. The title bar is
+    left out: screen_update is not called.
     """
     display_class = get_display(DISPLAYS[width])
     shared_state = SharedStateObj()
@@ -300,6 +307,8 @@ def render_list(width: int, item_definition: dict, catalogs: Catalogs):
         catalogs,
         item_definition=item_definition,
     )
+    while mode is not None and module.current_mode is not mode:
+        module.cycle_display_mode()
     module.update()
     return module
 
@@ -338,9 +347,14 @@ def record_texts(monkeypatch) -> list:
 def test_satellite_list_draws_the_full_name(width, sat_catalog, monkeypatch):
     texts = record_texts(monkeypatch)
     module = render_list(
-        width, {"objects": "catalog", "value": "SA"}, Catalogs([sat_catalog])
+        width,
+        {"objects": "catalog", "value": "SA"},
+        Catalogs([sat_catalog]),
+        mode=DisplayModes.NAME,
     )
-    assert module.current_mode is DisplayModes.NAME
+    # Only the texts of a NAME-mode frame.
+    texts.clear()
+    module.update()
     # The focus row: the full name, and no right column.
     assert texts[-1] == "ISS (ZARYA)"
     assert not any("…" in text for text in texts)
