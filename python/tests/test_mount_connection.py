@@ -11,6 +11,7 @@ import jinja2
 import pytest
 
 from PiFinder import indi_drivers, mount_settings
+from PiFinder.mount_rate_signs import RateSigns, RateSignStore
 from PiFinder.mount_settings import MountSettings, Preset
 from PiFinder.indi_client import IndiProperty
 from PiFinder.mountcontrol_indi import MountControlIndi, split_address
@@ -445,3 +446,32 @@ def test_motion_commands_stop_and_time_out():
     mount.check_motion_timeout(time.time() + MAX_MOTION_S + 1)
     assert mount.stop_motion.call_count == 2
     assert ["WARNING", "Move stopped"] in list(mount.console_queue.queue)
+
+
+def test_mount_uses_the_rate_signs_of_its_pier_side():
+    """The mount reads TELESCOPE_PIER_SIDE before it uses the rate signs.
+    The drift compensation uses the same signs."""
+    store = RateSignStore()
+    store.save("SAL-33", "PIER_WEST", [-1.0, -1.0])
+    mount = _mount(FakeClient({}), "usb")
+    mount.rate_signs = RateSigns(store)
+    mount.rate_signs.load("SAL-33")
+    assert mount.pier_side() is None
+    mount._check_pier_side()
+    assert (mount._ra_rate_sign, mount._dec_rate_sign) == (-1.0, 1.0)
+    mount.client = FakeClient(
+        {"TELESCOPE_PIER_SIDE": {"PIER_EAST": False, "PIER_WEST": True}}
+    )
+    assert mount.pier_side() == "PIER_WEST"
+    mount._check_pier_side()
+    assert mount._dec_rate_sign == -1.0 and mount.rate_signs.dec.confirmed
+    # East has no stored sign: the same sign, to learn.
+    mount.client.props["TELESCOPE_PIER_SIDE"].elements.update(
+        PIER_EAST=True, PIER_WEST=False
+    )
+    mount._check_pier_side()
+    assert mount._dec_rate_sign == -1.0 and not mount.rate_signs.dec.confirmed
+    # The drift check turns the sign of the current side.
+    mount._last_drift = (0.0, 0.0, 1e-4, 1e-6)
+    mount._check_drift_directions(0.0, 0.0, 2e-4, 1e-6)
+    assert mount._dec_rate_sign == 1.0
