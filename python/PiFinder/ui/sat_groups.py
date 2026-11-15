@@ -2,13 +2,17 @@
 
 The menu stores the selection in ``selection.json``, the same file as the web
 page. When the user selects a group that has no file, a background thread
-downloads it. The thread puts a message in a queue. The menu shows the
-messages one at a time, from the UI thread.
+downloads it. The thread puts a message in a queue. The main loop shows the
+messages one at a time, on any screen. The menu shows them too.
+
+A selected group whose last download failed has a "!" mark. A select of
+such a group shows the reason.
 
 ``PiFinder.satellites`` imports Skyfield and SGP4. This module loads it only
 when a callback runs, so the menu structure stays light at import time.
 """
 
+import functools
 import logging
 import math
 import threading
@@ -33,13 +37,42 @@ satellites = lazy_module("PiFinder.satellites")
 logger = logging.getLogger("UI.SatGroups")
 
 MESSAGE_SECONDS = 2.0
+# A message with an error reason stays longer.
+ERROR_MESSAGE_SECONDS = 4.0
+FAILED_MARK = "!"
 
 
 def menu_items() -> list[dict]:
     """One menu item for each group. The value is the CelesTrak group name."""
     return [
-        {"name": group.menu_label, "value": group.name} for group in AVAILABLE_GROUPS
+        {
+            "name": group.menu_label,
+            "value": group.name,
+            "name_suffix_callback": functools.partial(failed_mark, group.name),
+        }
+        for group in AVAILABLE_GROUPS
     ]
+
+
+def reason_text(error: str) -> str:
+    """The short device text for the reason of a failed download.
+
+    ``satellites.download_error_text`` makes the reason. The screen shows
+    about 16 characters on a line.
+    """
+    if error == "CelesTrak has no data":
+        return _("Group empty now")
+    if error == "No network":
+        return _("No network")
+    if error == "No answer from server":
+        return _("Server timeout")
+    if error == "No valid data":
+        return _("No valid data")
+    if error.startswith("Refused by CelesTrak"):
+        return _("Refused (403)")
+    if error.startswith("Server error ") or error.startswith("HTTP error "):
+        return error
+    return _("Download failed")
 
 
 def result_message(result: Any) -> str:
@@ -73,6 +106,10 @@ class GroupDownloads:
     def post(self, text: str) -> None:
         with self._lock:
             self._messages.append(text)
+
+    def post_result(self, result: Any) -> None:
+        """Post the message for the result of a download of the catalog."""
+        self.post(catalog_result_message(result))
 
     def next_message(self) -> Optional[str]:
         with self._lock:
@@ -115,7 +152,24 @@ class GroupDownloads:
             logger.exception("Download of satellite group %s failed", group)
             result = None
         logger.info("Satellite group %s: %s", group, getattr(result, "status", None))
-        return result_message(result) + "\n" + label
+        text = result_message(result) + "\n" + label
+        error = result.error_of(group) if result is not None else ""
+        if error:
+            text += "\n" + reason_text(error)
+        return text
+
+
+def catalog_result_message(result: Any) -> str:
+    """The text for the result of a forced download of the catalog."""
+    text = result_message(result)
+    failed = tuple(getattr(result, "failed", ()))
+    if failed:
+        labels = [GROUPS_BY_NAME[group].menu_label for group in failed]
+        text += "\n" + ", ".join(labels)
+        error = result.error_of(failed[0])
+        if error:
+            text += "\n" + reason_text(error)
+    return text
 
 
 downloads = GroupDownloads()
@@ -161,12 +215,78 @@ def toggle_group(ui_module: UIModule, group: str, selected: bool) -> None:
     if not satellites.group_file(group, directory).exists():
         downloads.post(_("Downloading") + "\n" + info.menu_label)
         downloads.request(group, directory)
+        return
+    error = failed_error(group)
+    if error is not None:
+        downloads.post(
+            _("Update failed") + "\n" + info.menu_label + "\n" + reason_text(error)
+        )
 
 
-def show_next_message(ui_module: UIModule) -> None:
-    """The ``update_callback`` of the menu: show the next waiting message."""
+# The status file key (path, inode, change time in ns) and the failed groups
+# with their reasons. Each write replaces the file, so the inode changes.
+_status_cache: tuple[Optional[tuple[Path, int, int]], dict[str, str]] = (None, {})
+
+
+def failed_groups() -> dict[str, str]:
+    """The groups whose last download failed, with the stored reason.
+
+    The menu asks on each frame for each row, so the file is read again
+    only when its inode or its change time is different.
+    """
+    global _status_cache
+    directory = utils.satellite_data_dir
+    path = satellites.download_status_file(directory)
+    try:
+        stat = path.stat()
+        key: Optional[tuple[Path, int, int]] = (path, stat.st_ino, stat.st_mtime_ns)
+    except OSError:
+        key = (path, -1, -1)
+    if key != _status_cache[0]:
+        now = datetime.now(timezone.utc)
+        failed = {
+            group: entry.error
+            for group, entry in satellites.load_download_status(directory).items()
+            if entry.current_result(now) == satellites.RESULT_FAILED
+        }
+        _status_cache = (key, failed)
+    return dict(_status_cache[1])
+
+
+def failed_error(group: str) -> Optional[str]:
+    """The reason of the failed last download of ``group``, or None."""
+    return failed_groups().get(group)
+
+
+def failed_mark(group: str, ui_module: UIModule) -> str:
+    """The ``name_suffix_callback`` of a group: "!" on a selected group
+    whose last download failed."""
+    if group not in selected_groups(ui_module):
+        return ""
+    return FAILED_MARK if failed_error(group) is not None else ""
+
+
+def show_next_message(ui_module: Any) -> None:
+    """Show the next waiting message on ``ui_module``.
+
+    The ``update_callback`` of the menu and the main loop call this. A
+    UIModule and the MenuManager both have ``message``.
+    """
     if time.time() < UIModule.message_until:
         return
     text = downloads.next_message()
     if text:
-        ui_module.message(text, MESSAGE_SECONDS)
+        lines = text.count("\n") + 1
+        seconds = ERROR_MESSAGE_SECONDS if lines > 2 else MESSAGE_SECONDS
+        ui_module.message(text, seconds, size=message_box(ui_module, lines))
+
+
+def message_box(ui_module: Any, lines: int) -> Optional[tuple[int, int, int, int]]:
+    """A message box with room for ``lines`` lines, or None for the
+    standard box of two lines."""
+    if lines <= 2:
+        return None
+    display = ui_module.display_class
+    height = round(display.resY * (12 + 16 * lines) / 128)
+    top = (display.resY - height) // 2
+    return (5, top, display.resX - 5, top + height)

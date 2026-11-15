@@ -13,17 +13,21 @@ function.
 from __future__ import annotations
 
 import csv
+import fcntl
 import io
 import json
 import logging
 import math
+import os
 import re
+import tempfile
 import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
 from pathlib import Path
-from typing import Callable, Iterable, Optional
+from typing import Callable, Iterable, Iterator, Optional
 
 import numpy as np
 import requests
@@ -35,6 +39,10 @@ from skyfield.sgp4lib import TEME, theta_GMST1982
 
 from PiFinder.calc_utils import sf_utils
 from PiFinder.download_utils import (
+    ERROR_DATA,
+    ERROR_HTTP,
+    ERROR_NETWORK,
+    ERROR_TIMEOUT,
     DownloadResult,
     download_atomic,
 )
@@ -64,6 +72,7 @@ CORRECTED_FILE_NAME = "corrected.tle"
 CORRECTED_MARK = " corr "
 USER_MAG_FILE_NAME = "user_mags.json"
 SELECTION_FILE_NAME = "selection.json"
+DOWNLOAD_STATUS_FILE_NAME = "download_status.json"
 STD_MAG_FILE = astro_data_dir / "satellite_std_mags.csv"
 # The CelesTrak "visual" group holds the brightest objects. A member without a
 # magnitude in the table gets this value.
@@ -80,6 +89,11 @@ GEO_MAX_ECCENTRICITY = 0.01
 DOWNLOAD_INTERVAL_HOURS = 12.0
 # A download that the user asks for is refused when the file is younger.
 MIN_FORCED_DOWNLOAD_SECONDS = 5 * 60.0
+# The waits before the automatic retries of a group whose download failed.
+# After the last wait, a failed group waits DOWNLOAD_INTERVAL_HOURS.
+FAILED_RETRY_SECONDS = (5 * 60.0, 15 * 60.0, 60 * 60.0)
+# A "downloading" state older than this is from a process that stopped.
+DOWNLOAD_STALE_SECONDS = 15 * 60.0
 # The observer is in darkness when the Sun is below this altitude.
 DARK_SUN_ALT_DEG = -6.0
 PASS_STEP_SECONDS = 10.0
@@ -434,7 +448,18 @@ def download_group(
 def group_download_needed(
     group: str, now: datetime, directory: Path = satellite_data_dir
 ) -> tuple[bool, str]:
-    """CelesTrak sends no Last-Modified, so the file age decides."""
+    """CelesTrak sends no Last-Modified, so the file age decides.
+
+    A group whose last download failed waits until its retry time.
+    """
+    status = load_download_status(directory).get(group)
+    if (
+        status is not None
+        and status.result == RESULT_FAILED
+        and status.next_retry is not None
+        and now.timestamp() < status.next_retry
+    ):
+        return False, "the last download failed, retry later"
     path = group_file(group, directory)
     if not path.exists():
         return True, "no existing file"
@@ -460,10 +485,15 @@ class GroupRefresh:
     wait_seconds: float = 0.0
     downloaded: tuple[str, ...] = ()
     refused: tuple[tuple[str, float], ...] = ()
+    # The reason of each failed group, see ``download_error_text``.
+    errors: tuple[tuple[str, str], ...] = ()
 
     @property
     def ok(self) -> bool:
         return self.status in ("downloaded", "current", "no_groups")
+
+    def error_of(self, group: str) -> str:
+        return dict(self.errors).get(group, "")
 
 
 _download_lock = threading.Lock()
@@ -535,20 +565,263 @@ def refresh_groups(
             on_start()
         downloaded = []
         failed = []
+        errors = []
         for group in wanted:
-            if download_group(group, directory, progress_callback).success:
+            record_download_start(group, now, directory)
+            try:
+                result = download_group(group, directory, progress_callback)
+            except Exception as exc:  # a fault in one group must not stop the rest
+                logger.exception("Download of satellite group %s failed", group)
+                result = DownloadResult(False, None, None, str(exc))
+            if result.success:
                 downloaded.append(group)
             else:
                 failed.append(group)
+                errors.append((group, download_error_text(result)))
+            record_download_end(group, now, result, directory)
         return GroupRefresh(
             "failed" if failed else "downloaded",
             tuple(failed),
             wait,
             tuple(downloaded),
             tuple(refused),
+            tuple(errors),
         )
     finally:
         _download_lock.release()
+
+
+# ---------------------------------------------------------------------------
+# Download status
+# ---------------------------------------------------------------------------
+
+RESULT_OK = "ok"
+RESULT_FAILED = "failed"
+RESULT_DOWNLOADING = "downloading"
+
+# A lock for the threads of this process. The lock file is for the other
+# process: the device and the web server both write the status file.
+_status_lock = threading.Lock()
+
+
+@dataclass(frozen=True)
+class GroupStatus:
+    """The download state of one group, as stored in the status file.
+
+    The times are seconds since 1970 (UTC), from the system clock, as the
+    file times. ``failures`` counts the failed downloads since the last
+    download that worked.
+    """
+
+    result: str
+    last_attempt: Optional[float] = None
+    last_success: Optional[float] = None
+    error: str = ""
+    sets: int = 0
+    failures: int = 0
+    next_retry: Optional[float] = None
+
+    def current_result(self, now: datetime) -> str:
+        """The result. A download that started long ago counts as failed."""
+        if (
+            self.result == RESULT_DOWNLOADING
+            and self.last_attempt is not None
+            and now.timestamp() - self.last_attempt > DOWNLOAD_STALE_SECONDS
+        ):
+            return RESULT_FAILED
+        return self.result
+
+    def to_dict(self) -> dict:
+        return {
+            "result": self.result,
+            "last_attempt": self.last_attempt,
+            "last_success": self.last_success,
+            "error": self.error,
+            "sets": self.sets,
+            "failures": self.failures,
+            "next_retry": self.next_retry,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "GroupStatus":
+        def number(key: str) -> Optional[float]:
+            value = data.get(key)
+            return float(value) if isinstance(value, (int, float)) else None
+
+        return cls(
+            str(data.get("result", "")),
+            number("last_attempt"),
+            number("last_success"),
+            str(data.get("error") or ""),
+            int(data.get("sets") or 0),
+            int(data.get("failures") or 0),
+            number("next_retry"),
+        )
+
+
+def download_status_file(directory: Path = satellite_data_dir) -> Path:
+    return directory / DOWNLOAD_STATUS_FILE_NAME
+
+
+def load_download_status(
+    directory: Path = satellite_data_dir,
+) -> dict[str, GroupStatus]:
+    """The stored download state of each group. A bad file gives {}."""
+    try:
+        data = json.loads(download_status_file(directory).read_text())
+        return {
+            str(group): GroupStatus.from_dict(entry)
+            for group, entry in data.get("groups", {}).items()
+            if isinstance(entry, dict)
+        }
+    except (OSError, ValueError, TypeError, AttributeError):
+        return {}
+
+
+def retry_wait_seconds(failures: int) -> float:
+    """The wait before the next automatic download after ``failures``
+    failed downloads in a row."""
+    if failures <= 0:
+        return DOWNLOAD_INTERVAL_HOURS * 3600.0
+    if failures <= len(FAILED_RETRY_SECONDS):
+        return FAILED_RETRY_SECONDS[failures - 1]
+    return DOWNLOAD_INTERVAL_HOURS * 3600.0
+
+
+def _update_status(directory: Path, group: str, change: Callable) -> None:
+    """Replace the entry of ``group`` with ``change(old entry or None)``.
+
+    The lock file keeps the read and the write of the two processes apart.
+    """
+    path = download_status_file(directory)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with _status_lock, open(path.with_suffix(".lock"), "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            entries = load_download_status(directory)
+            entries[group] = change(entries.get(group))
+            _write_json(
+                path,
+                {
+                    "version": 1,
+                    "groups": {
+                        name: entry.to_dict() for name, entry in sorted(entries.items())
+                    },
+                },
+            )
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def record_download_start(
+    group: str, now: datetime, directory: Path = satellite_data_dir
+) -> None:
+    def change(old: Optional[GroupStatus]) -> GroupStatus:
+        return replace(
+            old or GroupStatus(RESULT_DOWNLOADING),
+            result=RESULT_DOWNLOADING,
+            last_attempt=now.timestamp(),
+        )
+
+    try:
+        _update_status(directory, group, change)
+    except OSError:
+        logger.exception("Could not write the download status of %s", group)
+
+
+def record_download_end(
+    group: str,
+    now: datetime,
+    result: DownloadResult,
+    directory: Path = satellite_data_dir,
+) -> None:
+    attempt = now.timestamp()
+
+    def change(old: Optional[GroupStatus]) -> GroupStatus:
+        old = old or GroupStatus(RESULT_FAILED)
+        if result.success:
+            path = group_file(group, directory)
+            return GroupStatus(
+                RESULT_OK,
+                attempt,
+                attempt,
+                "",
+                count_sets(path) if path.exists() else 0,
+                0,
+                attempt + retry_wait_seconds(0),
+            )
+        failures = old.failures + 1
+        return replace(
+            old,
+            result=RESULT_FAILED,
+            last_attempt=attempt,
+            error=download_error_text(result),
+            failures=failures,
+            next_retry=attempt + retry_wait_seconds(failures),
+        )
+
+    try:
+        _update_status(directory, group, change)
+    except OSError:
+        logger.exception("Could not write the download status of %s", group)
+
+
+def catalog_empty_reason(directory: Path = satellite_data_dir) -> dict:
+    """Why the element files give no objects.
+
+    See ``SatelliteCatalog.get_status`` for the reasons.
+
+    The reason "downloading" means that a process downloads a group now.
+    """
+    now = datetime.now(timezone.utc)
+    groups = selected_groups(directory)
+    has_own = bool(load_user_elements(directory) or load_corrected_elements(directory))
+    if not groups and not has_own:
+        return {"reason": "no_groups"}
+    status = load_download_status(directory)
+    results = {
+        group: status[group].current_result(now) for group in groups if group in status
+    }
+    if any(result == RESULT_DOWNLOADING for result in results.values()):
+        return {"reason": "downloading"}
+    failed = [group for group in groups if results.get(group) == RESULT_FAILED]
+    if failed:
+        return {"reason": "failed", "groups": failed}
+    if any(not group_file(group, directory).exists() for group in groups):
+        return {"reason": "no_data"}
+    return {"reason": "too_old"}
+
+
+def count_sets(path: Path) -> int:
+    """The number of element sets in a TLE file, without a parse of each set.
+
+    A large group holds thousands of sets. A parse of each on each page load
+    takes too long on a Pi.
+    """
+    with path.open(errors="replace") as handle:
+        return sum(1 for line in handle if line.startswith("1 "))
+
+
+def download_error_text(result: DownloadResult) -> str:
+    """A short reason for a failed download, for the device and the web page."""
+    if result.kind == ERROR_HTTP:
+        code = result.status_code
+        if code == 404 and "No GP data found" in result.body:
+            return "CelesTrak has no data"
+        if code is not None and code >= 500:
+            return f"Server error {code}"
+        if code == 403:
+            return "Refused by CelesTrak (403)"
+        if code is not None:
+            return f"HTTP error {code}"
+        return "HTTP error"
+    if result.kind == ERROR_NETWORK:
+        return "No network"
+    if result.kind == ERROR_TIMEOUT:
+        return "No answer from server"
+    if result.kind == ERROR_DATA:
+        return "No valid data"
+    return "Download failed"
 
 
 def fetch_by_norad(norad: int) -> list[SatElements]:
@@ -564,6 +837,20 @@ def fetch_by_norad(norad: int) -> list[SatElements]:
 
 
 _user_file_lock = threading.Lock()
+USER_DATA_LOCK_NAME = "user_data.lock"
+
+
+@contextmanager
+def _user_data_lock(directory: Path) -> Iterator[None]:
+    """Keep a read and a write of the user files of this process and of the
+    other process (the web server or the device) apart."""
+    directory.mkdir(parents=True, exist_ok=True)
+    with _user_file_lock, open(directory / USER_DATA_LOCK_NAME, "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
 
 
 def read_tle_file(path: Path, source: str) -> list[SatElements]:
@@ -586,7 +873,7 @@ def save_user_elements(
     new: Iterable[SatElements], directory: Path = satellite_data_dir
 ) -> list[SatElements]:
     """Add or replace user element sets, keyed by NORAD id."""
-    with _user_file_lock:
+    with _user_data_lock(directory):
         by_id = {e.norad_id: e for e in load_user_elements(directory)}
         for element in new:
             by_id[element.norad_id] = SatElements(
@@ -598,7 +885,7 @@ def save_user_elements(
 
 def delete_user_element(norad_id: int, directory: Path = satellite_data_dir) -> bool:
     """Remove a user element set, its magnitude and its selection entry."""
-    with _user_file_lock:
+    with _user_data_lock(directory):
         current = load_user_elements(directory)
         kept = [e for e in current if e.norad_id != norad_id]
         if len(kept) == len(current):
@@ -641,7 +928,7 @@ def save_corrected_element(
         element.line2,
         "corrected",
     )
-    with _user_file_lock:
+    with _user_data_lock(directory):
         by_id = {e.norad_id: e for e in load_corrected_elements(directory)}
         by_id[corrected.norad_id] = corrected
         _write_text(
@@ -654,7 +941,7 @@ def delete_corrected_element(
     norad_id: int, directory: Path = satellite_data_dir
 ) -> bool:
     """Remove a corrected set and its selection entry."""
-    with _user_file_lock:
+    with _user_data_lock(directory):
         current = load_corrected_elements(directory)
         kept = [e for e in current if e.norad_id != norad_id]
         if len(kept) == len(current):
@@ -673,10 +960,17 @@ def delete_corrected_element(
 
 
 def _write_text(path: Path, text: str) -> None:
+    """Replace the file in one step. The temporary file has a unique name,
+    so two writers never share it."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(text)
-    temporary.replace(path)
+    handle, name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".")
+    try:
+        with os.fdopen(handle, "w") as temporary:
+            temporary.write(text)
+        os.replace(name, path)
+    except BaseException:
+        Path(name).unlink(missing_ok=True)
+        raise
 
 
 def _write_json(path: Path, data: dict) -> None:
@@ -757,7 +1051,7 @@ def set_group_enabled(
     """Select a group, or remove it from the selection."""
     if group not in CELESTRAK_GROUPS:
         raise ValueError(f"unknown group: {group}")
-    with _user_file_lock:
+    with _user_data_lock(directory):
         selection = load_selection(directory)
         groups = selection.groups - {group}
         if enabled:
@@ -768,7 +1062,7 @@ def set_group_enabled(
 def set_user_enabled(
     norad_id: int, enabled: bool, directory: Path = satellite_data_dir
 ) -> None:
-    with _user_file_lock:
+    with _user_data_lock(directory):
         selection = load_selection(directory)
         user = selection.disabled_user - {norad_id}
         if not enabled:
@@ -779,7 +1073,7 @@ def set_user_enabled(
 def set_corrected_enabled(
     norad_id: int, enabled: bool, directory: Path = satellite_data_dir
 ) -> None:
-    with _user_file_lock:
+    with _user_data_lock(directory):
         selection = load_selection(directory)
         corrected = selection.disabled_corrected - {norad_id}
         if not enabled:
@@ -844,7 +1138,7 @@ def save_user_mag(
     norad_id: int, std_mag: Optional[float], directory: Path = satellite_data_dir
 ) -> None:
     """Set or clear the standard magnitude the user gave for an object."""
-    with _user_file_lock:
+    with _user_data_lock(directory):
         mags = load_user_mags(directory)
         if std_mag is None:
             mags.pop(norad_id, None)

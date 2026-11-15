@@ -852,21 +852,27 @@ def test_failed_download_is_tried_again_soon_and_shows_an_error(tmp_path, monkey
     cat = satellite_catalog.SatelliteCatalog(
         FixedSharedState(NOW), data_directory=tmp_path, start_threads=False
     )
+    cat._spawn_pass_worker = lambda: None
     assert cat.get_status().current == CatalogState.CALCULATING
     result = cat._refresh_sources()
     assert result.status == "failed"
     assert result.failed == satellites.DEFAULT_GROUPS
-    assert cat._download_wait_seconds(result) == cat.DOWNLOAD_FAILED_RETRY_SECONDS
-    assert cat.DOWNLOAD_FAILED_RETRY_SECONDS <= 60
-    assert cat.get_status().current == CatalogState.ERROR
+    first_wait = satellites.FAILED_RETRY_SECONDS[0]
+    assert cat._download_wait_seconds(result) == pytest.approx(first_wait, abs=5)
+    # Without files the catalog is built empty, and the status tells why.
+    cat.do_timed_task()
+    status = cat.get_status()
+    assert status.current == CatalogState.ERROR
+    assert status.data == {
+        "reason": "failed",
+        "groups": list(satellites.DEFAULT_GROUPS),
+    }
     assert "Download failed" in web_satellites.refresh_message(result)[1]
 
     downloads.success = True
-    result = cat._refresh_sources()
+    result = cat._refresh_sources(force=True)
     assert result.status == "downloaded"
     assert cat._download_wait_seconds(result) == cat.DOWNLOAD_RETRY_SECONDS
-    assert cat.get_status().current == CatalogState.CALCULATING
-    cat._spawn_pass_worker = lambda: None
     cat.do_timed_task()
     assert cat.get_status().current == CatalogState.READY
 
@@ -992,12 +998,12 @@ def test_forced_download_wait_applies_to_each_group(tmp_path, monkeypatch):
     assert result.downloaded == ("stations", "amateur")
     assert [group for group, _seconds in result.refused] == ["visual"]
     message, error = web_satellites.refresh_message(result)
-    assert message == "Downloaded: stations, amateur"
-    assert error == "The last download of visual is too recent. Wait 5 min."
+    assert message == "Downloaded: Space stations, Amateur radio."
+    assert error == "Brightest: the last download is too recent. Wait 5 min."
 
     result = satellites.refresh_groups(system_now(), True, tmp_path, groups=["visual"])
     assert result.status == "too_soon" and result.downloaded == ()
-    assert "visual" in web_satellites.refresh_message(result)[1]
+    assert "Brightest" in web_satellites.refresh_message(result)[1]
     assert downloads.groups == ["stations", "amateur"]
 
 

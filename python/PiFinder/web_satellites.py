@@ -62,38 +62,113 @@ def format_pass(row: dict, zone) -> dict:
     return result
 
 
-def _count_sets(path: Path) -> int:
-    """The number of element sets in a TLE file, without a parse of each set.
+def _label(group: str) -> str:
+    info = satellites.GROUPS_BY_NAME.get(group)
+    return info.label if info is not None else group
 
-    A large group holds thousands of sets. A parse of each on each page load
-    takes too long on a Pi.
-    """
-    with path.open(errors="replace") as handle:
-        return sum(1 for line in handle if line.startswith("1 "))
+
+def _wait_text(seconds: float) -> str:
+    """A short time to wait: "3 min", "2 h 05 min"."""
+    minutes = max(1, math.ceil(seconds / 60.0))
+    if minutes >= 60:
+        return f"{minutes // 60} h {minutes % 60:02d} min"
+    return f"{minutes} min"
+
+
+def _age_text(hours: float) -> str:
+    if hours < 1:
+        return f"{max(0, round(hours * 60))} min"
+    if hours < 48:
+        return f"{hours:.1f} h"
+    return f"{hours / 24:.0f} d"
 
 
 def group_status(now: datetime.datetime, directory: Path = satellite_data_dir) -> list:
-    """One row for each CelesTrak group that the user can select."""
+    """One row for each CelesTrak group that the user can select.
+
+    ``state`` is "ok", "failed", "downloading" or "none" (no file). The
+    download state comes from the status file that the device and the web
+    server write. The file times use the system clock, so the ages and the
+    retry times use it too.
+    """
     selection = satellites.load_selection(directory)
+    status = satellites.load_download_status(directory)
+    system_now = datetime.datetime.now(datetime.timezone.utc)
     rows = []
     for group in satellites.AVAILABLE_GROUPS:
         path = satellites.group_file(group.name, directory)
         if path.exists():
             age_hours = (now.timestamp() - path.stat().st_mtime) / 3600.0
-            count = _count_sets(path)
+            count = satellites.count_sets(path)
         else:
             age_hours, count = None, 0
+        entry = status.get(group.name)
+        result = entry.current_result(system_now) if entry is not None else ""
+        if result in (satellites.RESULT_FAILED, satellites.RESULT_DOWNLOADING):
+            state = result
+        elif path.exists():
+            state = "ok"
+        else:
+            state = "none"
+        retry_in = None
+        if (
+            state == satellites.RESULT_FAILED
+            and entry is not None
+            and entry.next_retry is not None
+        ):
+            retry_in = _wait_text(entry.next_retry - system_now.timestamp())
         rows.append(
             {
                 "group": group.name,
                 "label": group.label,
                 "large": group.large,
                 "age_hours": age_hours,
+                "age_text": _age_text(age_hours) if age_hours is not None else "",
                 "count": count,
                 "enabled": selection.group_enabled(group.name),
+                "state": state,
+                "error": entry.error if entry is not None and state == "failed" else "",
+                "retry_in": retry_in,
             }
         )
     return rows
+
+
+def catalog_summary(
+    now: datetime.datetime, groups: list, directory: Path = satellite_data_dir
+) -> dict:
+    """The state of the satellite catalog, as the device computes it.
+
+    ``groups`` is the result of ``group_status``. Returns the state ("ok",
+    "partial", "failed", "downloading", "empty" or "no_groups"), the text,
+    the number of satellites in use and the selected group rows.
+    """
+    selected = [row for row in groups if row["enabled"]]
+    count = len(satellites.load_all_elements(now, directory))
+    failed = [row["label"] for row in selected if row["state"] == "failed"]
+    downloading = [row for row in selected if row["state"] == "downloading"]
+    if count:
+        if downloading:
+            state, text = "downloading", f"{count} satellites. A download runs."
+        elif failed:
+            state = "partial"
+            text = f"{count} satellites. Failed: {', '.join(failed)}."
+        else:
+            state, text = "ok", f"{count} satellites in use."
+    else:
+        reason = satellites.catalog_empty_reason(directory)["reason"]
+        if reason == "no_groups":
+            state, text = "no_groups", "No group is selected."
+        elif reason == "downloading" or downloading:
+            state, text = "downloading", "Downloading. No satellites yet."
+        elif reason == "failed":
+            state = "failed"
+            text = f"No satellites. The download failed: {', '.join(failed)}."
+        elif reason == "no_data":
+            state, text = "empty", "No satellites yet. The download did not run yet."
+        else:
+            state, text = "empty", "No satellites. Each element set is too old."
+    return {"state": state, "text": text, "count": count, "groups": selected}
 
 
 def user_satellites(
@@ -492,25 +567,33 @@ def download_if_missing(
 
 
 def refresh_message(result: satellites.GroupRefresh) -> tuple[str, str]:
-    """The message and the error text for the result of a forced download."""
+    """The message and the error text for the result of a forced download.
+
+    Each group has its own sentence.
+    """
     if result.status == "busy":
         return "", "A download runs now. Try again in a minute."
     if result.status == "no_groups":
         return "", "No group is selected."
     errors = []
-    if result.failed:
-        errors.append("Download failed: " + ", ".join(result.failed) + ".")
+    for group in result.failed:
+        reason = result.error_of(group) or "download failed"
+        errors.append(f"{_label(group)}: {reason}.")
     for group, seconds in result.refused:
         minutes = math.ceil(seconds / 60.0)
         errors.append(
-            f"The last download of {group} is too recent. Wait {minutes} min."
+            f"{_label(group)}: the last download is too recent. Wait {minutes} min."
         )
     message = ""
     if result.downloaded:
-        message = "Downloaded: " + ", ".join(result.downloaded)
+        message = (
+            "Downloaded: "
+            + ", ".join(_label(group) for group in result.downloaded)
+            + "."
+        )
     elif result.status == "current":
         message = "The element sets are recent."
-    return message, " ".join(errors)
+    return message, "\n".join(errors)
 
 
 def _duration(seconds: Optional[float]) -> str:
