@@ -16,6 +16,16 @@ if TYPE_CHECKING:
 # does not run or hangs.
 STATUS_MAX_AGE_S = 5.0
 
+# The state of the last RA rotation (MountStatus.rotation). TURNING lasts
+# until the mount is still again. Only DONE permits a capture.
+ROTATION_TURNING = "turning"
+ROTATION_DONE = "done"
+ROTATION_TIMEOUT = "timeout"
+ROTATION_STOPPED = "stopped"
+ROTATION_REFUSED = "refused"
+ROTATION_STALE = "stale"
+ROTATION_FAILED = "failed"
+
 
 @dataclass(frozen=True)
 class MountStatus:
@@ -25,6 +35,12 @@ class MountStatus:
     translated by the mount process. ``distance_deg`` is the angle from the
     mount position to the goto target, or None without a target. ``error``
     is the last fault ("Mount not found"), empty after a good init.
+
+    ``ra_deg`` and ``dec_deg`` are the mount position of date, or None
+    before the first report. ``rotation_id`` is the id of the last
+    rotate_ra command and ``rotation`` is its state (ROTATION_*), empty
+    before the first one. ``altaz`` is True when the driver reports an
+    alt-az mount.
     """
 
     phase: str
@@ -34,6 +50,11 @@ class MountStatus:
     model: str
     updated: float
     error: str = ""
+    ra_deg: Optional[float] = None
+    dec_deg: Optional[float] = None
+    rotation_id: int = 0
+    rotation: str = ""
+    altaz: bool = False
 
     def is_stale(self, now: Optional[float] = None) -> bool:
         now = time.time() if now is None else now

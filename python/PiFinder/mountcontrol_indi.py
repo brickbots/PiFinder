@@ -59,6 +59,12 @@ SLEW_TIMEOUT_S = 300.0
 MOTION_AXIS_THRESHOLD = 0.38
 # Time for the driver to define CONNECTION_MODE after DRIVER_INFO.
 CONNECTION_MODE_WAIT_S = 3.0
+# Switches that are on when the driver reports an alt-az mount: the
+# standard INDI mount type, and the mount type of the OnStep driver.
+ALTAZ_SWITCHES = (
+    ("TELESCOPE_MOUNT_TYPE", "ALTAZ"),
+    ("MOUNT_TYPE", "MOUNT_TYPE_ALTAZ"),
+)
 # A drift grew when it is larger than the last one by this many standard
 # errors of the difference. A wrong axis direction makes the drift grow by
 # the correction gain (0.7), and each drift is at least 4 standard errors
@@ -520,6 +526,16 @@ class MountControlIndi(MountControlBase):
                 return True
         return time.time() - self.current_time < self._current_position_update_threshold
 
+    def is_slewing(self) -> bool:
+        return self._slewing and time.time() - self._slew_start < SLEW_TIMEOUT_S
+
+    def is_altaz(self) -> bool:
+        """True when the driver reports an alt-az mount. A driver without
+        a mount type property gives False: the type is then unknown."""
+        if self.device is None:
+            return False
+        return any(self._switch_on(name, element) for name, element in ALTAZ_SWITCHES)
+
     def adjust_mount_drift_rates(
         self,
         drift_rate_adjustment_ra: float,
@@ -664,15 +680,18 @@ class MountControlIndi(MountControlBase):
         logger.info("Move N %+.2f E %+.2f by %.5f°", north, east, step_size_deg)
         return self._goto(ra, dec)
 
-    def start_motion(self, north: float, east: float) -> bool:
+    def start_motion(self, north: float, east: float, fastest: bool = False) -> bool:
         """Move with TELESCOPE_MOTION_NS/WE until stop_motion. A diagonal
-        moves both axes. The slew rate is the middle of the driver's rates."""
+        moves both axes. The slew rate is the middle of the driver's rates,
+        or the fastest rate."""
         if self.device is None:
             return False
         rates = self.client.get_property(self.device, "TELESCOPE_SLEW_RATE")
         if rates is not None and rates.elements:
             names = list(rates.elements)
-            self._set_switch("TELESCOPE_SLEW_RATE", names[len(names) // 2])
+            self._set_switch(
+                "TELESCOPE_SLEW_RATE", names[-1] if fastest else names[len(names) // 2]
+            )
         moved = False
         if abs(north) > MOTION_AXIS_THRESHOLD:
             element = "MOTION_NORTH" if north > 0 else "MOTION_SOUTH"
