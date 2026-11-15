@@ -1,7 +1,8 @@
 import pytest
 
 import PiFinder.i18n  # noqa: F401
-from PiFinder.ui import menu_structure
+from PiFinder import mount_settings
+from PiFinder.ui import callbacks, menu_structure
 
 
 @pytest.mark.smoke
@@ -108,3 +109,26 @@ def test_status_and_restart_menu_entries_exist():
     power_menu_names = [item["name"] for item in power_menu["items"]]
 
     assert "Restart" in power_menu_names
+
+
+@pytest.mark.smoke
+def test_mount_control_menu_has_the_max_wait_setting():
+    """Tools > Experimental > Mount Control > Max wait sets the longest wait
+    of a satellite follow at its meet point."""
+    menu = menu_structure.pifinder_menu
+    for name in ("Tools", "Experimental", "Mount Control"):
+        menu = next(item for item in menu["items"] if item["name"] == name)
+    names = [item["name"] for item in menu["items"]]
+    assert names.index("Max wait") == names.index("Track Rate") + 1
+    max_wait = menu["items"][names.index("Max wait")]
+    assert max_wait["config_option"] == mount_settings.MAX_WAIT_OPTION
+    assert [(i["name"], i["value"]) for i in max_wait["items"]] == [
+        ("15 min", 15),
+        ("30 min", 30),
+        ("1 h", 60),
+        ("2 h", 120),
+    ]
+    assert tuple(i["value"] for i in max_wait["items"]) == (
+        mount_settings.MAX_WAIT_CHOICES_MIN
+    )
+    assert max_wait["post_callback"] is callbacks.mount_settings_changed

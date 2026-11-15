@@ -1,6 +1,7 @@
 """USB and WiFi mount connections: the driver properties that PiFinder sets,
 the settings and presets, and the Mount web form."""
 
+import json
 import time
 from pathlib import Path
 from queue import Queue
@@ -317,6 +318,39 @@ def test_reload_config_command_reloads_settings():
     assert mount.settings.model == "SAL-33"
     assert mount.state.name == "MOUNT_INIT_TELESCOPE"
     assert mount.console_queue.get_nowait()[0] == "MOUNT"
+
+
+def test_max_wait_setting_from_config():
+    option = mount_settings.MAX_WAIT_OPTION
+    default_config = json.loads(
+        (Path(__file__).parents[2] / "default_config.json").read_text()
+    )
+    assert default_config[option] == mount_settings.MAX_WAIT_DEFAULT_MIN == 30
+    assert mount_settings.max_wait_min(FakeConfig()) == 30.0
+    assert mount_settings.max_wait_min(FakeConfig({option: 120})) == 120.0
+    for bad in (0, -5, "1 h", None, True):
+        assert mount_settings.max_wait_min(FakeConfig({option: bad})) == 30.0
+
+
+def test_reload_config_reads_the_max_wait_without_a_new_connection():
+    settings = MountSettings(enabled=False)
+    waits = [30.0]
+    mount = MountControlIndi(
+        Queue(),
+        Queue(),
+        Mock(spec=SharedStateObj),
+        None,
+        settings,
+        load_settings=lambda: settings,
+        load_max_wait=lambda: waits[0],
+    )
+    client = mount.client
+    waits[0] = 120.0
+    for _step in mount._process_command({"type": "reload_config"}):
+        pass
+    assert mount.max_wait_min == 120.0
+    assert mount.client is client
+    assert mount.state.name == "MOUNT_UNKNOWN"
 
 
 def _slewing_mount(target):

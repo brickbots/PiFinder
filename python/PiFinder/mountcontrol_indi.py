@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
 from PiFinder import config, indi_drivers
 from PiFinder import track_rates
 from PiFinder.indi_client import TELESCOPE_INTERFACE, IndiClient, IndiProperty
-from PiFinder.mount_settings import MountSettings
+from PiFinder.mount_settings import MountSettings, max_wait_min
 from PiFinder.mountcontrol_interface import (
     MountControlBase,
     angular_distance,
@@ -135,6 +135,7 @@ class MountControlIndi(MountControlBase):
         log_queue: Optional[Queue],
         settings: MountSettings,
         load_settings: Optional[Callable[[], MountSettings]] = None,
+        load_max_wait: Optional[Callable[[], float]] = None,
         indi_host: str = "localhost",
         indi_port: int = 7624,
         target_tolerance_deg: float = 0.01,
@@ -142,6 +143,7 @@ class MountControlIndi(MountControlBase):
         super().__init__(mount_queue, console_queue, shared_state)
         self.settings = settings
         self._load_settings = load_settings or settings_from_config
+        self._load_max_wait = load_max_wait or max_wait_from_config
         self.log_queue = log_queue
         self.indi_host = indi_host
         self.indi_port = indi_port
@@ -225,7 +227,9 @@ class MountControlIndi(MountControlBase):
 
     def reload_settings(self) -> None:
         """Apply changed settings at once: disconnect, change the driver if
-        the model changed, and connect again if mount control is on."""
+        the model changed, and connect again if mount control is on. The
+        longest wait at a meet point changes without a new connection."""
+        self.max_wait_min = self._load_max_wait()
         new = self._load_settings()
         if new == self.settings:
             return
@@ -1017,6 +1021,10 @@ def settings_from_config() -> MountSettings:
     return MountSettings.from_config(config.Config())
 
 
+def max_wait_from_config() -> float:
+    return max_wait_min(config.Config())
+
+
 def run(
     mount_queue: Queue,
     console_queue: Queue,
@@ -1030,6 +1038,7 @@ def run(
     mount_control = MountControlIndi(
         mount_queue, console_queue, shared_state, log_queue, settings_from_config()
     )
+    mount_control.max_wait_min = max_wait_from_config()
     try:
         mount_control.run()
     except KeyboardInterrupt:

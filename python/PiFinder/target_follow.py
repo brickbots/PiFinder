@@ -82,9 +82,13 @@ MIN_TIME_OFFSET_S = 0.05
 MAX_OFFSET_DEG = 5.0
 
 # The meet point of a satellite: the first time of the next pass at this
-# altitude or higher, in a search window of this length.
+# altitude or higher. The mount waits at most the time of the setting
+# mount_control_max_wait_min, by default this many minutes.
 MEET_ALT_DEG = 20.0
 MEET_SEARCH_MINUTES = 30.0
+# Without a meet point in the wait time, the PiFinder tells the next pass
+# in this many hours.
+NEXT_PASS_HOURS = 24.0
 # This many seconds before the meet time the mount does a goto to the meet
 # point again, if the pointing offset changed by more than the angle.
 MEET_REFRESH_S = 30.0
@@ -254,16 +258,11 @@ class SatelliteTarget:
         return float(alt.degrees), float(az.degrees)
 
 
-def find_meet(target: SatelliteTarget, now: float) -> Optional[MeetPoint]:
-    """The meet point of the next pass, or None.
-
-    The next pass is the first one in MEET_SEARCH_MINUTES that reaches
-    MEET_ALT_DEG. The meet time is the first time of that pass at
-    MEET_ALT_DEG or higher where the satellite is visible (in sunlight, with
-    the Sun below DARK_SUN_ALT_DEG). A pass without a visible part meets at
-    the time it reaches MEET_ALT_DEG. None when there is no such pass, or
-    when the meet time is not after ``now``.
-    """
+def find_pass(
+    target: SatelliteTarget, now: float, minutes: float
+) -> Optional[satellites.SatPass]:
+    """The next pass in ``minutes`` that reaches MEET_ALT_DEG and has its
+    meet time (``meet_time``) after ``now``, or None."""
     lat, lon, altitude_m = target.site
     tracked = satellites.TrackedSatellite(
         target.elements,
@@ -274,17 +273,36 @@ def find_meet(target: SatelliteTarget, now: float) -> Optional[MeetPoint]:
         tracked,
         satellites.observer_topos(lat, lon, altitude_m),
         datetime.fromtimestamp(now, tz=timezone.utc),
-        hours=MEET_SEARCH_MINUTES / 60.0,
+        hours=minutes / 60.0,
         min_alt=MEET_ALT_DEG,
     )
-    if not passes:
-        return None
-    first = passes[0]
-    when = (first.visible_start or first.rise).timestamp()
-    if when <= now:
-        return None
+    for item in passes:
+        if meet_time(item) > now:
+            return item
+    return None
+
+
+def meet_time(item: satellites.SatPass) -> float:
+    """The meet time of a pass that reaches MEET_ALT_DEG: the first time at
+    MEET_ALT_DEG or higher where the satellite is visible (in sunlight, with
+    the Sun below DARK_SUN_ALT_DEG). A pass without a visible part meets at
+    the time it reaches MEET_ALT_DEG."""
+    return (item.visible_start or item.rise).timestamp()
+
+
+def meet_point(target: SatelliteTarget, item: satellites.SatPass) -> MeetPoint:
+    when = meet_time(item)
     alt, az = target.alt_az(when)
     return MeetPoint(when, alt, az)
+
+
+def find_meet(
+    target: SatelliteTarget, now: float, minutes: float = MEET_SEARCH_MINUTES
+) -> Optional[MeetPoint]:
+    """The meet point of the next pass in ``minutes`` that reaches
+    MEET_ALT_DEG (see ``meet_time``), or None."""
+    item = find_pass(target, now, minutes)
+    return None if item is None else meet_point(target, item)
 
 
 class BodyTarget:

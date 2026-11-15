@@ -16,6 +16,7 @@ from PiFinder.mountcontrol_interface import (
     MountControlBase,
     MountControlPhases,
     meet_text,
+    next_pass_text,
 )
 from PiFinder.target_follow import (
     BodyTarget,
@@ -210,13 +211,24 @@ def test_follow_ends_when_the_satellite_sets_or_on_another_command():
     assert mount._follow is None
 
 
-def test_follow_refuses_a_satellite_without_a_pass_soon():
+def test_follow_without_a_meet_in_the_wait_tells_the_next_pass():
     mount = FakeMount(rates_ok=True)
     mount.now = iss_pass().set.timestamp() + 300.0
     mount.command(follow_command())
     assert mount._follow is None
     mount.move_mount_to_target.assert_not_called()
-    assert mount.console_queue.get_nowait() == ["WARNING", "No pass soon"]
+    kind, text = mount.console_queue.get_nowait()
+    item = target_follow.find_pass(iss_target(), mount.now, 24 * 60.0)
+    assert item is not None
+    wait = target_follow.meet_time(item) - mount.now
+    assert wait > target_follow.MEET_SEARCH_MINUTES * 60.0
+    assert kind == "WARNING"
+    assert text == meet_text_of(item, mount.now, "UTC")
+    lines = text.split("\n")
+    assert len(lines) == 3 and all(len(line) <= 16 for line in lines)
+    assert lines[0].startswith("Next pass ")
+    assert lines[1].startswith("in ")
+    assert lines[2].startswith("max ")
 
 
 def test_follow_refuses_a_comet_below_the_horizon():
@@ -916,3 +928,69 @@ def test_satellite_past_its_meet_point_follows_at_once():
     follow = mount._follow
     assert follow is not None and follow.meet is None
     assert follow.aim_time == mount.now + target_follow.DEFAULT_LEAD_S
+
+
+def meet_text_of(item, now: float, zone: str) -> str:
+    return next_pass_text(item, now, zone)
+
+
+def test_next_pass_text_in_the_local_time():
+    rise = datetime.datetime(2026, 11, 14, 20, 43, tzinfo=datetime.timezone.utc)
+    now = rise.timestamp() - (2 * 3600 + 5 * 60)
+    item = fake_pass(rise.timestamp())
+    item.max_alt, item.max_alt_az = 38.4, 135.0
+    text = next_pass_text(item, now, "Europe/Brussels")
+    assert text == "Next pass 21:43\nin 2h05\nmax 38° SE"
+    # The meet time of a pass with a visible part is its visible start.
+    item = fake_pass(rise.timestamp(), visible_start=rise.timestamp() + 120.0)
+    text = next_pass_text(item, now, "UTC")
+    assert text.split("\n")[:2] == ["Next pass 20:45", "in 2h07"]
+    # Less than an hour.
+    text = next_pass_text(item, rise.timestamp() - 45 * 60.0, "No/Zone")
+    assert text.split("\n")[:2] == ["Next pass 20:45", "in 47 min"]
+    assert next_pass_text(None, now, "UTC") == "No pass in 24 h"
+
+
+def test_no_pass_in_24_hours(monkeypatch):
+    start = meet_start()
+    calls = []
+
+    def passes(sat, topos, start, hours, min_alt):
+        calls.append(hours)
+        return []
+
+    monkeypatch.setattr(satellites, "find_passes", passes)
+    mount = FakeMount(rates_ok=True)
+    mount.now = start
+    mount.command(follow_command())
+    assert mount._follow is None
+    mount.move_mount_to_target.assert_not_called()
+    assert mount.console_queue.get_nowait() == ["WARNING", "No pass in 24 h"]
+    assert calls == [target_follow.NEXT_PASS_HOURS]
+
+
+def test_max_wait_setting_decides_on_the_meet(monkeypatch):
+    start = meet_start()
+    monkeypatch.setattr(
+        satellites,
+        "find_passes",
+        lambda *args, **kwargs: [fake_pass(start + 20 * 60.0)],
+    )
+    # 15 min: the pass in 20 min is too late. The PiFinder tells it.
+    mount = FakeMount(rates_ok=True)
+    mount.max_wait_min = 15.0
+    mount.now = start
+    mount.command(follow_command())
+    assert mount._follow is None
+    mount.move_mount_to_target.assert_not_called()
+    kind, text = mount.console_queue.get_nowait()
+    assert kind == "WARNING"
+    assert text.split("\n")[1] == "in 20 min"
+    # 30 min, the default: the mount waits at the meet point.
+    mount = FakeMount(rates_ok=True)
+    assert mount.max_wait_min == target_follow.MEET_SEARCH_MINUTES
+    mount.now = start
+    mount.command(follow_command())
+    assert mount._follow is not None
+    assert mount._follow.meet.time == pytest.approx(start + 20 * 60.0)
+    mount.move_mount_to_target.assert_called_once()
