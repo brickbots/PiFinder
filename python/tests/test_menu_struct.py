@@ -64,6 +64,10 @@ def test_important_catalog_entries_exist():
     satellite_items = submenus["Satellites..."]["items"]
     assert [i["name"] for i in satellite_items] == ["Satellites", "Sat groups"]
     assert satellite_items[0]["value"] == "SA"
+    # "Update now" is the first item of Sat groups.
+    update_now = satellite_items[1]["items"][0]
+    assert update_now["name"] == "Update now"
+    assert callable(update_now["callback"])
     values = {i.get("value") for i in by_catalog_menu["items"]}
     assert {"M", "NGC", "PL"} <= values
 

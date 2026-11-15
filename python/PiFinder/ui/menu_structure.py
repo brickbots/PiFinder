@@ -451,7 +451,13 @@ pifinder_menu = {
                                     "values_callback": sat_groups.selected_groups,
                                     "toggle_callback": sat_groups.toggle_group,
                                     "update_callback": sat_groups.show_next_message,
-                                    "items": sat_groups.menu_items(),
+                                    "items": [
+                                        {
+                                            "name": _("Update now"),
+                                            "callback": sat_groups.update_now,
+                                        }
+                                    ]
+                                    + sat_groups.menu_items(),
                                 },
                             ],
                         },
