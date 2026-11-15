@@ -7,13 +7,13 @@ This module contains all the UI Module classes
 
 import numpy as np
 import copy
+from dataclasses import dataclass
 from enum import Enum
 from typing import Union, Optional, Tuple
 from pathlib import Path
 import os
 import functools
 from functools import cache
-import math as math
 import re
 import time
 
@@ -40,6 +40,7 @@ from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     draw_text_cached,
     name_deduplicate,
+    normalize,
     pointing_arrows,
 )
 from typing import Any, TYPE_CHECKING
@@ -171,6 +172,61 @@ def _next_target_index(
     return min(max(old_index, 0), len(new_order) - 1)
 
 
+# The space of the right column, in characters of the base font. The left
+# label is cut to the rest of the row when the right column shows.
+RIGHT_COLUMN_RESERVE_CHARS = 9
+
+# The separator of the names in the NAME-mode text.
+NAME_SEPARATOR = ", "
+
+
+def right_column_text(label: str, text: str) -> str:
+    """
+    The text of the right column that adds information to the left label.
+
+    The names of ``text`` that repeat the label (case, spaces and dashes are
+    ignored) are removed. The function returns "" when the text is empty or
+    only repeats the label. Otherwise it returns ``text`` unchanged, or the
+    names that are left.
+    """
+    if not text.strip():
+        return ""
+    names = text.split(NAME_SEPARATOR)
+    label_key = normalize(label.strip())
+    other = [name for name in names if normalize(name.strip()) != label_key]
+    if len(other) == len(names):
+        return text
+    return NAME_SEPARATOR.join(other)
+
+
+def cut_text(text: str, chars: int) -> str:
+    """``text`` cut to ``chars`` characters, the last one an ellipsis."""
+    if len(text) <= chars:
+        return text
+    return text[: chars - 1] + "…"
+
+
+@dataclass(frozen=True)
+class RowText:
+    """The two columns of one row of the object list.
+
+    ``label_x`` is the start of the left column. ``label_chars`` is its
+    space in characters of the row font. ``label_cut`` is True when the
+    label is longer than that space.
+    ``text`` is the right column text, "" when the right column is not drawn.
+    ``text_x`` and ``text_chars`` give the start and the space of the right
+    column.
+    """
+
+    label: str
+    label_x: int
+    label_chars: int
+    label_cut: bool
+    text: str
+    text_x: int
+    text_chars: int
+
+
 def _error_text(data: dict) -> str:
     """The text of a catalog in the ERROR state, from its status data.
 
@@ -209,6 +265,9 @@ class UIObjectList(UITextMenu):
     ruler = ""
     # The label of the left column; None shows the designation.
     current_label: Optional[ObjectLabel] = None
+    # The texts and widths the scrolling texts of the focus row were made for.
+    _label_scroll_key: Any = None
+    _text_scroll_key: Any = None
 
     def __init__(self, *args, **kwargs) -> None:
         # hack at our item definition here to allow re-use of UITextMenu
@@ -263,6 +322,7 @@ class UIObjectList(UITextMenu):
         )
         self.last_item_index = -1
         self.item_text_scroll: Union[None, TextLayouterScroll] = None
+        self.item_label_scroll: Union[None, TextLayouterScroll] = None
 
         # Base marking menu
         marking_menu_down = self._marking_menu_down()
@@ -1008,19 +1068,7 @@ class UIObjectList(UITextMenu):
                     line_number, _menu_item, is_focus=is_focus
                 )
 
-                # Cap the label so it can't overrun the second column drawn to
-                # its right (push-to / name / info). Width-aware: derives from
-                # the real display width and this row's font, so it adapts to
-                # 128/176/320. The reserve is sized in base-font units (the
-                # second column's content is the same regardless of row font).
-                reserve_px = 9 * self.fonts.base.width
-                max_name_chars = max(
-                    3,
-                    (self.display.width - layout.text_x - reserve_px)
-                    // line_font.width,
-                )
-                if len(item_name) > max_name_chars:
-                    item_name = item_name[: max_name_chars - 1] + "…"
+                row = self.row_text(item_name, item_text, line_font, layout.text_x)
 
                 # Type Marker
                 line_bg = 32 if is_focus else 0
@@ -1030,45 +1078,10 @@ class UIObjectList(UITextMenu):
                         marker, (layout.marker_x, line_pos + layout.marker_dy)
                     )
 
-                # calculate start of both pieces of text
-                begin_x = layout.text_x
-                begin_x2 = begin_x + (len(item_name) + 1) * line_font.width
-
-                # draw first text
-                draw_text_cached(
-                    self.screen,
-                    (begin_x, line_pos),
-                    item_name,  # TODO I18N: Does this need to be translated?
-                    line_font.font,
-                    self.colors.get(line_color),
-                )
                 if is_focus:
-                    # should scrolling second text be refreshed?
-                    if (
-                        not self.item_text_scroll
-                        or self.last_item_index != self._current_item_index
-                        or item_text != self.item_text_scroll.text
-                    ):
-                        self.last_item_index = self._current_item_index
-                        self.item_text_scroll = self.ScrollTextLayout(
-                            item_text,  # TODO I18N: Does this need to be translated?
-                            font=self.fonts.bold,
-                            width=math.floor(
-                                (self.display.width - begin_x2) / line_font.width
-                            ),
-                            scrollspeed=self._get_scrollspeed_config(),
-                        )
-                    # draw scrolling second text
-                    self.item_text_scroll.draw((begin_x2, line_pos))
+                    self._draw_focus_row(row, line_font, line_color, line_pos)
                 else:
-                    # draw non-scrolling second text
-                    draw_text_cached(
-                        self.screen,
-                        (begin_x2, line_pos),
-                        item_text,  # TODO I18N: Does this need to be translated?
-                        line_font.font,
-                        self.colors.get(line_color),
-                    )
+                    self._draw_row(row, line_font, line_color, line_pos)
 
             line_number += 1
 
@@ -1081,6 +1094,120 @@ class UIObjectList(UITextMenu):
         self._draw_scrollbar()
 
         self.screen_update()
+
+    def row_text(self, label: str, text: str, font, label_x: int) -> RowText:
+        """
+        The space of the two columns of a row in ``font``.
+
+        The right column shows only when its text adds information to the
+        label (see right_column_text). Then the label gets the row width
+        minus a reserve for the right column. Else the label gets the full
+        row width. The widths come from the display width and the font, so
+        they follow the 128, 176 and 320 px layouts.
+        """
+        text = right_column_text(label, text)
+        row_px = self.display.width - label_x
+        if text:
+            row_px -= RIGHT_COLUMN_RESERVE_CHARS * self.fonts.base.width
+        label_chars = max(3, row_px // font.width)
+        label_cut = len(label) > label_chars
+        shown_chars = label_chars if label_cut else len(label)
+        text_x = label_x + (shown_chars + 1) * font.width
+        text_chars = max(0, (self.display.width - text_x) // font.width)
+        return RowText(
+            label=label,
+            label_x=label_x,
+            label_chars=label_chars,
+            label_cut=label_cut,
+            text=text,
+            text_x=text_x,
+            text_chars=text_chars,
+        )
+
+    def _draw_row(self, row: RowText, font, color: int, line_pos: int) -> None:
+        """Draw a row that is not the focus row. A long label is cut."""
+        draw_text_cached(
+            self.screen,
+            (row.label_x, line_pos),
+            cut_text(row.label, row.label_chars),
+            font.font,
+            self.colors.get(color),
+        )
+        if row.text:
+            draw_text_cached(
+                self.screen,
+                (row.text_x, line_pos),
+                row.text,
+                font.font,
+                self.colors.get(color),
+            )
+
+    def _update_focus_scrollers(self, row: RowText, font, color: int) -> None:
+        """
+        Make the scrolling texts of the focus row again when the focus moved
+        or their text changed. Only one text of the row scrolls. A cut label
+        scrolls in the left column, and the right column text stays still.
+        Else the right column text scrolls, as before. The two texts have
+        their own keys: a LOCATE text that changes in each frame does not
+        start the label scroll again.
+        """
+        scrollspeed = self._get_scrollspeed_config()
+        label_scrolls = row.label_cut and scrollspeed > 0
+        if self.last_item_index != self._current_item_index:
+            self.last_item_index = self._current_item_index
+            self._label_scroll_key = None
+            self._text_scroll_key = None
+
+        label_key = (row.label, row.label_chars, color, scrollspeed)
+        if not label_scrolls:
+            self.item_label_scroll = None
+            self._label_scroll_key = None
+        elif label_key != self._label_scroll_key:
+            self._label_scroll_key = label_key
+            self.item_label_scroll = self.ScrollTextLayout(
+                row.label,
+                font=font,
+                width=row.label_chars,
+                scrollspeed=scrollspeed,
+                color=self.colors.get(color),
+            )
+
+        text_key = (row.text, row.text_chars, scrollspeed)
+        if label_scrolls or not row.text:
+            self.item_text_scroll = None
+            self._text_scroll_key = None
+        elif text_key != self._text_scroll_key:
+            self._text_scroll_key = text_key
+            self.item_text_scroll = self.ScrollTextLayout(
+                row.text,  # TODO I18N: Does this need to be translated?
+                font=self.fonts.bold,
+                width=row.text_chars,
+                scrollspeed=scrollspeed,
+            )
+
+    def _draw_focus_row(self, row: RowText, font, color: int, line_pos: int) -> None:
+        """Draw the focus row. A long label or a long right text scrolls."""
+        self._update_focus_scrollers(row, font, color)
+        if self.item_label_scroll is not None:
+            self.item_label_scroll.draw((row.label_x, line_pos))
+            if row.text:
+                draw_text_cached(
+                    self.screen,
+                    (row.text_x, line_pos),
+                    cut_text(row.text, row.text_chars),
+                    font.font,
+                    self.colors.get(color),
+                )
+            return
+        draw_text_cached(
+            self.screen,
+            (row.label_x, line_pos),
+            cut_text(row.label, row.label_chars),
+            font.font,
+            self.colors.get(color),
+        )
+        if self.item_text_scroll is not None:
+            self.item_text_scroll.draw((row.text_x, line_pos))
 
     def scroll_to_sequence(
         self, sequence: int, start_at_top=True, direction="down"
