@@ -28,6 +28,19 @@ OPTIONS = {
     "address": "mount_control_address",
 }
 PRESETS_OPTION = "mount_control_presets"
+# The longest wait of a satellite follow at its meet point, in minutes.
+MAX_WAIT_OPTION = "mount_control_max_wait_min"
+MAX_WAIT_DEFAULT_MIN = 30
+MAX_WAIT_CHOICES_MIN = (15, 30, 60, 120)
+
+
+def max_wait_min(cfg) -> float:
+    """The wait setting, or the default for a value that is not a number
+    above zero."""
+    value = cfg.get_option(MAX_WAIT_OPTION, MAX_WAIT_DEFAULT_MIN)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        return float(MAX_WAIT_DEFAULT_MIN)
+    return float(value)
 
 
 @dataclass(frozen=True)

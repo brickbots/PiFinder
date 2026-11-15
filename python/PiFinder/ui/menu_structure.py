@@ -120,6 +120,20 @@ _mount_control_menu = {
             ],
         },
         {
+            # The longest wait of a satellite follow at its meet point.
+            "name": _("Max wait"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control_max_wait_min",
+            "post_callback": callbacks.mount_settings_changed,
+            "items": [
+                {"name": _("15 min"), "value": 15},
+                {"name": _("30 min"), "value": 30},
+                {"name": _("1 h"), "value": 60},
+                {"name": _("2 h"), "value": 120},
+            ],
+        },
+        {
             "name": _("Connection"),
             "class": UITextMenu,
             "select": "single",

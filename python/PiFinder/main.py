@@ -503,6 +503,8 @@ HOLD_DIRECTIONS = {
 
 # Seconds on screen of a [kind, text] console message, by kind.
 STATUS_MESSAGE_SECONDS = {"WARNING": 3.0, "MOUNT": 1.5}
+# Seconds on screen of a console message of three lines or more.
+LONG_MESSAGE_SECONDS = 6.0
 
 
 def show_status_message(menu_manager, console, message) -> None:
@@ -514,7 +516,14 @@ def show_status_message(menu_manager, console, message) -> None:
     # The mount page shows mount progress in its status band.
     if kind == "MOUNT" and getattr(menu_manager.stack[-1], "shows_mount_status", False):
         return
-    menu_manager.message(text, STATUS_MESSAGE_SECONDS.get(kind, 2.0))
+    seconds = STATUS_MESSAGE_SECONDS.get(kind, 2.0)
+    lines = text.count("\n") + 1
+    if lines > 2:
+        # A longer message gets a larger box and more time.
+        size = sat_groups.message_box(menu_manager.stack[-1], lines)
+        menu_manager.message(text, max(seconds, LONG_MESSAGE_SECONDS), size=size)
+        return
+    menu_manager.message(text, seconds)
 
 
 def main(

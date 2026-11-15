@@ -37,6 +37,7 @@
     "mount_control_address": "",
     "mount_control_arrows": "eyepiece",
     "mount_control_track_rate": "auto",
+    "mount_control_max_wait_min": 30,
     "filter.selected_catalogs": [
         "NGC",
         "M",
