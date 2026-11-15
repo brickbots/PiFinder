@@ -13,6 +13,7 @@ indiserver (indi_drivers), connects with the pure-Python IndiClient, and
 drives the mount with the standard INDI telescope properties.
 """
 
+import datetime
 import logging
 import math
 import time
@@ -59,6 +60,16 @@ SLEW_TIMEOUT_S = 300.0
 MOTION_AXIS_THRESHOLD = 0.38
 # Time for the driver to define CONNECTION_MODE after DRIVER_INFO.
 CONNECTION_MODE_WAIT_S = 3.0
+# Time for the driver to define GEOGRAPHIC_COORD after the connection. The
+# telescope simulator defines it a moment after EQUATORIAL_EOD_COORD.
+LOCATION_PROPERTY_WAIT_S = 5.0
+# Time for the driver to define TIME_UTC after GEOGRAPHIC_COORD.
+TIME_PROPERTY_WAIT_S = 1.0
+# PiFinder sends the time again when its clock differs by more than this
+# (seconds) from the time that the mount got, for example after a GPS fix.
+TIME_RESYNC_S = 2.0
+# The sidereal rate in degrees per second of time.
+SIDEREAL_DEG_PER_S = 360.98564736629 / 86400.0
 # A drift grew when it is larger than the last one by this many standard
 # errors of the difference. A wrong axis direction makes the drift grow by
 # the correction gain (0.7), and each drift is at least 4 standard errors
@@ -140,6 +151,8 @@ class MountControlIndi(MountControlBase):
         self.last_periodic_update: float = 0.0
         self.periodic_update_interval: float = 30.0  # seconds
         self._last_synced_location: Optional[Tuple[float, float, float]] = None
+        # The UTC time sent to the mount and the time.time() of the send.
+        self._last_synced_time: Optional[Tuple[datetime.datetime, float]] = None
 
     @property
     def model_label(self) -> str:
@@ -424,7 +437,21 @@ class MountControlIndi(MountControlBase):
             return False
         logger.info("Telescope %s connected", self.device)
 
-        self.sync_mount_location_and_time(sync_time=True)
+        # The driver defines the location and time properties a moment
+        # after the connection. Without a wait, the first send fails and the
+        # first goto and sync use the driver's own location.
+        if (
+            self.client.wait_property(
+                self.device, "GEOGRAPHIC_COORD", LOCATION_PROPERTY_WAIT_S
+            )
+            is None
+        ):
+            logger.warning("Mount has no GEOGRAPHIC_COORD")
+        self.client.wait_property(self.device, "TIME_UTC", TIME_PROPERTY_WAIT_S)
+        # A new connection: the driver can have any location and time.
+        self._last_synced_location = None
+        self._last_synced_time = None
+        self.sync_mount_location_and_time()
 
         slew_rates = self.client.get_property(self.device, "TELESCOPE_SLEW_RATE")
         self.available_slew_rates = list(slew_rates.elements) if slew_rates else []
@@ -700,10 +727,16 @@ class MountControlIndi(MountControlBase):
         self.client.disconnect()
         return True
 
-    def sync_mount_location_and_time(self, sync_time: bool = False) -> bool:
-        """Send the location when it changes, and the UTC time if asked."""
+    def sync_mount_location_and_time(self) -> bool:
+        """Send the location when it changes, and the UTC time when the mount
+        has none from PiFinder or PiFinder's clock changed.
+
+        A change moves the RA (and for an alt-az mount also the Dec) that
+        the mount reports for the same sky position, so each send calls
+        mount_site_changed(). Returns True when something was sent."""
         if self.device is None:
             return False
+        sent = False
         location = self.shared_state.location()
         # Without a lock the location is the 0,0 default.
         if location is not None and location.lock:
@@ -718,22 +751,74 @@ class MountControlIndi(MountControlBase):
                 "GEOGRAPHIC_COORD",
                 {"LAT": current[0], "LONG": current[1], "ELEV": current[2]},
             ):
+                previous = self._last_synced_location
+                if previous is None:
+                    lat, lon = self._driver_location()
+                else:
+                    lat, lon = previous[0], previous[1]
                 self._last_synced_location = current
                 logger.info("Mount location: %s", current)
+                self.mount_site_changed(
+                    max(
+                        abs((current[1] - lon + 180.0) % 360.0 - 180.0),
+                        abs(current[0] - lat),
+                    )
+                )
+                sent = True
         dt = self.shared_state.datetime()
-        if sync_time and dt is not None and self._has("TIME_UTC"):
-            self.client.set_text(
+        if dt is not None and self._has("TIME_UTC"):
+            now = time.time()
+            shift_s: Optional[float] = None
+            if self._last_synced_time is None:
+                # The driver's own clock is unknown: count it as changed.
+                shift_s = math.inf
+            else:
+                synced_dt, synced_at = self._last_synced_time
+                expected = synced_dt + datetime.timedelta(seconds=now - synced_at)
+                if abs((dt - expected).total_seconds()) > TIME_RESYNC_S:
+                    shift_s = abs((dt - expected).total_seconds())
+            if shift_s is not None and self.client.set_text(
                 self.device,
                 "TIME_UTC",
                 {"UTC": dt.strftime("%Y-%m-%dT%H:%M:%S"), "OFFSET": "0"},
-            )
-            logger.info("Mount time: %s UTC", dt)
-        return True
+            ):
+                self._last_synced_time = (dt, now)
+                logger.info("Mount time: %s UTC", dt)
+                self.mount_site_changed(shift_s * SIDEREAL_DEG_PER_S)
+                sent = True
+        return sent
+
+    def _driver_location(self) -> Tuple[float, float]:
+        """The latitude and longitude (0..360 East) that the driver has."""
+        lat = self.client.get_value(self.device or "", "GEOGRAPHIC_COORD", "LAT")
+        lon = self.client.get_value(self.device or "", "GEOGRAPHIC_COORD", "LONG")
+        if not isinstance(lat, float) or not isinstance(lon, float):
+            return 0.0, 0.0
+        return lat, lon
+
+    def _slew_active(self) -> bool:
+        """True while a goto, a manual step or a continuous move runs, or
+        the driver reports Busy."""
+        if self._slewing and time.time() - self._slew_start < SLEW_TIMEOUT_S:
+            return True
+        if self._motion_started is not None:
+            return True
+        if self.device is not None:
+            prop = self.client.get_property(self.device, POSITION)
+            if prop is not None and prop.state == "Busy":
+                return True
+        return False
+
+    def update_site(self) -> None:
+        # Some drivers stop a slew when the location changes.
+        if self._slew_active():
+            return
+        self.sync_mount_location_and_time()
 
     def periodic_mount_task(self) -> None:
         # Some drivers stop a slew when the location changes, so the
         # location waits until the mount stands still.
-        if self.is_mount_moving():
+        if self._slew_active():
             return
         if self.last_periodic_update + self.periodic_update_interval < time.time():
             self.last_periodic_update = time.time()

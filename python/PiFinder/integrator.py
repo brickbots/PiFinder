@@ -258,7 +258,9 @@ def integrator(
         simulator = None
         if sky_sim is not None:
             simulator = SkySimulator(
-                SkySimSettings.load(sky_sim), shared_state.datetime
+                SkySimSettings.load(sky_sim),
+                shared_state.datetime,
+                location=shared_state.location,
             )
             logger.info("Solves come from the sky simulator (%s)", sky_sim)
 

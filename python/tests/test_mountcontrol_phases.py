@@ -331,6 +331,59 @@ class TestMountControlPhases:
         # Verify no warning messages
         assert self.console_queue.empty()
 
+    def _site_change_in_refine(self, solve_time_after_change):
+        """REFINE after two rounds, with a solve on target from before a
+        change of the mount's location. update_site() sends the change."""
+        mc = self.mount_control
+        mc.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+        mc._refine_count = 2
+        self.mock_solution["solve_time"] = time.time() - 1.0
+
+        def send_location():
+            mc.mount_site_changed(1.35)
+            if solve_time_after_change:
+                self.mock_solution["solve_time"] = time.time() + 0.001
+
+        mc.update_site = Mock(side_effect=send_location)
+        self._execute_phase_generator(timeout=0.5)
+
+    def test_site_change_in_refine_drops_the_solves_before_it(self):
+        self._site_change_in_refine(solve_time_after_change=False)
+        mc = self.mount_control
+        mc.sync_mount.assert_not_called()
+        assert mc.state == MountControlPhases.MOUNT_TRACKING
+        assert self.console_queue.get_nowait() == ["WARNING", "Solve failed!"]
+
+    def test_site_change_in_refine_syncs_again_on_target(self):
+        """The solve is on target, but the sync of the earlier rounds is in
+        the old frame: REFINE syncs again and the rounds start at zero."""
+        self._site_change_in_refine(solve_time_after_change=True)
+        mc = self.mount_control
+        mc.sync_mount.assert_called_once_with(15.5, 45.2)
+        mc.move_mount_to_target.assert_called_once_with(15.5, 45.2)
+        assert mc._refine_count == 1
+        assert not mc._sync_stale
+        assert mc.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
+
+    def test_small_site_change_does_not_restart_the_refine(self):
+        mc = self.mount_control
+        mc.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+        mc._refine_count = 2
+        mc.mount_site_changed(0.001)
+        assert mc._refine_count == 2
+        assert not mc._sync_stale
+
+    def test_goto_sends_the_site_first(self):
+        mc = self.mount_control
+        mc.state = MountControlPhases.MOUNT_TRACKING
+        calls = []
+        mc.update_site = Mock(side_effect=lambda: calls.append("site"))
+        mc.move_mount_to_target.side_effect = lambda ra, dec: (
+            calls.append("goto") or True
+        )
+        assert mc._goto_target(15.5, 45.2)
+        assert calls == ["site", "goto"]
+
     def test_mount_target_acquisition_refine_sync_failure(self):
         """Test MOUNT_TARGET_ACQUISITION_REFINE phase when sync fails."""
         self.mount_control.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE

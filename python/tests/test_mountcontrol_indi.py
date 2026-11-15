@@ -11,7 +11,7 @@ import threading
 import time
 from pathlib import Path
 from queue import Queue
-from typing import Iterator
+from typing import Callable, Iterator, Optional
 from unittest.mock import Mock
 
 import numpy as np
@@ -88,12 +88,17 @@ def indi(tmp_path: Path, monkeypatch) -> Iterator[int]:
         proc.kill()
 
 
+# Where the telescope is. The sky simulator computes the sky from it.
+TRUE_LOCATION = Location(lat=50.85, lon=-4.35, altitude=60.0, lock=True)
+
+
 def _shared_state() -> Mock:
     shared_state = Mock(spec=SharedStateObj)
-    shared_state.location.return_value = Location(
-        lat=50.85, lon=-4.35, altitude=60.0, lock=True
+    shared_state.location.return_value = TRUE_LOCATION
+    # The clock runs, as in the app.
+    shared_state.datetime.side_effect = lambda: datetime.datetime.now(
+        datetime.timezone.utc
     )
-    shared_state.datetime.return_value = datetime.datetime.now(datetime.timezone.utc)
     shared_state.solution.return_value = None
     return shared_state
 
@@ -430,12 +435,23 @@ def test_status_follows_a_goto(indi: int) -> None:
         indi_drivers.stop_driver()
 
 
-def test_closed_loop_goto_refines_onto_the_target(indi: int) -> None:
-    """The full loop: the mount process, the INDI simulator and the sky
-    simulator with a 1.5° pointing error. A goto must end "On target" (within
-    0.01°) after at most three refine rounds."""
+POINTING_ERROR = (1.5, -0.8)
+CLOSED_LOOP_TARGET = (80.0, 25.0)
+
+
+def _closed_loop_goto(
+    indi: int,
+    shared_state: Mock,
+    mounts: list,
+    each_step: Optional[Callable[[MountControlIndi], None]] = None,
+    on_sync: Optional[Callable[[], None]] = None,
+) -> tuple[MountControlIndi, SkySimulator]:
+    """Run the mount process with the INDI simulator and the sky simulator
+    (pointing error POINTING_ERROR, telescope at TRUE_LOCATION). Goto
+    CLOSED_LOOP_TARGET and wait for drift compensation. ``each_step`` runs
+    in each step of the wait, ``on_sync`` after each sync of the mount. The
+    mount and its thread go into ``mounts`` for _stop_closed_loop."""
     latest: list = []
-    shared_state = _shared_state()
 
     def solution():
         if not latest:
@@ -456,56 +472,149 @@ def test_closed_loop_goto_refines_onto_the_target(indi: int) -> None:
         MountSettings(enabled=True, model=indi_drivers.SIMULATOR),
         indi_port=indi,
     )
+    if on_sync is not None:
+        sync = mount.sync_mount
+
+        def sync_and_notify(ra: float, dec: float) -> bool:
+            result = sync(ra, dec)
+            on_sync()
+            return result
+
+        mount.sync_mount = sync_and_notify  # type: ignore[method-assign]
     sim = SkySimulator(
         SkySimSettings(
             rate_hz=2.0,
-            offset_ra_deg=1.5,
-            offset_dec_deg=-0.8,
+            offset_ra_deg=POINTING_ERROR[0],
+            offset_dec_deg=POINTING_ERROR[1],
             noise_arcsec=5,
             seed=3,
             indi_port=indi,
         ),
         shared_state.datetime,
+        location=lambda: TRUE_LOCATION,
     )
     # The simulator listens before the driver starts, as in the app, so it
     # sees the driver's startup positions too.
     sim.next_message()
     runner = threading.Thread(target=mount.run, daemon=True)
     runner.start()
-    try:
-        assert _wait(lambda: mount.state == MountControlPhases.MOUNT_TRACKING, 30)
-        for _step in range(10):
-            sim.next_message()
-            time.sleep(0.1)
-        target = (80.0, 25.0)
-        mount.mount_queue.put(
-            {"type": "goto_target", "ra": target[0], "dec": target[1]}
-        )
-        deadline = time.time() + 180
-        while time.time() < deadline:
-            message = sim.next_message()
-            if isinstance(message, SuccessfulSolve):
-                latest.append(message)
-            if mount.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
-                break
-            time.sleep(0.05)
-        assert mount.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION
-        assert 1 <= mount._refine_count <= 3
-        solve = mount.latest_solve()
-        assert solve is not None
-        assert abs((solve[0] - target[0] + 180) % 360 - 180) <= 0.01
-        assert abs(solve[1] - target[1]) <= 0.01
-        # The refine synced the pointing error away. The location that the
-        # mount sends at start can also move the reported RA; the simulator
-        # counts that jump too if it already listens.
-        assert any(
-            jump == pytest.approx((1.5, -0.8), abs=0.01) for jump in sim.sync_jumps
-        ), sim.sync_jumps
-    finally:
+    mounts.append((mount, runner))
+    assert _wait(lambda: mount.state == MountControlPhases.MOUNT_TRACKING, 30)
+    for _step in range(10):
+        sim.next_message()
+        time.sleep(0.1)
+    mount.mount_queue.put(
+        {
+            "type": "goto_target",
+            "ra": CLOSED_LOOP_TARGET[0],
+            "dec": CLOSED_LOOP_TARGET[1],
+        }
+    )
+    deadline = time.time() + 180
+    while time.time() < deadline:
+        if each_step is not None:
+            each_step(mount)
+        message = sim.next_message()
+        if isinstance(message, SuccessfulSolve):
+            latest.append(message)
+        if mount.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
+            break
+        time.sleep(0.05)
+    return mount, sim
+
+
+def _stop_closed_loop(mounts: list) -> None:
+    for mount, runner in mounts:
         mount.mount_queue.put({"type": "exit"})
         runner.join(timeout=10)
         mount.disconnect_mount()
-        indi_drivers.stop_driver()
+    indi_drivers.stop_driver()
+
+
+def _assert_on_target_in_the_true_frame(
+    mount: MountControlIndi, sim: SkySimulator
+) -> None:
+    """The goto ended on target, the mount has the true location, and the
+    syncs removed only the pointing error: no sync kept a location error."""
+    target = CLOSED_LOOP_TARGET
+    assert mount.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION
+    assert 1 <= mount._refine_count <= 3
+    solve = mount.latest_solve()
+    assert solve is not None
+    assert abs((solve[0] - target[0] + 180) % 360 - 180) <= 0.01
+    assert abs(solve[1] - target[1]) <= 0.01
+    assert mount.client.get_value(
+        mount.device or "", "GEOGRAPHIC_COORD", "LONG"
+    ) == pytest.approx(TRUE_LOCATION.lon % 360.0, abs=1e-3)
+    # The mount reports the target where the telescope points at it.
+    assert mount.current_ra is not None and mount.current_dec is not None
+    assert abs((mount.current_ra - target[0] + 180) % 360 - 180) <= 0.02
+    assert abs(mount.current_dec - target[1]) <= 0.02
+    assert sim.sync_jumps
+    assert (sim.sync_ra, sim.sync_dec) == pytest.approx(
+        POINTING_ERROR, abs=0.02
+    ), sim.sync_jumps
+
+
+def test_closed_loop_goto_refines_onto_the_target(indi: int) -> None:
+    """The full loop: the mount process, the INDI simulator and the sky
+    simulator with a 1.5° pointing error. A goto must end "On target" (within
+    0.01°) after at most three refine rounds. The mount has the location
+    before the goto, so the first sync is the pointing error."""
+    shared_state = _shared_state()
+    mounts: list = []
+    try:
+        mount, sim = _closed_loop_goto(indi, shared_state, mounts)
+        _assert_on_target_in_the_true_frame(mount, sim)
+        assert sim.sync_jumps[0] == pytest.approx(POINTING_ERROR, abs=0.01)
+    finally:
+        _stop_closed_loop(mounts)
+
+
+@pytest.mark.parametrize("case", ["gps_lock_during_slew", "better_fix_after_sync"])
+def test_location_change_during_the_goto_restarts_the_refine(
+    indi: int, case: str
+) -> None:
+    """The location of the mount changes during a goto. The refine rounds
+    start again in the new frame, so the goto ends on target and the mount
+    keeps no sync that holds a location error."""
+    shared_state = _shared_state()
+    changed: list[bool] = []
+
+    def gps_fix() -> None:
+        shared_state.location.return_value = TRUE_LOCATION
+        changed.append(True)
+
+    each_step = None
+    on_sync = None
+    if case == "gps_lock_during_slew":
+        # No GPS lock at the start: the mount has the driver's longitude 0.
+        shared_state.location.return_value = Location(lock=False)
+
+        def lock_while_slewing(mount: MountControlIndi) -> None:
+            if not changed and mount._slew_active():
+                gps_fix()
+
+        each_step = lock_while_slewing
+    else:
+        # A first fix 1.35° west of the true one. The first sync holds that
+        # error; the better fix comes before the move after that sync.
+        shared_state.location.return_value = Location(
+            lat=50.85, lon=-3.0, altitude=60.0, lock=True
+        )
+
+        def better_fix() -> None:
+            if not changed:
+                gps_fix()
+
+        on_sync = better_fix
+    mounts: list = []
+    try:
+        mount, sim = _closed_loop_goto(indi, shared_state, mounts, each_step, on_sync)
+        assert changed
+        _assert_on_target_in_the_true_frame(mount, sim)
+    finally:
+        _stop_closed_loop(mounts)
 
 
 def test_gps_lock_during_a_slew_does_not_stop_it(indi: int) -> None:
