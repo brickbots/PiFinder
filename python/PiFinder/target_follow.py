@@ -19,6 +19,15 @@ when it ends. The follow of a fast target works in stages:
 A slow target (a comet, an asteroid, a planet) has no lead and no WAIT: the
 goto ends on the target, then TRACK or PASS starts.
 
+A satellite that is not yet at MEET_ALT_DEG gets a meet point: the first
+time of its next pass at that altitude or higher, in sunlight against a dark
+sky if the pass has such a part (``find_meet``). The first AIM goes to the
+position of the satellite at that time and the WAIT lasts until then. The
+meet point is a fixed RA/Dec, so the sidereal tracking holds it during the
+wait. The user can say "I see it" with an arrow (``TargetFollow.see_it``):
+the satellite is at the meet point now, and the difference to the meet time
+is a time offset of the elements.
+
 Each slew measures its duration, and the next lead uses it. Positions are
 topocentric RA/Dec of date (JNow), the frame of the mount.
 
@@ -72,6 +81,17 @@ MAX_TIME_OFFSET_S = 120.0
 MIN_TIME_OFFSET_S = 0.05
 MAX_OFFSET_DEG = 5.0
 
+# The meet point of a satellite: the first time of the next pass at this
+# altitude or higher, in a search window of this length.
+MEET_ALT_DEG = 20.0
+MEET_SEARCH_MINUTES = 30.0
+# This many seconds before the meet time the mount does a goto to the meet
+# point again, if the pointing offset changed by more than the angle.
+MEET_REFRESH_S = 30.0
+MEET_REFRESH_MIN_DEG = 0.02
+# Corrections that put the path on the meet point after "I see it".
+SEE_IT_STEPS = 2
+
 SIDEREAL_DEG_PER_DAY = 360.98564736629
 # A target whose motion differs from a fixed point in alt-az by less than
 # this (degrees per second, 1.8"/s) stays in view with tracking off. A
@@ -105,6 +125,16 @@ class FollowPoint:
         return math.hypot(
             self.ra_rate * math.cos(math.radians(self.dec)), self.dec_rate
         )
+
+
+@dataclass(frozen=True)
+class MeetPoint:
+    """Where the mount waits for a satellite: the time, and the altitude and
+    azimuth of the satellite at that time (degrees)."""
+
+    time: float  # unix time
+    alt: float
+    az: float
 
 
 def ground_fixed(point: FollowPoint) -> bool:
@@ -211,6 +241,50 @@ class SatelliteTarget:
 
     def shifted(self, seconds: float) -> "SatelliteTarget":
         return SatelliteTarget(shift_elements(self.elements, seconds), *self._site)
+
+    @property
+    def site(self) -> tuple[float, float, float]:
+        """Latitude, longitude (degrees) and altitude (m) of the observer."""
+        return self._site
+
+    def alt_az(self, unix_time: float) -> tuple[float, float]:
+        """Altitude and azimuth in degrees, without refraction."""
+        dt = datetime.fromtimestamp(unix_time, tz=timezone.utc)
+        alt, az, _range = self._difference.at(sf_utils.ts.from_datetime(dt)).altaz()
+        return float(alt.degrees), float(az.degrees)
+
+
+def find_meet(target: SatelliteTarget, now: float) -> Optional[MeetPoint]:
+    """The meet point of the next pass, or None.
+
+    The next pass is the first one in MEET_SEARCH_MINUTES that reaches
+    MEET_ALT_DEG. The meet time is the first time of that pass at
+    MEET_ALT_DEG or higher where the satellite is visible (in sunlight, with
+    the Sun below DARK_SUN_ALT_DEG). A pass without a visible part meets at
+    the time it reaches MEET_ALT_DEG. None when there is no such pass, or
+    when the meet time is not after ``now``.
+    """
+    lat, lon, altitude_m = target.site
+    tracked = satellites.TrackedSatellite(
+        target.elements,
+        satellites.DEFAULT_STD_MAG,
+        target.elements.to_earth_satellite(),
+    )
+    passes = satellites.find_passes(
+        tracked,
+        satellites.observer_topos(lat, lon, altitude_m),
+        datetime.fromtimestamp(now, tz=timezone.utc),
+        hours=MEET_SEARCH_MINUTES / 60.0,
+        min_alt=MEET_ALT_DEG,
+    )
+    if not passes:
+        return None
+    first = passes[0]
+    when = (first.visible_start or first.rise).timestamp()
+    if when <= now:
+        return None
+    alt, az = target.alt_az(when)
+    return MeetPoint(when, alt, az)
 
 
 class BodyTarget:
@@ -326,6 +400,11 @@ class TargetFollow:
         self.slew_started: Optional[float] = None
         self.last_rate_update = 0.0
         self.aim_count = 0
+        # The meet point of a satellite, and the meet time. A correction
+        # along the track moves the meet time.
+        self.meet: Optional[MeetPoint] = None
+        self.meet_time: Optional[float] = None
+        self.meet_refreshed = False
 
     # -- the corrected path -------------------------------------------------
 
@@ -368,12 +447,54 @@ class TargetFollow:
         along = north_deg * along_north + east_deg * along_east
         cross = north_deg * along_east - east_deg * along_north
         seconds = _clamp(self.time_offset_s + along / point.speed, MAX_TIME_OFFSET_S)
+        # A satellite that is ahead of the prediction arrives earlier.
         if self.aim_time is not None:
-            # A satellite that is ahead of the prediction arrives earlier.
             self.aim_time -= seconds - self.time_offset_s
+        if self.meet_time is not None:
+            self.meet_time -= seconds - self.time_offset_s
         self.time_offset_s = seconds
         self.cross_deg = _clamp(self.cross_deg + cross, MAX_OFFSET_DEG)
         self.target = shifted(seconds)
+
+    def set_meet(self, meet: MeetPoint) -> None:
+        """Wait for the target at this meet point."""
+        self.meet = meet
+        self.meet_time = meet.time
+        self.meet_refreshed = False
+
+    def meet_pending(self, now: float) -> bool:
+        """True before the meet time of a follow with a meet point."""
+        return self.meet_time is not None and now < self.meet_time
+
+    def see_it(self, now: float) -> bool:
+        """The user sees the satellite at the meet point now.
+
+        The time offset becomes the meet time minus now, and the target
+        arrives now. The Earth turns in that time, so the shifted target is
+        not exactly at the meet point: a correction (``nudge``) moves the
+        path onto it. False, with no change, when the offset is larger than
+        MAX_TIME_OFFSET_S or there is no meet point.
+        """
+        shifted = getattr(self._base, "shifted", None)
+        if self.meet_time is None or shifted is None:
+            return False
+        seconds = self.time_offset_s + self.meet_time - now
+        if abs(seconds) > MAX_TIME_OFFSET_S:
+            return False
+        self.time_offset_s = seconds
+        self.target = shifted(seconds)
+        if self.aim_ra is not None and self.aim_dec is not None:
+            for _step in range(SEE_IT_STEPS):
+                point = self.point(now)
+                north = self.aim_dec - point.dec
+                east = wrap_degrees(self.aim_ra - point.ra) * math.cos(
+                    math.radians(point.dec)
+                )
+                self.nudge(north, east, now)
+        self.aim_time = now
+        self.meet = None
+        self.meet_time = None
+        return True
 
     def corrected_elements(self) -> Optional[satellites.SatElements]:
         """The elements with the time offset of the user, or None."""
@@ -384,8 +505,12 @@ class TargetFollow:
     # -- stages -------------------------------------------------------------
 
     def aim(self, now: float) -> FollowPoint:
-        """Start an AIM: the point where the target is after the lead."""
-        self.aim_time = now + self.lead_s
+        """Start an AIM: the point where the target is after the lead, or
+        at the meet time before it."""
+        if self.meet_time is not None and self.meet_pending(now):
+            self.aim_time = self.meet_time
+        else:
+            self.aim_time = now + self.lead_s
         target = self.point(self.aim_time)
         self.aim_ra, self.aim_dec = target.ra, target.dec
         self.slew_started = now

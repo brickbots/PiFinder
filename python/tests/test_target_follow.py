@@ -12,7 +12,11 @@ import pytest
 
 import PiFinder.satellites as satellites
 from PiFinder import target_follow
-from PiFinder.mountcontrol_interface import MountControlBase, MountControlPhases
+from PiFinder.mountcontrol_interface import (
+    MountControlBase,
+    MountControlPhases,
+    meet_text,
+)
 from PiFinder.target_follow import (
     BodyTarget,
     FollowStage,
@@ -206,10 +210,26 @@ def test_follow_ends_when_the_satellite_sets_or_on_another_command():
     assert mount._follow is None
 
 
-def test_follow_refuses_a_satellite_below_the_horizon():
+def test_follow_refuses_a_satellite_without_a_pass_soon():
     mount = FakeMount(rates_ok=True)
     mount.now = iss_pass().set.timestamp() + 300.0
     mount.command(follow_command())
+    assert mount._follow is None
+    mount.move_mount_to_target.assert_not_called()
+    assert mount.console_queue.get_nowait() == ["WARNING", "No pass soon"]
+
+
+def test_follow_refuses_a_comet_below_the_horizon():
+    mount = FakeMount(rates_ok=True)
+    mount.now = 1_800_000_000.0
+    mount.command(
+        {
+            "type": "follow_target",
+            "kind": "samples",
+            "name": "Low",
+            "samples": [(mount.now, 0.0, -80.0), (mount.now + 3600.0, 0.1, -80.0)],
+        }
+    )
     assert mount._follow is None
     mount.move_mount_to_target.assert_not_called()
     assert mount.console_queue.get_nowait() == ["WARNING", "Target too low"]
@@ -569,3 +589,330 @@ def high_time(ra: float, dec: float) -> float:
         (start + 600.0 * step for step in range(144)),
         key=lambda t: target_follow.altitude(ra, dec, t, LOCATION.lat, LOCATION.lon),
     )
+
+
+# -- meet point -------------------------------------------------------------
+
+
+def utc(unix_time: float) -> datetime.datetime:
+    return datetime.datetime.fromtimestamp(unix_time, datetime.timezone.utc)
+
+
+def fake_pass(rise: float, visible_start=None) -> satellites.SatPass:
+    return satellites.SatPass(
+        rise=utc(rise),
+        culmination=utc(rise + 120.0),
+        set=utc(rise + 240.0),
+        rise_az=270.0,
+        max_alt=60.0,
+        max_alt_az=0.0,
+        set_az=90.0,
+        visible_start=None if visible_start is None else utc(visible_start),
+        visible_end=None if visible_start is None else utc(rise + 200.0),
+    )
+
+
+def meet_start() -> float:
+    """Ten minutes before the culmination of the high pass: the ISS is
+    below the horizon."""
+    return iss_pass().culmination.timestamp() - 600.0
+
+
+def test_meet_is_the_first_visible_time_of_the_pass(monkeypatch):
+    now = meet_start()
+    calls = []
+
+    def passes(sat, topos, start, hours, min_alt):
+        calls.append((start, hours, min_alt))
+        return [fake_pass(now + 300.0, visible_start=now + 360.0)]
+
+    monkeypatch.setattr(satellites, "find_passes", passes)
+    meet = target_follow.find_meet(iss_target(), now)
+    assert meet is not None and meet.time == pytest.approx(now + 360.0)
+    assert calls == [
+        (
+            utc(now),
+            target_follow.MEET_SEARCH_MINUTES / 60.0,
+            target_follow.MEET_ALT_DEG,
+        )
+    ]
+    alt, az = iss_target().alt_az(now + 360.0)
+    assert (meet.alt, meet.az) == pytest.approx((alt, az))
+
+
+def test_meet_without_a_visible_part_is_at_the_meet_altitude(monkeypatch):
+    now = meet_start()
+    monkeypatch.setattr(
+        satellites, "find_passes", lambda *args, **kwargs: [fake_pass(now + 300.0)]
+    )
+    meet = target_follow.find_meet(iss_target(), now)
+    assert meet is not None and meet.time == pytest.approx(now + 300.0)
+
+
+def test_no_meet_without_a_pass_or_with_a_pass_now(monkeypatch):
+    now = meet_start()
+    monkeypatch.setattr(satellites, "find_passes", lambda *args, **kwargs: [])
+    assert target_follow.find_meet(iss_target(), now) is None
+    monkeypatch.setattr(
+        satellites, "find_passes", lambda *args, **kwargs: [fake_pass(now)]
+    )
+    assert target_follow.find_meet(iss_target(), now) is None
+
+
+def test_meet_of_the_fixture_passes():
+    # A pass in the Earth shadow: the meet is where the ISS reaches 20°.
+    meet = target_follow.find_meet(iss_target(), meet_start())
+    assert meet is not None
+    assert meet.alt == pytest.approx(target_follow.MEET_ALT_DEG, abs=0.2)
+    assert meet.time == pytest.approx(
+        iss_pass().culmination.timestamp() - 133.0, abs=5.0
+    )
+    # A visible pass in the evening twilight.
+    element = iss_elements()
+    sat = satellites.TrackedSatellite.from_elements(element)
+    topos = satellites.observer_topos(LOCATION.lat, LOCATION.lon, LOCATION.altitude)
+    visible = [
+        item
+        for item in satellites.find_passes(
+            sat, topos, element.epoch, hours=96, min_alt=target_follow.MEET_ALT_DEG
+        )
+        if item.visible
+    ][0]
+    start = visible.rise.timestamp() - 600.0
+    meet = target_follow.find_meet(iss_target(), start)
+    assert meet is not None
+    assert meet.time == pytest.approx(visible.visible_start.timestamp(), abs=1.0)
+    assert meet.alt >= target_follow.MEET_ALT_DEG - 0.2
+
+
+def start_meet_follow(rates_ok: bool = True) -> FakeMount:
+    mount = FakeMount(rates_ok=rates_ok)
+    mount.now = meet_start()
+    mount.command(follow_command())
+    return mount
+
+
+def test_follow_below_the_horizon_slews_to_the_meet_point():
+    mount = start_meet_follow()
+    follow = mount._follow
+    assert follow is not None and follow.meet is not None
+    meet_time = follow.meet.time
+    assert meet_time - mount.now == pytest.approx(467.0, abs=5.0)
+    aim_ra, aim_dec = mount.move_mount_to_target.call_args.args
+    expected = follow.point(meet_time)
+    assert (aim_ra, aim_dec) == pytest.approx((expected.ra, expected.dec))
+    assert follow.aim_time == meet_time
+    assert mount.status_text() == "Follow: slewing"
+
+    # The slew ends. The mount waits with the sidereal tracking.
+    mount.now += 30.0
+    mount.target_reached = True
+    mount.current_ra, mount.current_dec = aim_ra, aim_dec
+    mount.phase()
+    assert follow.stage == FollowStage.WAIT
+    seconds = math.ceil(meet_time - mount.now)
+    minutes, rest = divmod(seconds, 60)
+    compass = satellites.compass(follow.meet.az)
+    assert mount.status_text() == f"Meet in {minutes}:{rest:02d} 20° {compass}"
+    mount.set_track_rates.assert_not_called()
+
+    # The ISS is below the horizon during the wait: the follow stays.
+    for _step in range(15):
+        mount.now += 20.0
+        mount.phase()
+        assert mount._follow is follow
+    assert mount.move_mount_to_target.call_count == 1
+    assert mount.status_text().startswith("Meet in 2:")
+
+
+def test_meet_text_format():
+    meet = target_follow.MeetPoint(0.0, 20.4, 135.0)
+    assert meet_text(133.0, meet) == "Meet in 2:13 20° SE"
+    assert meet_text(0.4, meet) == "Meet in 0:01 20° SE"
+
+
+def wait_at_meet(mount: FakeMount) -> TargetFollow:
+    follow = mount._follow
+    mount.now += 30.0
+    mount.target_reached = True
+    mount.current_ra, mount.current_dec = mount.move_mount_to_target.call_args.args
+    mount.phase()
+    assert follow.stage == FollowStage.WAIT
+    return follow
+
+
+def test_without_input_the_follow_tracks_at_the_meet_time():
+    mount = start_meet_follow()
+    follow = wait_at_meet(mount)
+    mount.now = follow.meet.time + 0.1
+    mount.phase()
+    assert follow.stage == FollowStage.TRACK
+    point = follow.point(mount.now)
+    assert mount.set_track_rates.call_args.args == pytest.approx(
+        (point.ra_rate, point.dec_rate)
+    )
+    assert point.alt == pytest.approx(target_follow.MEET_ALT_DEG, abs=0.5)
+    assert mount.status_text() == "Following"
+
+
+def test_without_custom_rates_the_follow_passes_at_the_meet_time():
+    mount = start_meet_follow(rates_ok=False)
+    follow = wait_at_meet(mount)
+    mount.now = follow.meet.time + 0.1
+    mount.phase()
+    assert follow.stage == FollowStage.PASS
+    mount.now += 10.0
+    mount.phase()
+    assert follow.stage == FollowStage.AIM
+    assert follow.aim_time == pytest.approx(mount.now + follow.lead_s)
+
+
+def test_click_before_the_meet_time_says_i_see_it():
+    mount = start_meet_follow()
+    follow = wait_at_meet(mount)
+    meet_time = follow.meet.time
+    aim_ra, aim_dec = follow.aim_ra, follow.aim_dec
+    mount.now = meet_time - 40.0
+    mount.command({"type": "manual_movement", "offset": (0.0, 1.0), "step_size": 0.5})
+    # The offset is the 40 s, and a small part for the Earth rotation.
+    assert follow.time_offset_s == pytest.approx(40.0, abs=3.0)
+    assert follow.meet is None and not follow.meet_pending(mount.now)
+    # The satellite is at the meet point now, and the mount tracks at once.
+    point = follow.point(mount.now)
+    assert angular_distance(point.ra, point.dec, aim_ra, aim_dec) < 0.005
+    assert follow.stage == FollowStage.TRACK
+    assert mount.set_track_rates.call_args.args == pytest.approx(
+        (point.ra_rate, point.dec_rate)
+    )
+    notes = [call.args[0] for call in mount.notify.call_args_list]
+    assert "Seen" in notes
+    assert mount.status_text() == f"Following {follow.time_offset_s:+.1f}s"
+
+    # The next arrow corrects the path as before.
+    offset = follow.time_offset_s
+    mount.now += 1.0
+    mount.command({"type": "manual_movement", "offset": (1.0, 0.0), "step_size": 0.2})
+    assert follow.time_offset_s != pytest.approx(offset)
+    assert follow.stage == FollowStage.TRACK
+
+
+def test_held_arrow_at_the_meet_point_also_says_i_see_it():
+    mount = start_meet_follow()
+    follow = wait_at_meet(mount)
+    mount.now = follow.meet.time - 10.0
+    mount.command({"type": "motion_start", "north": 1.0, "east": 0.0})
+    offset = follow.time_offset_s
+    assert offset == pytest.approx(10.0, abs=1.0)
+    assert mount._follow_motion is None
+    assert follow.stage == FollowStage.TRACK
+    mount.now += 1.0
+    mount.phase()
+    mount.command({"type": "motion_stop"})
+    assert follow.time_offset_s == offset
+
+
+def test_click_long_before_the_meet_time_is_refused():
+    mount = start_meet_follow()
+    follow = wait_at_meet(mount)
+    mount.now = follow.meet.time - target_follow.MAX_TIME_OFFSET_S - 10.0
+    mount.command({"type": "manual_movement", "offset": (0.0, 1.0), "step_size": 0.5})
+    assert mount.console_queue.get_nowait() == ["WARNING", "Too early"]
+    assert follow.time_offset_s == 0.0
+    assert follow.stage == FollowStage.WAIT and follow.meet is not None
+    # A click inside the limit works.
+    mount.now = follow.meet.time - target_follow.MAX_TIME_OFFSET_S + 1.0
+    mount.command({"type": "manual_movement", "offset": (0.0, 1.0), "step_size": 0.5})
+    assert 100.0 < follow.time_offset_s <= target_follow.MAX_TIME_OFFSET_S
+    assert follow.stage == FollowStage.TRACK
+
+
+def test_click_after_the_meet_time_corrects_the_path():
+    mount = start_meet_follow()
+    follow = wait_at_meet(mount)
+    mount.now = follow.meet.time + 0.1
+    mount.phase()
+    assert follow.stage == FollowStage.TRACK
+    mount.now += 1.0
+    point = follow.point(mount.now)
+    cos_dec = math.cos(math.radians(point.dec))
+    # 3 s of motion along the track.
+    north, east = 3.0 * point.dec_rate, 3.0 * point.ra_rate * cos_dec
+    mount.command({"type": "manual_movement", "offset": (north, east), "step_size": 1})
+    assert follow.time_offset_s == pytest.approx(3.0, abs=0.05)
+    notes = [call.args[0] for call in mount.notify.call_args_list]
+    assert "Seen" not in notes
+
+
+def test_click_at_the_meet_point_stores_corrected_elements(tmp_path):
+    mount = start_meet_follow()
+    follow = wait_at_meet(mount)
+    meet_time = follow.meet.time
+    aim_ra, aim_dec = follow.aim_ra, follow.aim_dec
+    mount.now = meet_time - 25.0
+    mount.command({"type": "manual_movement", "offset": (0.0, 1.0), "step_size": 0.5})
+    mount.command({"type": "stop_movement"})
+    stored = satellites.load_corrected_elements(tmp_path)
+    assert len(stored) == 1
+    # The stored elements have the time offset of the click.
+    offset = follow.time_offset_s
+    assert offset == pytest.approx(25.0, abs=2.0)
+    shifted = target_follow.shift_elements(iss_elements(), offset)
+    assert stored[0].line2 == shifted.line2
+    # They put the ISS near the meet point at the click. The rest is the
+    # correction across the track, which is not in the elements.
+    corrected = SatelliteTarget(stored[0], LOCATION.lat, LOCATION.lon, 50.0)
+    point = corrected.point(meet_time - 25.0)
+    assert angular_distance(point.ra, point.dec, aim_ra, aim_dec) < 0.3
+
+
+def test_new_pointing_offset_gives_a_goto_before_the_meet_time():
+    mount = start_meet_follow()
+    follow = wait_at_meet(mount)
+    meet_time = follow.meet.time
+    # No new offset: no goto before the meet time.
+    mount.now = meet_time - target_follow.MEET_REFRESH_S + 1.0
+    mount.phase()
+    assert mount.move_mount_to_target.call_count == 1
+
+    mount = start_meet_follow()
+    follow = wait_at_meet(mount)
+    aim_ra, aim_dec = mount.move_mount_to_target.call_args.args
+    # A plate solve during the wait found an offset of 0.3° in Dec.
+    mount._follow_offset = (0.0, 0.3)
+    mount.now = meet_time - 60.0
+    mount.phase()
+    assert mount.move_mount_to_target.call_count == 1
+    mount.now = meet_time - target_follow.MEET_REFRESH_S + 1.0
+    mount.phase()
+    assert mount.move_mount_to_target.call_count == 2
+    goto_ra, goto_dec = mount.move_mount_to_target.call_args.args
+    assert (goto_ra, goto_dec) == pytest.approx((aim_ra, aim_dec - 0.3))
+    assert follow.aim_time == meet_time
+    # The short slew ends: the wait goes on, with no other goto.
+    mount.now += 3.0
+    mount.target_reached = True
+    mount.phase()
+    assert follow.stage == FollowStage.WAIT
+    mount.now += 1.0
+    mount.phase()
+    assert mount.move_mount_to_target.call_count == 2
+    assert mount.status_text().startswith("Meet in 0:")
+
+
+def test_satellite_past_its_meet_point_follows_at_once():
+    # High in the sky: as before, a goto ahead by the lead.
+    mount = FakeMount(rates_ok=True)
+    mount.now = iss_pass().culmination.timestamp() - 120.0
+    mount.command(follow_command())
+    follow = mount._follow
+    assert follow.meet is None
+    assert follow.aim_time == mount.now + target_follow.DEFAULT_LEAD_S
+    # Low and going down after the pass: no meet point, a follow at once.
+    mount = FakeMount(rates_ok=True)
+    mount.now = iss_pass().culmination.timestamp() + 160.0
+    alt = iss_target().point(mount.now).alt
+    assert target_follow.MIN_ALT_DEG < alt < target_follow.MEET_ALT_DEG
+    mount.command(follow_command())
+    follow = mount._follow
+    assert follow is not None and follow.meet is None
+    assert follow.aim_time == mount.now + target_follow.DEFAULT_LEAD_S

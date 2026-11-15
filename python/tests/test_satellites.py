@@ -18,7 +18,8 @@ import PiFinder.satellite_catalog as satellite_catalog
 import PiFinder.web_satellites as web_satellites
 from PiFinder.calc_utils import sf_utils
 from PiFinder.catalog_base import CatalogState
-from PiFinder.catalogs import Catalog
+from PiFinder.catalog_arrays import name_to_t9_digits
+from PiFinder.catalogs import Catalog, Catalogs
 from PiFinder.state import Location
 from PiFinder.ui.object_list import UIObjectList
 
@@ -1434,6 +1435,29 @@ def test_catalog_does_no_work_before_the_first_use(idle_catalog):
         assert cat._update_step() is None
     assert cat.updates == [] and cat.pass_runs == []
     assert not cat.initialized and not cat.in_use()
+
+
+@pytest.mark.unit
+def test_name_search_finds_a_satellite_in_an_unused_catalog(idle_catalog):
+    cat, _clock = idle_catalog
+    catalogs = Catalogs([cat])
+    found = catalogs.search_by_text("iss")
+    assert [obj.names for obj in found] == [["ISS (ZARYA)"]]
+    assert found[0].sequence == ISS_NORAD
+    assert cat.initialized and cat.in_use()
+    assert len(cat.updates) == 1
+    # The keypad search finds it too, and builds nothing again.
+    found = catalogs.search_by_t9(name_to_t9_digits("ISS"))
+    assert [obj.sequence for obj in found] == [ISS_NORAD]
+    assert len(cat.updates) == 1
+
+
+@pytest.mark.unit
+def test_name_search_without_a_location_finds_no_satellite(idle_catalog):
+    cat, _clock = idle_catalog
+    cat.shared_state.altaz_ready = lambda: False
+    assert len(Catalogs([cat]).search_by_text("iss")) == 0
+    assert not cat.initialized
 
 
 @pytest.mark.unit

@@ -168,6 +168,15 @@ def track_rate_label(rate: str) -> str:
     return {track_rates.LUNAR: _("Lunar"), track_rates.SOLAR: _("Solar")}.get(rate, "")
 
 
+def meet_text(seconds: float, meet: target_follow.MeetPoint) -> str:
+    """The wait at a meet point: "Meet in 2:13 20° SE"."""
+    minutes, rest = divmod(int(math.ceil(max(0.0, seconds))), 60)
+    return (
+        _("Meet in")
+        + f" {minutes}:{rest:02d} {meet.alt:.0f}° {satellites.compass(meet.az)}"
+    )
+
+
 def _follow_correction(offset_deg: float) -> float:
     """The rate in degrees per second that removes an offset to the target."""
     limit = target_follow.MAX_CORRECTION_DEG_S
@@ -344,6 +353,8 @@ class MountControlBase:
         self._follow_motion: Optional[tuple[float, float, float, float]] = None
         # True while a follow keeps the tracking of the mount off.
         self._follow_tracking_off = False
+        # The pointing offset of the last follow goto.
+        self._follow_aim_offset: tuple[float, float] = (0.0, 0.0)
         # The track rate: track_rates.SIDEREAL, LUNAR or SOLAR.
         self.track_rate: str = track_rates.SIDEREAL
         # The track rate of the running goto_target command.
@@ -912,8 +923,7 @@ class MountControlBase:
             logger.warning("Bad follow_target command: %s", exc)
             self.warn(_("Bad target data"))
             return
-        if follow.point(now).alt < target_follow.MIN_ALT_DEG:
-            self.warn(_("Target too low"))
+        if not self._plan_meet(follow, now):
             return
         self._follow = follow
         self._follow_offset = (0.0, 0.0)
@@ -925,8 +935,44 @@ class MountControlBase:
         self.notify(_("Follow") + " " + follow.name)
         self._follow_aim(now)
 
+    def _plan_meet(self, follow: TargetFollow, now: float) -> bool:
+        """Give a satellite below MEET_ALT_DEG its meet point. False, with a
+        warning, for a target that the mount cannot follow now.
+
+        A satellite at MEET_ALT_DEG or higher is past its meet point. A
+        satellite that is higher than MIN_ALT_DEG but has no meet point, or
+        a meet point closer than the lead, gets the follow without one.
+        """
+        alt = follow.point(now).alt
+        target = follow.target
+        meet = None
+        if (
+            isinstance(target, target_follow.SatelliteTarget)
+            and alt < target_follow.MEET_ALT_DEG
+        ):
+            meet = target_follow.find_meet(target, now)
+            if meet is None and alt < target_follow.MIN_ALT_DEG:
+                self.warn(_("No pass soon"))
+                return False
+        if meet is not None and (
+            alt < target_follow.MIN_ALT_DEG or meet.time - now > follow.lead_s
+        ):
+            follow.set_meet(meet)
+            logger.info(
+                "Follow: meet %s in %.0f s at %.0f° az %.0f°",
+                follow.name,
+                meet.time - now,
+                meet.alt,
+                meet.az,
+            )
+            return True
+        if alt < target_follow.MIN_ALT_DEG:
+            self.warn(_("Target too low"))
+            return False
+        return True
+
     def _follow_aim(self, now: float) -> None:
-        """Goto the target, ahead of it if it is fast."""
+        """Goto the target: ahead of it if it is fast, or to the meet point."""
         follow = self._follow
         if follow is None:
             return
@@ -936,6 +982,7 @@ class MountControlBase:
         self.target_ra, self.target_dec = target.ra, target.dec
         self.target_reached = False
         d_ra, d_dec = self._follow_offset
+        self._follow_aim_offset = (d_ra, d_dec)
         if self.move_mount_to_target((target.ra - d_ra) % 360.0, target.dec - d_dec):
             self.state = MountControlPhases.MOUNT_TARGET_FOLLOW
             logger.debug(
@@ -1077,7 +1124,7 @@ class MountControlBase:
             return
         self._follow_held_arrow(follow, now)
         point = follow.point(now)
-        if point.alt < target_follow.MIN_ALT_DEG:
+        if point.alt < target_follow.MIN_ALT_DEG and not follow.meet_pending(now):
             self.notify(follow.name + " " + _("set"))
             self._end_follow()
             self._stop_mount()
@@ -1105,6 +1152,7 @@ class MountControlBase:
 
         if follow.stage == FollowStage.WAIT:
             if not follow.arrived(now):
+                self._follow_meet_refresh(follow, now)
                 return
             if self._follow_set_rates(point.ra_rate, point.dec_rate):
                 follow.stage = FollowStage.TRACK
@@ -1144,11 +1192,46 @@ class MountControlBase:
             ) > follow.pass_distance(point):
                 self._follow_aim(now)
 
+    def _follow_meet_refresh(self, follow: TargetFollow, now: float) -> None:
+        """Shortly before the meet time, goto the meet point again if a plate
+        solve changed the pointing offset during the wait."""
+        if (
+            follow.meet_refreshed
+            or not follow.meet_pending(now)
+            or follow.seconds_to_arrival(now) > target_follow.MEET_REFRESH_S
+        ):
+            return
+        follow.meet_refreshed = True
+        old, new = self._follow_aim_offset, self._follow_offset
+        if max(abs(new[0] - old[0]), abs(new[1] - old[1])) > (
+            target_follow.MEET_REFRESH_MIN_DEG
+        ):
+            logger.info("Follow: goto the meet point with the new offset")
+            self._follow_aim(now)
+
+    def _follow_seen(self, follow: TargetFollow, now: float) -> None:
+        """The user sees the satellite at the meet point: track it now."""
+        if not follow.see_it(now):
+            self.warn(_("Too early"))
+            return
+        logger.info("Follow: seen, %+.1f s ahead", follow.time_offset_s)
+        self.notify(_("Seen"))
+        self._follow_step(now)
+
     def _follow_nudge_command(self, command: dict, now: Optional[float]) -> None:
         """An arrow during a follow moves the path, not only the mount: the
-        follow then holds the target where the user put it."""
+        follow then holds the target where the user put it. During the wait
+        at a meet point the first arrow says "I see it"."""
         follow = self._follow
         if follow is None or now is None:
+            return
+        if (
+            command["type"] != "motion_stop"
+            and follow.stage == FollowStage.WAIT
+            and follow.meet_pending(now)
+        ):
+            self._follow_motion = None
+            self._follow_seen(follow, now)
             return
         if command["type"] == "motion_stop":
             self._follow_motion = None
@@ -1207,6 +1290,8 @@ class MountControlBase:
         if follow.stage == FollowStage.WAIT:
             now = self.clock()
             seconds = 0.0 if now is None else follow.seconds_to_arrival(now)
+            if follow.meet is not None and now is not None and follow.meet_pending(now):
+                return meet_text(seconds, follow.meet)
             return _("Follow: in") + f" {seconds:.0f}s" + correction
         if follow.stage == FollowStage.TRACK:
             return _("Following") + correction
