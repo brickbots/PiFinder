@@ -193,6 +193,10 @@ DRIFT_MIN_CORRECTION_DEG_S = 0.05 / 3600.0
 # A correction cancels this part of the measured drift. A gain below 1
 # keeps the noise of the slope from an overshoot.
 DRIFT_CORRECTION_GAIN = 0.7
+# A new location or time of the mount that moves its reported RA/Dec by
+# more than this (degrees) starts the refine rounds of a goto again. It is
+# half the on-target tolerance of REFINE.
+SITE_SHIFT_RESTART_DEG = 0.005
 
 
 def angular_distance(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
@@ -410,6 +414,10 @@ class MountControlBase:
         # Sync-and-move rounds in REFINE before PiFinder stops refining.
         self.refine_max_iterations: int = 3
         self._refine_count: int = 0
+        # True when the location or time of the mount changed during this
+        # goto after its last sync. The mount then reports the sky in a new
+        # frame, so REFINE syncs again even when the solve is on target.
+        self._sync_stale: bool = False
 
         # When the mount sent its last position.
         self._position_time: float = 0.0
@@ -689,6 +697,35 @@ class MountControlBase:
         logger.debug("Phase: -> MOUNT_STOPPED")
         self.state = MountControlPhases.MOUNT_STOPPED
 
+    def mount_site_changed(self, shift_deg: float) -> None:
+        """Notification that the mount got a new location or time.
+
+        The subclass calls this when it sends a location or time that
+        changes the mount's frame. ``shift_deg`` is the estimate of the
+        change of the reported position, in degrees.
+
+        The mount then reports a different RA for the same sky position. A
+        sync keeps the sky position in the old frame, so a sync before the
+        change is now wrong by the shift. During a goto, the refine rounds
+        start again: the count goes back to zero, REFINE uses only a solve
+        from after the change, and it syncs again even when that solve is
+        on target.
+        """
+        if shift_deg <= SITE_SHIFT_RESTART_DEG:
+            return
+        if self.state not in (
+            MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE,
+            MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE,
+        ):
+            return
+        logger.info(
+            "Mount site changed by %.3f° during a goto: refine starts again",
+            shift_deg,
+        )
+        self._refine_count = 0
+        self._sync_stale = True
+        self._refine_after = max(self._refine_after, time.time() + self.refine_settle_s)
+
     #
     # Helper methods for drift compensation
     #
@@ -912,6 +949,8 @@ class MountControlBase:
         return success
 
     def _goto_target(self, target_ra, target_dec) -> bool:
+        # The goto uses the frame of the current location and time.
+        self.update_site()
         success = self.move_mount_to_target(target_ra, target_dec)
         if success:
             # Reset drift compensation when starting a new target acquisition
@@ -919,6 +958,7 @@ class MountControlBase:
                 self._reset_drift_compensation_data()
             self.target_reached = False
             self._refine_count = 0
+            self._sync_stale = False
             self.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
             logger.debug(
                 f"Phase: -> MOUNT_TARGET_ACQUISITION_MOVE to RA={target_ra}, DEC={target_dec}"
@@ -1105,6 +1145,16 @@ class MountControlBase:
 
     def reload_settings(self) -> None:
         """Apply changed settings. Override in subclasses that have any."""
+        pass
+
+    def update_site(self) -> None:
+        """Send a changed location or time to the mount.
+
+        The base class calls this before a goto and before each refine
+        sync, so the goto and the sync use the frame of the current
+        location and time. A subclass that sends a change calls
+        mount_site_changed(). Default implementation does nothing.
+        """
         pass
 
     def latest_solve(self) -> Optional[tuple[float, float, float]]:
@@ -1434,7 +1484,12 @@ class MountControlBase:
                 )
                 return
 
-            # Wait for a plate solve taken after the mount settled.
+            # A new location or time now moves _refine_after (see
+            # mount_site_changed), so the sync below is in the new frame.
+            self.update_site()
+
+            # Wait for a plate solve taken after the mount settled and
+            # after the last change of the mount's location or time.
             wait_start = time.time()
             solve = self.latest_solve()
             while solve is None or solve[2] < self._refine_after:
@@ -1470,7 +1525,7 @@ class MountControlBase:
                 ra_diff,
                 dec_diff,
             )
-            if abs(ra_diff) <= 0.01 and abs(dec_diff) <= 0.01:
+            if abs(ra_diff) <= 0.01 and abs(dec_diff) <= 0.01 and not self._sync_stale:
                 # Within 0.01 degrees (36 arcsec) in both axes, the resolution
                 # that the UI shows.
                 logger.info(
@@ -1534,6 +1589,7 @@ class MountControlBase:
                         yield
 
                 logger.info("Phase REFINE: Sync successful.")
+                self._sync_stale = False
 
                 ##
                 ## Now move again to the original target position
