@@ -22,6 +22,10 @@ from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_indi import POSITION, MountControlIndi
 from PiFinder.mountcontrol_interface import MountControlPhases, angular_distance
 from PiFinder.target_follow import (
+    GMST_AT_J2000_DEG,
+    J2000_JD,
+    SIDEREAL_DEG_PER_DAY,
+    UNIX_EPOCH_JD,
     FollowPoint,
     FollowStage,
     SatelliteTarget,
@@ -636,6 +640,51 @@ def _follow_rates(mount, ra_rate: float, dec_rate: float, seconds: float):
         ((mount.current_ra - start[1] + 540) % 360 - 180) / elapsed,
         (mount.current_dec - start[2]) / elapsed,
     )
+
+
+def _hour_angle_ra(hour_angle: float) -> float:
+    """The RA (degrees) at this hour angle for the simulator, now."""
+    days = time.time() / 86400.0 + UNIX_EPOCH_JD - J2000_JD
+    lon = _shared_state().location().lon
+    return (GMST_AT_J2000_DEG + SIDEREAL_DEG_PER_DAY * days + lon - hour_angle) % 360
+
+
+def _dec_after_rates(mount, dec_rate: float, seconds: float) -> list[float]:
+    """Set the rate once a second, as the target follow does, after a
+    sidereal wait. Returns the Dec after each second."""
+    time.sleep(3.0)
+    decs = []
+    for _second in range(int(seconds)):
+        assert mount.set_track_rates(0.0, dec_rate)
+        time.sleep(1.0)
+        decs.append(mount.current_dec)
+    return decs
+
+
+@pytest.mark.parametrize("hour_angle", [-60.0, 60.0])
+def test_fast_dec_rate_finds_its_sign_on_each_pier_side(
+    indi: int, hour_angle: float
+) -> None:
+    """The simulator turns the Dec direction of a custom rate with the pier
+    side. After a sidereal wait, in which the driver sends no position, a
+    fast Dec rate moves the mount the right way within two seconds, on both
+    pier sides and after a pier change."""
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        for side in (hour_angle, -hour_angle):
+            mount.target_reached = False
+            assert mount.move_mount_to_target(_hour_angle_ra(side), 10.0)
+            assert _wait(lambda: mount.target_reached, 90)
+            mount.restore_sidereal_tracking()
+            decs = _dec_after_rates(mount, 0.1, 4)
+            # Wrong for at most the first second, then 0.1°/s north.
+            assert decs[-1] - decs[1] == pytest.approx(0.2, abs=0.05), (side, decs)
+            assert decs[-1] - decs[0] > 0.1
+            mount.restore_sidereal_tracking()
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
 
 
 def test_satellite_track_rates_move_the_mount_at_those_rates(indi: int) -> None:
