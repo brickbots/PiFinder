@@ -32,7 +32,7 @@ from PiFinder import utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.nearby import Nearby
 from PiFinder.object_sequence import ObjectSequence
-from PiFinder.catalogs import CatalogState, default_display_mode_for
+from PiFinder.catalogs import CatalogState, ObjectLabel, default_display_mode_for
 from PiFinder.designations import parse_designation
 from PiFinder.satellite_groups import GROUPS_BY_NAME
 from PiFinder.ui.sat_groups import wait_message
@@ -48,6 +48,17 @@ if TYPE_CHECKING:
 
     def _(a) -> Any:
         return a
+
+
+# The config option that holds the chosen left column label of each catalog,
+# for example {"SA": "norad"}.
+LABEL_CONFIG_OPTION = "object_list_label"
+
+# The catalogs whose downloaded data the user can refresh from the list.
+REFRESH_CATALOGS = ("CM", "MP", "SA")
+
+# The marking menu slots of the "ID" submenu, in the order of the labels.
+LABEL_SLOTS = ("left", "up", "right", "down")
 
 
 class DisplayModes(Enum):
@@ -196,6 +207,8 @@ class UIObjectList(UITextMenu):
     bulb = "󰛨"
     star = ""
     ruler = ""
+    # The label of the left column; None shows the designation.
+    current_label: Optional[ObjectLabel] = None
 
     def __init__(self, *args, **kwargs) -> None:
         # hack at our item definition here to allow re-use of UITextMenu
@@ -220,6 +233,9 @@ class UIObjectList(UITextMenu):
 
         # Init display mode defaults
         self._init_display_mode()
+
+        # The labels of the left column, and the one that shows
+        self._init_labels()
 
         # Initialize sort default
         self.sort_cycle = cycle(SortOrder)
@@ -249,17 +265,7 @@ class UIObjectList(UITextMenu):
         self.item_text_scroll: Union[None, TextLayouterScroll] = None
 
         # Base marking menu
-        marking_menu_down = MarkingMenuOption()
-
-        # Downloaded dynamic catalogs can refresh without discarding their
-        # currently displayed objects.
-        if self.item_definition.get(
-            "objects"
-        ) == "catalog" and self.item_definition.get("value") in ("CM", "MP", "SA"):
-            marking_menu_down = MarkingMenuOption(
-                label=_("Refresh"),
-                callback=self.mm_refresh_dynamic_catalog,
-            )
+        marking_menu_down = self._marking_menu_down()
 
         asteroid_list = self.item_definition.get("value") == "MP"
         satellite_list = self.item_definition.get("value") == "SA"
@@ -334,6 +340,88 @@ class UIObjectList(UITextMenu):
         self.current_mode = next(self.mode_cycle)
         while self.current_mode != start_mode:
             self.current_mode = next(self.mode_cycle)
+
+    def _init_labels(self) -> None:
+        """
+        Read the labels of the list's catalog and the stored choice. A list
+        of one catalog with labels shows the stored label, or the first
+        label. Other lists show the designation.
+        """
+        self.label_options: list[ObjectLabel] = []
+        self.current_label = None
+        if self.item_definition.get("objects") != "catalog":
+            return
+        catalog = self.catalogs.get_catalog_by_code(
+            self.item_definition.get("value", "")
+        )
+        if catalog is None:
+            return
+        self.label_options = list(catalog.label_options())
+        if not self.label_options:
+            return
+        stored = self._stored_labels().get(catalog.catalog_code)
+        self.current_label = next(
+            (label for label in self.label_options if label.key == stored),
+            self.label_options[0],
+        )
+
+    def _marking_menu_down(self) -> MarkingMenuOption:
+        """
+        The DOWN slot of the marking menu. A catalog with more than one
+        label gets "ID". Otherwise a downloaded dynamic catalog gets
+        "Refresh": it refreshes without discarding the objects on the screen.
+        """
+        if len(self.label_options) > 1:
+            return MarkingMenuOption(
+                label=_("ID"),
+                callback=self._label_marking_menu(),
+            )
+        if (
+            self.item_definition.get("objects") == "catalog"
+            and self.item_definition.get("value") in REFRESH_CATALOGS
+        ):
+            return MarkingMenuOption(
+                label=_("Refresh"),
+                callback=self.mm_refresh_dynamic_catalog,
+            )
+        return MarkingMenuOption()
+
+    def _stored_labels(self) -> dict:
+        """The stored label key of each catalog code."""
+        stored = self.config_object.get_option(LABEL_CONFIG_OPTION, {})
+        return dict(stored) if isinstance(stored, dict) else {}
+
+    def _label_marking_menu(self) -> MarkingMenu:
+        """The "ID" submenu: one slot for each label, at most four."""
+        options = {slot: MarkingMenuOption() for slot in LABEL_SLOTS}
+        for slot, label in zip(LABEL_SLOTS, self.label_options):
+            options[slot] = MarkingMenuOption(
+                label=_(label.menu_name),
+                callback=self.mm_change_label,
+                value=label.key,
+                selected=label is self.current_label,
+            )
+        return MarkingMenu(**options)
+
+    def mm_change_label(self, marking_menu, menu_item) -> bool:
+        """
+        Called from the "ID" submenu: show the chosen label in the left
+        column, and store it for the catalog of the list.
+        """
+        label = next(
+            (item for item in self.label_options if item.key == menu_item.value),
+            None,
+        )
+        if label is None:
+            return False
+        marking_menu.select_none()
+        menu_item.selected = True
+        self.current_label = label
+        stored = self._stored_labels()
+        stored[self.item_definition["value"]] = label.key
+        self.config_object.set_option(LABEL_CONFIG_OPTION, stored)
+        self.refresh()
+        return True
 
     def refresh_object_list(self, force_update=False):
         """
@@ -595,6 +683,13 @@ class UIObjectList(UITextMenu):
         dedups = name_deduplicate(obj.names, [f"{obj.catalog_code}{obj.sequence}"])
         # sorted() is stable, so each group keeps the names table's order.
         return ", ".join(sorted(dedups, key=_name_group))
+
+    def create_label_text(self, obj: CompositeObject) -> str:
+        """The text of the left column: the chosen label of the catalog, or
+        the designation."""
+        if self.current_label is not None:
+            return self.current_label.text(obj)
+        return self.create_shortname_text(obj)
 
     # Use 3-letter abbreviations for planets instead of PL1, PL2, etc.
     # Falls back to full name if planet is not in the dictionary.
@@ -899,7 +994,7 @@ class UIObjectList(UITextMenu):
                 _menu_item = self._menu_items_sorted[i]
                 is_focus = line_number == half
 
-                item_name = self.create_shortname_text(_menu_item)
+                item_name = self.create_label_text(_menu_item)
                 item_text = ""
                 if self.current_mode == DisplayModes.LOCATE:
                     item_text = self.create_locate_text(_menu_item, pointing)

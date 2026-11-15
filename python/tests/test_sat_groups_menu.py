@@ -4,8 +4,10 @@ The tests use a temporary data directory and a mock download. They use no
 network and start no thread that sleeps.
 """
 
+import os
 import subprocess
 import sys
+import time
 from types import SimpleNamespace
 from unittest import mock
 
@@ -14,7 +16,7 @@ import pytest
 # Installs the ``_()`` gettext builtin that PiFinder.ui modules rely on.
 import PiFinder.i18n  # noqa: F401
 
-from PiFinder import satellite_groups, satellites, utils
+from PiFinder import satellite_catalog, satellite_groups, satellites, utils
 from PiFinder.displays import get_display
 from PiFinder.ui import menu_structure, sat_groups
 from PiFinder.ui.base import UIModule
@@ -68,7 +70,8 @@ def _group_menu(display):
 
 
 def _move_to(menu, group):
-    menu._current_item_index = satellite_groups.CELESTRAK_GROUPS.index(group)
+    # "Update now" is the first item, before the groups.
+    menu._current_item_index = satellite_groups.CELESTRAK_GROUPS.index(group) + 1
 
 
 def _messages(menu):
@@ -95,7 +98,7 @@ def test_menu_is_next_to_the_satellite_list():
 @pytest.mark.unit
 def test_menu_lists_every_group_with_a_mark_on_large_groups():
     definition = _find_menu(menu_structure.pifinder_menu, "Sat groups")
-    items = definition["items"]
+    items = definition["items"][1:]
     assert [item["value"] for item in items] == list(satellite_groups.CELESTRAK_GROUPS)
     labels = {item["value"]: item["name"] for item in items}
     assert labels["starlink"] == "Starlink*"
@@ -118,8 +121,8 @@ def test_menu_shows_the_stored_selection(display, sat_dir):
     satellites.set_group_enabled("weather", True, sat_dir)
     menu = _group_menu(display)
     assert sorted(menu._selected_values) == ["stations", "weather"]
-    # The menu has no "Select None" item.
-    assert menu._menu_items[0] == "Brightest"
+    # The menu has no "Select None" item: "Update now" and then the groups.
+    assert menu._menu_items[:2] == ["Update now", "Brightest"]
     menu.update()
 
 
@@ -379,3 +382,117 @@ def test_group_modules_load_no_satellite_code():
     lines = result.stdout.strip().splitlines()
     assert "[]" in lines
     assert lines[-1] == "False"
+
+
+def _update_now_menu(display):
+    menu = _group_menu(display)
+    menu._current_item_index = 0
+    assert menu._menu_items[0] == "Update now"
+    return menu
+
+
+def _write_group_files(directory, groups, age_seconds):
+    directory.mkdir(parents=True, exist_ok=True)
+    for group in groups:
+        path = satellites.group_file(group, directory)
+        path.write_text("")
+        stamp = time.time() - age_seconds
+        os.utime(path, (stamp, stamp))
+
+
+@pytest.mark.unit
+def test_update_now_is_the_first_item_of_the_menu():
+    definition = _find_menu(menu_structure.pifinder_menu, "Sat groups")
+    first = definition["items"][0]
+    assert first["name"] == "Update now"
+    assert first["callback"] is sat_groups.update_now
+    assert "value" not in first
+
+
+@pytest.mark.unit
+def test_update_now_downloads_each_selected_group(display, sat_dir, monkeypatch):
+    monkeypatch.setattr(satellite_catalog, "_active_catalog", None)
+    result = satellites.GroupRefresh("downloaded")
+    menu = _update_now_menu(display)
+    with mock.patch.object(
+        satellites, "refresh_groups", return_value=result
+    ) as refresh:
+        menu.key_right()
+        sat_groups.downloads.thread.join(timeout=10)
+    groups = [call.kwargs["groups"] for call in refresh.call_args_list]
+    assert groups == [("visual",), ("stations",)]
+    assert all(call.kwargs["force"] for call in refresh.call_args_list)
+    assert _messages(menu) == [
+        "Updating...",
+        "Downloaded\nBrightest",
+        "Downloaded\nStations",
+    ]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "age_seconds, text", [(0, "Wait 2h00"), (15 * 60, "Wait 1h45")]
+)
+def test_update_now_refuses_a_download_within_2_hours(
+    display, sat_dir, monkeypatch, age_seconds, text
+):
+    monkeypatch.setattr(satellite_catalog, "_active_catalog", None)
+    _write_group_files(sat_dir, ["visual", "stations"], age_seconds)
+    menu = _update_now_menu(display)
+    with mock.patch.object(satellites, "refresh_groups") as refresh:
+        menu.key_right()
+    refresh.assert_not_called()
+    assert sat_groups.downloads.thread is None
+    assert _messages(menu) == [text]
+
+
+@pytest.mark.unit
+def test_update_now_permits_a_download_when_one_group_is_old(
+    display, sat_dir, monkeypatch
+):
+    monkeypatch.setattr(satellite_catalog, "_active_catalog", None)
+    _write_group_files(sat_dir, ["visual"], 0)
+    _write_group_files(sat_dir, ["stations"], 3 * 3600)
+    menu = _update_now_menu(display)
+    result = satellites.GroupRefresh("downloaded")
+    with mock.patch.object(satellites, "refresh_groups", return_value=result):
+        menu.key_right()
+        sat_groups.downloads.thread.join(timeout=10)
+    assert _messages(menu)[0] == "Updating..."
+
+
+@pytest.mark.unit
+def test_update_now_uses_the_satellite_catalog(display, sat_dir, monkeypatch):
+    catalog = SimpleNamespace(refresh=mock.MagicMock(return_value=None))
+    catalog.touch = lambda: None
+    monkeypatch.setattr(satellite_catalog, "_active_catalog", catalog)
+    menu = _update_now_menu(display)
+    with mock.patch.object(satellites, "refresh_groups") as refresh:
+        menu.key_right()
+    catalog.refresh.assert_called_once_with()
+    # The catalog downloads in its own thread and posts the result.
+    refresh.assert_not_called()
+    assert sat_groups.downloads.thread is None
+    assert _messages(menu) == ["Updating..."]
+
+
+@pytest.mark.unit
+def test_update_now_shows_the_wait_of_the_catalog(display, sat_dir, monkeypatch):
+    catalog = SimpleNamespace(refresh=mock.MagicMock(return_value=600))
+    catalog.touch = lambda: None
+    monkeypatch.setattr(satellite_catalog, "_active_catalog", catalog)
+    menu = _update_now_menu(display)
+    menu.key_right()
+    assert _messages(menu) == ["Updating...", "Wait 10 min"]
+
+
+@pytest.mark.unit
+def test_update_now_without_groups(display, sat_dir, monkeypatch):
+    monkeypatch.setattr(satellite_catalog, "_active_catalog", None)
+    for group in satellite_groups.DEFAULT_GROUPS:
+        satellites.set_group_enabled(group, False, sat_dir)
+    menu = _update_now_menu(display)
+    with mock.patch.object(satellites, "refresh_groups") as refresh:
+        menu.key_right()
+    refresh.assert_not_called()
+    assert _messages(menu) == ["No groups\nselected"]

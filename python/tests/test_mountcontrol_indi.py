@@ -718,7 +718,7 @@ def test_fast_dec_rate_has_one_sign_for_each_pier_side(
     with the request store the sign of that side. A side with a stored sign
     moves the right way from the start, also after a new connection."""
     store = RateSignStore(tmp_path / "signs.json")
-    mount = _simulator_mount(indi, store)
+    mount = _simulator_mount(indi, rate_sign_store=store)
     try:
         assert mount.init_mount()
         for hour_angle, pier in ((-60.0, "PIER_WEST"), (60.0, "PIER_EAST")):
@@ -738,7 +738,7 @@ def test_fast_dec_rate_has_one_sign_for_each_pier_side(
         indi_drivers.stop_driver()
 
     # A new connection reads the stored signs.
-    mount = _simulator_mount(indi, store)
+    mount = _simulator_mount(indi, rate_sign_store=store)
     try:
         assert mount.init_mount()
         for hour_angle in (60.0, -60.0):
