@@ -122,7 +122,9 @@ class CameraDebug(CameraInterface):
         return False
 
 
-def get_images(shared_state, camera_image, command_queue, console_queue, log_queue):
+def get_images(
+    shared_state, camera_image, solve_image, command_queue, console_queue, log_queue
+):
     """
     Instantiates the camera hardware
     then calls the universal image loop
@@ -137,5 +139,5 @@ def get_images(shared_state, camera_image, command_queue, console_queue, log_que
 
     camera_hardware = CameraDebug(exposure_time)
     camera_hardware.get_image_loop(
-        shared_state, camera_image, command_queue, console_queue, cfg
+        shared_state, camera_image, solve_image, command_queue, console_queue, cfg
     )
