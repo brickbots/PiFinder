@@ -224,8 +224,8 @@ class MenuManager:
             )
             self._stack_anim_direction = -1
 
-    def message(self, message: str, timeout: float) -> None:
-        self.stack[-1].message(message, timeout)
+    def message(self, message: str, timeout: float, size=None) -> None:
+        self.stack[-1].message(message, timeout, size=size)
 
     def jump_to_label(self, label: str) -> None:
         # to prevent many recent/object UI modules

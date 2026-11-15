@@ -32,6 +32,7 @@ from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.nearby import Nearby
 from PiFinder.object_sequence import ObjectSequence
 from PiFinder.catalogs import CatalogState
+from PiFinder.satellite_groups import GROUPS_BY_NAME
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     draw_text_cached,
@@ -133,6 +134,29 @@ def _next_target_index(
         key = old_keys[survived[0]]
         return int(np.flatnonzero(new_keys == key)[0])
     return min(max(old_index, 0), len(new_order) - 1)
+
+
+def _error_text(data: dict) -> str:
+    """The text of a catalog in the ERROR state, from its status data.
+
+    A satellite catalog gives a reason, see SatelliteCatalog.get_status.
+    """
+    reason = data.get("reason")
+    if reason == "no_groups":
+        return _("No groups") + "\n" + _("selected")
+    if reason == "failed":
+        names = [
+            GROUPS_BY_NAME[group].menu_label if group in GROUPS_BY_NAME else group
+            for group in data.get("groups", ())
+        ]
+        if len(names) > 2:
+            names = names[:1] + [_("and {count} more").format(count=len(names) - 1)]
+        return "\n".join([_("Download failed")] + names)
+    if reason == "no_data":
+        return _("No data yet")
+    if reason == "too_old":
+        return _("Sets too old")
+    return _("Error")
 
 
 class UIObjectList(UITextMenu):
@@ -381,7 +405,8 @@ class UIObjectList(UITextMenu):
     ) -> Tuple[Optional[str], Optional[int]]:
         """
         Generate status message explaining why catalog might be empty.
-        Returns tuple of (message, progress_percentage).
+        Returns tuple of (message, progress_percentage). The message can
+        have more than one line.
         Returns (None, None) if catalog is ready (empty is due to filtering).
 
         Also handles refreshing object list when catalog transitions to READY.
@@ -389,7 +414,8 @@ class UIObjectList(UITextMenu):
         status = status or self._get_catalog_status()
         if status is None:
             return (None, None)
-        progress = status.data.get("progress") if status.data else None
+        data = status.data or {}
+        progress = data.get("progress")
         if status.current == CatalogState.READY:
             return (None, None)
         if status.current == CatalogState.DOWNLOADING:
@@ -399,8 +425,34 @@ class UIObjectList(UITextMenu):
         if status.current == CatalogState.CALCULATING:
             return (_("Calculating..."), progress)
         if status.current == CatalogState.ERROR:
-            return (_("Error"), None)
+            return (_error_text(data), None)
         return (_("Loading..."), None)
+
+    def _no_match_lines(self, status) -> list[str]:
+        """The text of a list that the filter made empty. A catalog that
+        gives its number of objects gets that number."""
+        total = (status.data or {}).get("total") if status is not None else None
+        if not total:
+            return [
+                _("No objects"),  # TRANSLATORS: no objects in object list (1/2)
+                _("match filter"),  # TRANSLATORS: no objects in object list (2/2)
+            ]
+        if self.item_definition.get("value") == "SA":
+            first = _("{count} satellites").format(count=total)
+        else:
+            first = _("{count} objects").format(count=total)
+        return [first, _("none match"), _("the filter")]
+
+    def _draw_empty_lines(self, begin_x: int, lines: list[str]) -> None:
+        """Draw the text of an empty list from line 2, one line each."""
+        for number, line in enumerate(lines):
+            self.draw.text(
+                (begin_x, self.line_position(2 + number)),
+                line,
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+        self.screen_update()
 
     def sort(self, announce: bool = False) -> None:
         """
@@ -714,38 +766,15 @@ class UIObjectList(UITextMenu):
                 # Objects were loaded, continue with normal rendering
                 pass
             elif status_msg:
-                # Display status message on line 2
-                self.draw.text(
-                    (begin_x, self.line_position(2)),
-                    status_msg,
-                    font=self.fonts.bold.font,
-                    fill=self.colors.get(255),
-                )
-                # Display progress percentage on line 3 if available
+                # The status message from line 2, then the progress.
+                lines = status_msg.split("\n")
                 if progress is not None:
-                    self.draw.text(
-                        (begin_x, self.line_position(3)),
-                        f"{progress}%",
-                        font=self.fonts.bold.font,
-                        fill=self.colors.get(255),
-                    )
-                self.screen_update()
+                    lines.append(f"{progress}%")
+                self._draw_empty_lines(begin_x, lines)
                 return
             else:
-                # No status message, show default "no objects" message
-                self.draw.text(
-                    (begin_x, self.line_position(2)),
-                    _("No objects"),  # TRANSLATORS: no objects in object list (1/2)
-                    font=self.fonts.bold.font,
-                    fill=self.colors.get(255),
-                )
-                self.draw.text(
-                    (begin_x, self.line_position(3)),
-                    _("match filter"),  # TRANSLATORS: no objects in object list (2/2)
-                    font=self.fonts.bold.font,
-                    fill=self.colors.get(255),
-                )
-                self.screen_update()
+                # The catalog is ready: the filter made the list empty.
+                self._draw_empty_lines(begin_x, self._no_match_lines(catalog_status))
                 return
 
         # should we refresh the nearby list?
