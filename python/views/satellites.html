@@ -41,13 +41,11 @@
 {% set catalog_icons = {'ok': 'check_circle', 'partial': 'warning', 'failed': 'error', 'downloading': 'sync', 'empty': 'warning', 'no_groups': 'warning'} %}
 <div class="card grey darken-2" id="satellite_status">
   <div class="card-content">
-    <h5 class="grey-text">{{ _('Status') }}</h5>
+    <h5 class="grey-text">{{ _('Satellite catalog') }}</h5>
     <p class="{{ catalog_colors.get(catalog['state'], 'grey-text') }} sat-state" id="catalog_state" data-state="{{ catalog['state'] }}" style="white-space: normal;">
       <i class="material-icons tiny">{{ catalog_icons.get(catalog['state'], 'info') }}</i> {{ catalog['text'] }}
     </p>
-    {% if time_from_gps %}
-    <p class="grey-text" id="satellite_time_source">{{ _('Time: GPS') }}</p>
-    {% else %}
+    {% if not time_from_gps %}
     <p class="orange-text" id="satellite_time_note"><b>{{ _('Time: system clock ({time} UTC). The PiFinder has no GPS time, so the times can be wrong.').format(time=now_utc) }}</b></p>
     {% endif %}
     {% if catalog['groups'] %}

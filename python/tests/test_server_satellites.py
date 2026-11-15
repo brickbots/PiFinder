@@ -390,7 +390,9 @@ def test_status_card_shows_each_selected_group(web, monkeypatch):
     assert "Next try in 2 h 00 min" in page
     assert "Downloading" in page
     assert 'data-state="downloading"' in page
-    assert "Time: GPS" in page
+    assert "Satellite catalog" in page
+    assert "satellite_time_note" not in page
+    assert "in use." not in page
 
 
 @pytest.mark.unit

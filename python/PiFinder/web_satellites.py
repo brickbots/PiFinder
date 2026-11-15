@@ -141,7 +141,7 @@ def catalog_summary(
 
     ``groups`` is the result of ``group_status``. Returns the state ("ok",
     "partial", "failed", "downloading", "empty" or "no_groups"), the text,
-    the number of satellites in use and the selected group rows.
+    the number of satellites in the catalog and the selected group rows.
     """
     selected = [row for row in groups if row["enabled"]]
     count = len(satellites.load_all_elements(now, directory))
@@ -149,12 +149,16 @@ def catalog_summary(
     downloading = [row for row in selected if row["state"] == "downloading"]
     if count:
         if downloading:
-            state, text = "downloading", f"{count} satellites. A download runs."
+            state = "downloading"
+            text = f"The catalog has {count} satellites. A download runs."
         elif failed:
             state = "partial"
-            text = f"{count} satellites. Failed: {', '.join(failed)}."
+            text = (
+                f"The catalog has {count} satellites. "
+                f"The download of {', '.join(failed)} failed."
+            )
         else:
-            state, text = "ok", f"{count} satellites in use."
+            state, text = "ok", f"The catalog has {count} satellites."
     else:
         reason = satellites.catalog_empty_reason(directory)["reason"]
         if reason == "no_groups":
