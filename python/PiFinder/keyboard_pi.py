@@ -47,6 +47,8 @@ class KeyboardPi(KeyboardInterface):
         self.repeat_keycodes = {
             i for i, v in enumerate(self.keymap) if v in (self.UP, self.DOWN)
         }
+        # Hold events of the arrows, for moves that last while a key is held.
+        self.holds = keypad.HoldTracker(self.keymap)
 
         # physical keyboard support init
         self.li_kb = libinput.LibInput(context_type=libinput.ContextType.UDEV)
@@ -106,6 +108,8 @@ class KeyboardPi(KeyboardInterface):
                 self.q.put(keyboard_key)
 
             sleep(1 / scan_freq)
+            for code in self.holds.tick(time()):
+                self.q.put(code)
             if len(pressed) > 0:
                 hold_counter += 1
                 if hold_counter > scan_freq:
@@ -131,6 +135,7 @@ class KeyboardPi(KeyboardInterface):
                     if newval and keycode not in pressed:
                         # initial press
                         pressed.add(keycode)
+                        self.holds.press(keycode, time())
                     elif not newval and keycode in pressed:
                         # release
                         pressed.discard(keycode)
@@ -145,6 +150,10 @@ class KeyboardPi(KeyboardInterface):
                                 hold_sent = False
                             else:
                                 self.q.put(self.keymap[keycode])
+                        # After the release key, so a screen that holds
+                        # sees the end last.
+                        for code in self.holds.release(keycode):
+                            self.q.put(code)
                 GPIO.setup(self.rows[i], GPIO.IN)
 
             # Check power button explicitly it is wired directly to a GPIO

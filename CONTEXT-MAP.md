@@ -14,11 +14,14 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - [Battery](./docs/ax/battery/CONTEXT.md) — reads battery voltage and charge state from the rev-4 BQ25895 charger and publishes `BatteryState`; read-only telemetry, gated on hardware presence.
 - [Sound](./docs/ax/sound/CONTEXT.md) — turns named events into short **earcons** on the rev-4 passive buzzer (hardware PWM ch0, GPIO12); best-effort, fire-and-forget feedback, gated on hardware presence.
 - [Display](./docs/ax/display/CONTEXT.md) — how panels turn rendered pixels into light: each panel's brightness axes, the dimming policy (knee curve), and the camera-as-photometer bench rig that measures panel flux. Runtime policy + bench tooling.
+- [Mount](./docs/ax/mount/CONTEXT.md) — moves a GoTo mount through a local `indiserver`: the mount model and its INDI driver, USB or WiFi connection, goto, sync and refine with the plate solve. Experimental, off by default.
 - [NixOS](./docs/ax/nixos/CONTEXT.md) — how a NixOS PiFinder is built, published, and updated over the air: the Attic cache, the stable/beta/unstable channels, and the on-device upgrade flow. Cross-cutting infrastructure, not a runtime slice.
 - [Bring-up](./docs/ax/bringup/CONTEXT.md) — first power-on validation of a freshly assembled board: the checks a builder runs at the bench and which of them can be machine-verified. Bench tooling, not a runtime slice.
 
 ## Relationships
 
+- **Positioning → Mount**: the mount process reads `shared_state.solution()`. It uses only `pointing.aligned.solve` and `last_solve_success` (a camera solve, never an IMU estimate), converted to **JNow**, for sync and refine (see [ADR 0046](./docs/adr/0046-mount-control-over-indi.md)).
+- **GPS → Mount**: the mount process sends the stored location (only with a lock) and the time to the mount. The **generic USB bridge** rule decides whether gpsd or a mount gets a USB-serial chip.
 - **Positioning → Catalog**: Catalog reads RA/Dec/Alt/Az from `shared_state.solution()` to compute visibility and "near me" lists.
 - **GPS → system-wide**: the GPS process is the only subsystem process that does **not** hold `shared_state`; it publishes `("fix" | "time" | "satellites", payload)` onto `gps_queue` and the main loop writes them into shared state on its behalf, applying the **location source** precedence rules (a `WEB`/`MANUAL`/`CONFIG:`/`replay` location outranks the receiver) and discarding any fix whose **position error** is worse than the stored one. `gps_queue` flows only *into* main — there is no main → GPS channel.
 - **GPS → Positioning**: the stored location supplies the observer's lat/lon/altitude and the wall-clock time that turn a plate-solved RA/Dec into Alt/Az. Beware the word **solution**: in GPS it is the receiver's navigation solution, in Positioning it is a plate-solve result, and both hang off `shared_state`.

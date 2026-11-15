@@ -73,6 +73,7 @@ SLOT_SIZES: Dict[str, int] = {
     "camera_lens": 256,
     "optical_train_known": 256,
     "test_mode": 256,
+    "mount_status": 1024,
 }
 
 _HEADER = struct.Struct("<QI")  # version, payload length
@@ -278,6 +279,7 @@ DEFAULTS: Dict[str, Any] = {
     "camera_lens": None,
     "optical_train_known": True,
     "test_mode": False,
+    "mount_status": None,
 }
 
 
@@ -366,6 +368,9 @@ class StateSnapshot:
 
     def test_mode(self):
         return self._values["test_mode"]
+
+    def mount_status(self):
+        return self._values["mount_status"]
 
     def datetime(self):
         """The civil datetime, UTC-aware, as ``SharedStateObj.datetime()``:

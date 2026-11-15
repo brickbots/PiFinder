@@ -188,6 +188,13 @@ def shutdown(ui_module: UIModule) -> None:
     ui_module.command_queues["ui_queue"].put("play_shutdown_sound")
 
 
+def mount_settings_changed(ui_module: UIModule) -> None:
+    """The mount process applies the new mount settings at once."""
+    mount_queue = ui_module.command_queues.get("mountcontrol")
+    if mount_queue is not None:
+        mount_queue.put({"type": "reload_config"})
+
+
 def restart_pifinder(ui_module: UIModule) -> None:
     """
     Uses systemctl to restart the PiFinder

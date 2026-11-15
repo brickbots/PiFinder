@@ -21,7 +21,7 @@ The matrix is scanned identically on every revision; revisions differ only in
 which positions are populated.
 """
 
-from typing import FrozenSet, List, Tuple
+from typing import FrozenSet, List, Optional, Tuple
 
 from PiFinder.keyboard_interface import KeyboardInterface as K
 
@@ -117,3 +117,55 @@ POPULATION_MAPS = {
     "rev3": REV3_POPULATED,
     "rev4": REV4_POPULATED,
 }
+
+
+# --- Hold events for the arrows ----------------------------------------------
+
+# An arrow held this long starts a hold (mount control moves while held).
+HOLD_START_S = 0.4
+
+
+class HoldTracker:
+    """Decides the hold events of the arrow keys for the matrix scanner.
+
+    The scanner sends a key on release. For an arrow it also sends
+    HOLD_<arrow> once the key is held for HOLD_START_S, and HOLD_END after
+    the release key. The existing behaviour stays: UP/DOWN repeat and
+    LEFT/RIGHT send their long codes after 1 s. A screen that does not use
+    holds ignores the hold codes.
+    """
+
+    def __init__(self, keymap: List[int]):
+        self._hold_code = {
+            K.LEFT: K.HOLD_LEFT,
+            K.UP: K.HOLD_UP,
+            K.DOWN: K.HOLD_DOWN,
+            K.RIGHT: K.HOLD_RIGHT,
+        }
+        self._arrow_keycodes = {
+            i: self._hold_code[v] for i, v in enumerate(keymap) if v in self._hold_code
+        }
+        self._pressed_at: dict[int, float] = {}
+        self._holding: Optional[int] = None
+
+    def press(self, keycode: int, now: float) -> None:
+        if keycode in self._arrow_keycodes and self._holding is None:
+            self._pressed_at[keycode] = now
+
+    def tick(self, now: float) -> List[int]:
+        """Hold codes that are due now."""
+        if self._holding is not None:
+            return []
+        for keycode, since in self._pressed_at.items():
+            if now - since >= HOLD_START_S:
+                self._holding = keycode
+                return [self._arrow_keycodes[keycode]]
+        return []
+
+    def release(self, keycode: int) -> List[int]:
+        """Codes to send after the normal release key."""
+        self._pressed_at.pop(keycode, None)
+        if self._holding == keycode:
+            self._holding = None
+            return [K.HOLD_END]
+        return []

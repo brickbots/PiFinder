@@ -409,6 +409,9 @@ class MenuManager:
         pass
 
     def key_long_right(self):
+        if getattr(self.stack[-1], "holds_arrows", False):
+            # The screen moves something while RIGHT is held.
+            return
         # jump to recent objects
         if self.stack[-1].item_definition.get("label") != "object_details":
             recent_list = self.ui_state.recent_list()
@@ -422,10 +425,23 @@ class MenuManager:
                 }
                 self.add_to_stack(object_item_definition)
 
+    def arrow_hold(self, direction: str) -> None:
+        """An arrow is held down: "up", "down", "left" or "right"."""
+        if self.help_images is not None or self.marking_menu_stack:
+            return
+        self.stack[-1].arrow_hold(direction)
+
+    def arrow_hold_end(self) -> None:
+        """The held arrow was released."""
+        self.stack[-1].arrow_hold_end()
+
     def key_long_left(self):
         """
         Return to top of menu
         """
+        if getattr(self.stack[-1], "holds_arrows", False):
+            # The screen moves something while LEFT is held.
+            return
         if self.help_images is not None:
             # Exit help
             self.help_images = None

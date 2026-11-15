@@ -213,6 +213,30 @@ def b1950_to_j2000(ra_hours, dec_deg):
     return epoch_to_epoch(B1950, J2000, ra_hours, dec_deg)
 
 
+def j2000_to_jnow(ra_deg: float, dec_deg: float, dt) -> Tuple[float, float]:
+    """
+    Convert J2000 RA/Dec (degrees) to the epoch of date at the timezone-aware
+    datetime ``dt`` (JNow, the EOD coordinates that INDI mounts use).
+    Precession and nutation, no aberration or refraction.
+    """
+    ts = sf_utils.ts
+    _p = position_of_radec(
+        ra_hours=ra_deg / 15.0, dec_degrees=dec_deg, epoch=ts.tt(jd=J2000)
+    )
+    ra, dec, _ = _p.radec(epoch=ts.from_datetime(dt))
+    return ra.hours * 15.0, dec.degrees
+
+
+def jnow_to_j2000(ra_deg: float, dec_deg: float, dt) -> Tuple[float, float]:
+    """Inverse of :func:`j2000_to_jnow`."""
+    ts = sf_utils.ts
+    _p = position_of_radec(
+        ra_hours=ra_deg / 15.0, dec_degrees=dec_deg, epoch=ts.from_datetime(dt)
+    )
+    ra, dec, _ = _p.radec(epoch=ts.tt(jd=J2000))
+    return ra.hours * 15.0, dec.degrees
+
+
 def pointing_snapshot(shared_state):
     """(solution, location, datetime), read once from the shared state.
 

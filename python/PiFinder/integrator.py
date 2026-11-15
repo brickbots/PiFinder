@@ -57,6 +57,7 @@ from PiFinder.optics import (
 )
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 import PiFinder.pointing_model.quaternion_transforms as qt
+from PiFinder.sky_sim import SkySimSettings, SkySimulator
 from PiFinder.telemetry import TelemetryManager
 from PiFinder.types.positioning import (
     FailedSolve,
@@ -223,7 +224,10 @@ def integrator(
     is_debug=False,
     command_queue=None,
     camera_command_queue=None,
+    sky_sim: Optional[str] = None,
 ):
+    """``sky_sim``: a sky simulator settings file, or "default". The solves
+    then come from the simulator (PiFinder.sky_sim), not from the solver."""
     MultiprocLogging.configurer(log_queue)
     if is_debug:
         logger.setLevel(logging.DEBUG)
@@ -251,6 +255,13 @@ def integrator(
 
         lens_self_heal = LensSelfHeal(cfg, shared_state)
 
+        simulator = None
+        if sky_sim is not None:
+            simulator = SkySimulator(
+                SkySimSettings.load(sky_sim), shared_state.datetime
+            )
+            logger.info("Solves come from the sky simulator (%s)", sky_sim)
+
         while True:
             state_utils.sleep_for_framerate(shared_state)
 
@@ -276,6 +287,12 @@ def integrator(
                     solve_result = message
                 elif isinstance(message, ImuSample):
                     replay_imu = message
+            elif simulator is not None:
+                # The solver keeps running; the simulator replaces its output.
+                _drain_queue(solver_queue)
+                message = simulator.next_message()
+                if isinstance(message, (SuccessfulSolve, FailedSolve)):
+                    solve_result = message
             else:
                 if was_replaying:
                     # Replay ended — reset to a clean unanchored state.
@@ -297,7 +314,8 @@ def integrator(
                 # measures the optics of whatever device recorded it, and
                 # writing that to this device's config would state a lens
                 # nobody here is looking through.
-                if not telemetry.replaying:
+                # Nor with the sky simulator: its solves have no optics.
+                if not telemetry.replaying and simulator is None:
                     lens_self_heal.observe(solve_result)
                 estimate = _apply_successful_solve(estimate, solve_result, idr)
                 pointing_updated = True
