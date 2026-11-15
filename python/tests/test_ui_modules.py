@@ -53,6 +53,8 @@ import io
 import pkgutil
 import queue
 import shutil
+import threading
+import time
 from typing import Iterator
 from unittest import mock
 
@@ -312,7 +314,7 @@ def _fast_timezonefinder():
 
 @pytest.fixture(scope="session", autouse=True)
 def _fast_sleep():
-    """No-op time.sleep for the whole harness.
+    """No-op time.sleep for the key sweep in the main thread.
 
     Several wizards (SQM calibration/sweep/correction) are per-update state
     machines that sleep 0.2-0.5s on every frame while driving the real camera.
@@ -320,8 +322,20 @@ def _fast_sleep():
     minutes of pure wall-clock waiting. None of these modules busy-loop on a
     condition (no ``while``+sleep), so removing the waits is safe and changes
     no logic -- we only care that nothing raises.
+
+    Background threads keep the real sleep. Some of them loop with a sleep,
+    for example the comet download retry, which waits 60 s while comets.txt
+    is missing. A no-op sleep would turn that loop into a busy loop that
+    logs without a pause.
     """
-    with mock.patch("time.sleep", lambda *a, **k: None):
+    real_sleep = time.sleep
+    main_thread = threading.main_thread()
+
+    def main_thread_only_sleep(seconds):
+        if threading.current_thread() is not main_thread:
+            real_sleep(seconds)
+
+    with mock.patch("time.sleep", main_thread_only_sleep):
         yield
 
 

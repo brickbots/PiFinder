@@ -246,6 +246,23 @@ class ObjectsDatabase(Database):
         self.cursor.execute("SELECT * FROM names WHERE object_id = ?;", (object_id,))
         return self.cursor.fetchone()
 
+    def get_names_by_object_id(self, object_id) -> List[str]:
+        """
+        Every common name for one object, in insertion order and
+        deduplicated -- the "also known as" list for a single object,
+        without building the map of every object's names.
+        """
+        self.cursor.execute(
+            "SELECT common_name FROM names WHERE object_id = ? ORDER BY rowid;",
+            (object_id,),
+        )
+        names: List[str] = []
+        for row in self.cursor.fetchall():
+            name = row["common_name"]
+            if name and name not in names:
+                names.append(name)
+        return names
+
     def get_object_id_to_names(self) -> DefaultDict[int, List[str]]:
         """
         Returns a dictionary of object_id: [common_name, common_name, ...]

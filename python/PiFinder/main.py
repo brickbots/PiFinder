@@ -816,6 +816,20 @@ def main(
         _new_filter = CatalogFilter(shared_state=CurrentSnapshot())
         _new_filter.load_from_config(cfg)
         catalogs.set_catalog_filter(_new_filter)
+
+        # Initialize Gaia chart generator in background to avoid first-use delay
+        console.write("   Gaia Charts")
+        console.update()
+        logger.info("   Initializing Gaia chart generator...")
+        from PiFinder.object_images.gaia_chart import get_gaia_chart_generator
+
+        # The generator only reads location and SQM, so it gets the view of
+        # the current frame's snapshot, not the shared-state proxy.
+        chart_gen = get_gaia_chart_generator(cfg, CurrentSnapshot())
+        # Trigger background loading so catalog is ready when needed
+        chart_gen.ensure_catalog_loading()
+        logger.info("   Gaia chart background loading started")
+
         console.write("   Menus")
         console.update()
 
@@ -1006,6 +1020,9 @@ def main(
                     # sending end: the row renders in this process, so
                     # this is the only clock it can safely subtract.
                     shared_state.set_gps_comms((gps_pending.pop("comms"), gps_now))
+
+                # Gaia catalog loading removed - now lazy-loads on first chart view
+                # (object_images triggers loading when needed)
 
                 # ui queue
                 try:
@@ -1542,13 +1559,18 @@ if __name__ == "__main__":
         rlogger.warn("not using camera")
         from PiFinder import camera_none as camera  # type: ignore[no-redef]
 
-    if args.keyboard.lower() == "pi":
-        from PiFinder import keyboard_pi as keyboard
+    # When using Pygame display, use built-in event polling (no keyboard subprocess needed)
+    if display_hardware in ["pg_128", "pg_320"]:
+        from PiFinder import keyboard_none as keyboard
+
+        rlogger.info("using pygame built-in keyboard (no subprocess)")
+    elif args.keyboard.lower() == "pi":
+        from PiFinder import keyboard_pi as keyboard  # type: ignore[no-redef]
 
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
         if display_hardware.startswith("pg_"):
-            from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
+            from PiFinder import keyboard_none as keyboard
 
             rlogger.info("using pygame keyboard (main loop captures keys)")
         else:
@@ -1556,7 +1578,7 @@ if __name__ == "__main__":
 
             rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
-        from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
+        from PiFinder import keyboard_none as keyboard
 
         rlogger.warning("using no keyboard")
 

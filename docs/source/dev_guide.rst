@@ -298,9 +298,6 @@ same flake dev shell but filters large runtime data out of the source copied to
 the Nix store. This keeps direnv reloads quick; manual ``nix develop`` and CI
 still evaluate the flake directly.
 
-You still need to fetch the Tetra3 submodule once; see
-`Install the Tetra3/Cedar solver`_ below.
-
 
 Hipparcos catalog
 .................
@@ -320,21 +317,29 @@ Install the Tetra3/Cedar solver
 The `Tetra3 Solver <https://github.com/esa/tetra3>`_ is a "fast lost-in-space
 plate solver for star trackers written in Python". It is the next gen solver, that PiFinder uses.
 
-This is set up as a git submodule and you will need to initialize it using the following
-command from with your checked out repo
-
-.. code-block::
-
-    git submodule update --init --recursive
+It is an ordinary Python dependency (``cedar-solve``, pinned in
+``python/pyproject.toml``), so the dev shell already includes it.
 
 Code Quality Automation
 -----------------------
 
 PiFinder uses Ruff for linting and formatting, MyPy for type checking, and
-PyTest for the test suite. They all come with the dev shell, so inside
-``nix develop`` you run them directly from the ``python`` directory. Every push
-and pull request runs the same commands in CI, so it's worth running them
-locally before you open a PR.
+PyTest for the test suite. They all come with the dev shell, with the versions
+pinned in ``python/uv.lock``. Inside ``nix develop`` you can run them directly
+from the ``python`` directory.
+
+``python/scripts/check.sh`` runs all the checks. It enters the dev shell by
+itself when needed. CI and the pre-commit hooks run this same script, so run it
+before you open a PR. From ``python/``:
+
+.. code-block::
+
+    scripts/check.sh          # lint, types, smoke, unit and integration
+    scripts/check.sh lint     # one stage: lint, format, types, smoke, unit, integration
+
+Do not use ``uv sync`` or ``uv run`` to make a separate ``.venv``. It installs
+manylinux wheels instead of the Nix environment, and on NixOS those wheels fail
+to load ``libstdc++``.
 
 Linting and formatting
 ......................
@@ -358,7 +363,7 @@ annotated. From ``python/``:
 
 .. code-block::
 
-    mypy .
+    mypy PiFinder
 
 If you've not worked with type hints before we'll help you out, so feel free to
 open a PR for non-type-hinted code and we can collaborate.
@@ -380,7 +385,7 @@ There is also a UI smoke harness that builds every screen through a real
 ``pytest tests/test_ui_modules.py``. It builds the real catalogs and may
 download ``hip_main.dat`` on first run, so it's heavier than the unit suite.
 
-Smoke and unit tests run in CI on every push. The web tests need extra setup —
+Smoke, unit and integration tests run in CI on every push. The web tests need extra setup —
 a Selenium Grid and a running PiFinder web server — described next.
 
 Website Tests
@@ -403,6 +408,16 @@ _______________________________
 You can run ``pytest -m web --browser <browser> --local`` to run the website tests locally. 
 This will have Selenium launch a browser on your local machine and run the tests against a locally running instance of PiFinder. 
 The respective browsers need to be installed on your machine. Recognized browsers are ``chrome``, ``firefox`` and ``safari``. 
+
+On Linux, the ``web`` dev shell supplies Chromium and chromedriver from the
+flake's pinned nixpkgs. It is the default dev shell plus the browser, and CI
+runs the web tests in it:
+
+.. code-block:: bash
+
+    nix develop .#web
+    cd python
+    pytest -m web --local
 
 Note that when running the tests on Safari, you need to enable "Allow Remote Automation" in the Develop menu of Safari. In addition Safari
 does not support the "headless" mode, so you will see the browser window when running the tests and you cannot use other windows while the tests are running.
@@ -733,9 +748,10 @@ repository's complete Nix development environment first:
 The flake provides this shell for both desktop Linux and the PiFinder's
 ``aarch64-linux`` system. It uses the checked-in ``flake.lock``,
 ``python/pyproject.toml`` and ``python/uv.lock`` and supplies the same native
-``libcamera`` and GObject bindings as the service. CI publishes the aarch64
-shell dependency closure for testable PRs and releases to the PiFinder binary
-caches.
+``libcamera`` and GObject bindings as the service. CI puts the dependency closure of the
+aarch64 shell in the PiFinder binary cache for testable PRs, releases and each
+green push to ``nixos``, ``main`` or ``release``. The x86 shells go to the cache
+on the same pushes, so a desktop also downloads the shell and does not build it.
 
 Why ``nix develop`` here instead of the desktop's preferred ``direnv allow``?
 The released device does not currently ship direnv. More importantly, the

@@ -6,11 +6,12 @@ This script runs to fetch
 images from AWS
 """
 
-import requests
 import sqlite3
+
+import requests
 from tqdm import tqdm
 
-from PiFinder import cat_images
+from PiFinder.object_images.poss_provider import POSSImageProvider
 
 
 def get_catalog_objects():
@@ -59,7 +60,7 @@ def check_object_image(catalog_object):
             if aka_sequence:
                 catalog_object = {"catalog": "NGC", "sequence": aka_sequence}
 
-    object_image_path = cat_images.resolve_image_name(catalog_object, "POSS")
+    object_image_path = POSSImageProvider()._resolve_image_name(catalog_object, "POSS")
     # POSS
     image_name = object_image_path.split("/")[-1]
     seq_ones = image_name.split("_")[0][-1]

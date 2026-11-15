@@ -10,6 +10,8 @@ dependencies = [
     "pyerfa",
     "scipy",
     "scikit-learn",
+    # HEALPix tile queries for the Gaia deep-chart catalog (star_catalog.py)
+    "healpy",
     "pillow",
     "pandas",
     "skyfield",
@@ -67,6 +69,8 @@ dependencies = [
 dev = [
     "pytest",
     "mypy",
+    # Same ruff pin as upstream main's noxfile, so shared files keep one style.
+    "ruff==0.4.8",
     "luma-emulator",
     # pyhotkey -> pynput -> evdev (sdist, kernel headers): only buildable where
     # the uv2nix override supplies headers (the device). Dev keyboard input on
