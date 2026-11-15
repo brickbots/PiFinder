@@ -106,6 +106,10 @@ class UITextMenu(UIModule):
         # message that a background thread made.
         if self.item_definition.get("update_callback"):
             self.item_definition["update_callback"](self)
+        # The stored values can change outside this menu (for example on the
+        # web page), so the check marks follow the store on each frame.
+        if self._uses_value_callbacks():
+            self._selected_values = list(self.item_definition["values_callback"](self))
 
         # clear screen
         self.clear_screen()
@@ -211,6 +215,10 @@ class UITextMenu(UIModule):
         if self._uses_value_callbacks() and selected_item_definition is not None:
             value = selected_item_definition.get("value")
             if value is not None:
+                # Toggle the stored state, not the state of the last frame.
+                self._selected_values = list(
+                    self.item_definition["values_callback"](self)
+                )
                 selected = value not in self._selected_values
                 if selected:
                     self._selected_values.append(value)
