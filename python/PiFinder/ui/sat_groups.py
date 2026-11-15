@@ -121,9 +121,28 @@ class GroupDownloads:
 downloads = GroupDownloads()
 
 
+# The selection file key (path, inode, change time in ns) and the groups read
+# from it. Each write replaces the file, so the inode changes on each write.
+_selection_cache: tuple[Optional[tuple[Path, int, int]], list[str]] = (None, [])
+
+
 def selected_groups(ui_module: UIModule) -> list[str]:
-    """The ``values_callback`` of the menu: the stored selection."""
-    return list(satellites.selected_groups(utils.satellite_data_dir))
+    """The ``values_callback`` of the menu: the stored selection.
+
+    The menu calls it on each frame, so the file is read again only when
+    its inode or its change time is different.
+    """
+    global _selection_cache
+    directory = utils.satellite_data_dir
+    path = satellites.selection_file(directory)
+    try:
+        stat = path.stat()
+        key: Optional[tuple[Path, int, int]] = (path, stat.st_ino, stat.st_mtime_ns)
+    except OSError:
+        key = (path, -1, -1)
+    if key != _selection_cache[0]:
+        _selection_cache = (key, list(satellites.selected_groups(directory)))
+    return list(_selection_cache[1])
 
 
 def toggle_group(ui_module: UIModule, group: str, selected: bool) -> None:
