@@ -66,6 +66,26 @@ SIDEREAL_RATE_ARCSEC_S = 15.041067
 # The sign check of the custom track rates needs this much motion.
 RATE_CHECK_MIN_S = 0.9
 RATE_CHECK_MIN_DEG_S = 0.002
+# An axis turns its sign after this many measurements in a row against the
+# request: one while the sign is not confirmed on this pier side, else two.
+RATE_FLIPS_UNCONFIRMED = 1
+# A position report older than this is the start of a sign check at the
+# time of the check, not at the time of the report.
+RATE_SAMPLE_MAX_AGE_S = 1.0
+RATE_FLIPS_CONFIRMED = 2
+
+
+def _moved_with(moved_deg_s: float, requested_deg_s: float) -> bool:
+    """The axis moved clearly in the direction of the request."""
+    return (
+        abs(requested_deg_s) >= RATE_CHECK_MIN_DEG_S
+        and abs(moved_deg_s) >= abs(requested_deg_s) / 2.0
+        and (moved_deg_s > 0) == (requested_deg_s > 0)
+    )
+
+
+def _flips_needed(confirmed: bool) -> int:
+    return RATE_FLIPS_CONFIRMED if confirmed else RATE_FLIPS_UNCONFIRMED
 
 
 def _moved_against(moved_deg_s: float, requested_deg_s: float) -> bool:
@@ -156,6 +176,11 @@ class MountControlIndi(MountControlBase):
         self._rate_sample: Optional[tuple] = None
         self._ra_against = 0
         self._dec_against = 0
+        # True when a measurement on this pier side agreed with the sign.
+        # The telescope simulator turns its Dec direction with the pier side.
+        self._ra_confirmed = False
+        self._dec_confirmed = False
+        self._rate_pier: Optional[bool] = None
         # The lunar or solar rate as custom rates, for a driver without
         # TRACK_LUNAR or TRACK_SOLAR (see refresh_track_rate), or None.
         self._body_custom_rate: Optional[str] = None
@@ -223,6 +248,8 @@ class MountControlIndi(MountControlBase):
             indi_drivers.stop_driver()
             self._ra_rate_sign = -1.0
             self._dec_rate_sign = 1.0
+            self._ra_confirmed = False
+            self._dec_confirmed = False
         self.settings = new
         self.client = self._new_client()
         self._last_synced_location = None
@@ -706,6 +733,7 @@ class MountControlIndi(MountControlBase):
                 return False
             self._custom_tracking = True
             self._rate_sample = None
+        self._check_pier_side()
         self._check_rate_signs()
         values = {
             "TRACK_RATE_RA": SIDEREAL_RATE_ARCSEC_S
@@ -714,33 +742,53 @@ class MountControlIndi(MountControlBase):
         }
         rates = self.client.get_property(self.device, "TELESCOPE_TRACK_RATE")
         current = rates.elements if rates is not None else {}
-        reverse = False
+        reversed_axes = set()
         for name, value in values.items():
             now = current.get(name)
             if isinstance(now, float) and now * value < 0:
-                reverse = True
+                reversed_axes.add(name)
         ok = self._set_track_rate_values(
             values["TRACK_RATE_RA"], values["TRACK_RATE_DE"]
         )
-        if reverse or not ok:
+        if not ok or (reversed_axes and self._rate_sample is not None):
             # The motion right after a reversal tells nothing about the sign.
             self._rate_sample = None
         elif self._rate_sample is None and self.current_ra is not None:
+            # A new sample measures only the axes that did not reverse now
+            # (a requested rate of zero is not measured). A driver sends no
+            # position while RA and Dec stay the same, as with sidereal
+            # tracking: an old report is the position now.
+            start = self.current_time
+            if time.time() - start > RATE_SAMPLE_MAX_AGE_S:
+                start = time.time()
             self._rate_sample = (
-                self.current_time,
+                start,
                 self.current_ra,
                 self.current_dec,
-                ra_rate_deg_s,
-                dec_rate_deg_s,
+                0.0 if "TRACK_RATE_RA" in reversed_axes else ra_rate_deg_s,
+                0.0 if "TRACK_RATE_DE" in reversed_axes else dec_rate_deg_s,
             )
         return ok
+
+    def _check_pier_side(self) -> None:
+        """A new pier side makes the signs not confirmed. Some drivers turn
+        the direction of an axis with the pier side."""
+        if self.device is None:
+            return
+        value = self.client.get_value(self.device, "TELESCOPE_PIER_SIDE", "PIER_EAST")
+        pier = value if isinstance(value, bool) else None
+        if pier != self._rate_pier:
+            self._rate_pier = pier
+            self._ra_confirmed = False
+            self._dec_confirmed = False
 
     def _check_rate_signs(self) -> None:
         """Turn the sign of an axis that moved against the requested rate.
 
         The motion is measured between two position reports of the driver,
-        over at least RATE_CHECK_MIN_S. An axis turns its sign after two
-        such measurements in a row against the request.
+        over at least RATE_CHECK_MIN_S. A sign that is not confirmed turns
+        after one measurement against the request, so a fast target is not
+        lost. A confirmed sign turns after two in a row.
         """
         sample = self._rate_sample
         if sample is None or self.current_ra is None or self.current_dec is None:
@@ -752,19 +800,25 @@ class MountControlIndi(MountControlBase):
         self._rate_sample = None
         ra_moved = ((self.current_ra - ra0 + 540.0) % 360.0 - 180.0) / seconds
         dec_moved = (self.current_dec - dec0) / seconds
+        if _moved_with(ra_moved, ra_rate):
+            self._ra_confirmed = True
+        if _moved_with(dec_moved, dec_rate):
+            self._dec_confirmed = True
         self._ra_against = (
             self._ra_against + 1 if _moved_against(ra_moved, ra_rate) else 0
         )
         self._dec_against = (
             self._dec_against + 1 if _moved_against(dec_moved, dec_rate) else 0
         )
-        if self._ra_against >= 2:
+        if self._ra_against >= _flips_needed(self._ra_confirmed):
             self._ra_rate_sign = -self._ra_rate_sign
             self._ra_against = 0
+            self._ra_confirmed = False
             logger.info("RA track rate sign of this driver: %+.0f", self._ra_rate_sign)
-        if self._dec_against >= 2:
+        if self._dec_against >= _flips_needed(self._dec_confirmed):
             self._dec_rate_sign = -self._dec_rate_sign
             self._dec_against = 0
+            self._dec_confirmed = False
             logger.info(
                 "Dec track rate sign of this driver: %+.0f", self._dec_rate_sign
             )
