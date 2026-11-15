@@ -71,7 +71,7 @@
     {% if sky_now is none %}
     <p class="grey-text">{{ _('The PiFinder has no location yet.') }}</p>
     {% elif sky_now %}
-    <table class="grey-text responsive-table" id="sky_now_table">
+    <div style="overflow-x:auto;"><table class="grey-text" id="sky_now_table">
       <thead>
         <tr>
           <th>{{ _('Satellite') }}</th>
@@ -94,7 +94,7 @@
         </tr>
         {% endfor %}
       </tbody>
-    </table>
+    </table></div>
     {% else %}
     <p class="grey-text">{{ _('No satellite is above the horizon.') }}</p>
     {% endif %}
@@ -125,7 +125,7 @@
       {% endif %}
     </p>
     {% if passes %}
-    <table class="grey-text responsive-table" id="pass_table">
+    <div style="overflow-x:auto;"><table class="grey-text" id="pass_table">
       <thead>
         <tr>
           <th>{{ _('Satellite') }}</th>
@@ -148,7 +148,7 @@
         </tr>
         {% endfor %}
       </tbody>
-    </table>
+    </table></div>
     {% else %}
     <p class="grey-text">{{ _('No passes in the next 24 hours.') }}</p>
     {% endif %}

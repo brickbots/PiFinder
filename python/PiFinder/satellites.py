@@ -84,13 +84,16 @@ MAX_ELEMENT_AGE_DAYS = 30.0
 GEO_REVS_PER_DAY = 1.0027
 GEO_REVS_TOLERANCE = 0.01
 GEO_MAX_ECCENTRICITY = 0.01
-# CelesTrak updates the groups a few times a day and asks clients not to
-# download them more often than every two hours.
+# CelesTrak updates the groups a few times a day. It blocks (HTTP 403) a
+# client that asks for the same data more often than every two hours.
 DOWNLOAD_INTERVAL_HOURS = 12.0
-# A download that the user asks for is refused when the file is younger.
-MIN_FORCED_DOWNLOAD_SECONDS = 5 * 60.0
+# A download that the user asks for is refused when the last request that
+# reached CelesTrak for that group is younger.
+MIN_FORCED_DOWNLOAD_SECONDS = 2 * 3600.0
 # The waits before the automatic retries of a group whose download failed.
-# After the last wait, a failed group waits DOWNLOAD_INTERVAL_HOURS.
+# After the last wait, a failed group waits DOWNLOAD_INTERVAL_HOURS. When
+# CelesTrak answered (an HTTP error), each wait is at least
+# MIN_FORCED_DOWNLOAD_SECONDS. A network fault uses the short waits.
 FAILED_RETRY_SECONDS = (5 * 60.0, 15 * 60.0, 60 * 60.0)
 # A "downloading" state older than this is from a process that stopped.
 DOWNLOAD_STALE_SECONDS = 15 * 60.0
@@ -475,9 +478,10 @@ class GroupRefresh:
 
     ``status`` is "downloaded", "current" (no file was old enough),
     "no_groups" (no group is selected), "busy" (another download runs),
-    "too_soon" (each group downloaded a few minutes ago) or "failed".
-    ``refused`` holds each group that downloaded a few minutes ago, with
-    the seconds until a forced download is permitted.
+    "too_soon" (CelesTrak answered for each group a short time ago) or
+    "failed". ``refused`` holds each group that CelesTrak answered a short
+    time ago (see ``forced_download_wait``), with the seconds until a
+    forced download is permitted.
     """
 
     status: str
@@ -506,15 +510,21 @@ def forced_download_wait(
 ) -> dict[str, float]:
     """Seconds until a forced download of each group is permitted.
 
-    Without ``groups`` the selected groups are used.
+    The later of the file time and the last request that reached CelesTrak
+    must be MIN_FORCED_DOWNLOAD_SECONDS old. Without ``groups`` the selected groups are used.
     """
     if groups is None:
         groups = selected_groups(directory)
+    status = load_download_status(directory)
     waits: dict[str, float] = {}
     for group in groups:
         path = group_file(group, directory)
-        age = now.timestamp() - path.stat().st_mtime if path.exists() else None
-        # A file from the future means the clock changed: permit the download.
+        times = [path.stat().st_mtime] if path.exists() else []
+        entry = status.get(group)
+        if entry is not None and entry.last_request is not None:
+            times.append(entry.last_request)
+        age = now.timestamp() - max(times) if times else None
+        # A time in the future means the clock changed: permit the download.
         if age is None or age < 0:
             waits[group] = 0.0
         else:
@@ -534,7 +544,7 @@ def refresh_groups(
 
     Without ``groups`` the selected groups are used. Without ``force`` the
     file age decides. With ``force`` each group downloads, except a group
-    that downloaded a few minutes ago.
+    that ``forced_download_wait`` refuses.
     """
     if not _download_lock.acquire(blocking=False):
         return GroupRefresh("busy")
@@ -620,6 +630,9 @@ class GroupStatus:
     sets: int = 0
     failures: int = 0
     next_retry: Optional[float] = None
+    # The last request that reached CelesTrak: a download, an HTTP error or
+    # bad data. A network fault does not count.
+    last_request: Optional[float] = None
 
     def current_result(self, now: datetime) -> str:
         """The result. A download that started long ago counts as failed."""
@@ -640,6 +653,7 @@ class GroupStatus:
             "sets": self.sets,
             "failures": self.failures,
             "next_retry": self.next_retry,
+            "last_request": self.last_request,
         }
 
     @classmethod
@@ -656,6 +670,7 @@ class GroupStatus:
             int(data.get("sets") or 0),
             int(data.get("failures") or 0),
             number("next_retry"),
+            number("last_request"),
         )
 
 
@@ -678,14 +693,16 @@ def load_download_status(
         return {}
 
 
-def retry_wait_seconds(failures: int) -> float:
+def retry_wait_seconds(failures: int, server_answered: bool = False) -> float:
     """The wait before the next automatic download after ``failures``
-    failed downloads in a row."""
-    if failures <= 0:
+    failed downloads in a row. When CelesTrak answered the last request,
+    the wait is at least MIN_FORCED_DOWNLOAD_SECONDS."""
+    if failures <= 0 or failures > len(FAILED_RETRY_SECONDS):
         return DOWNLOAD_INTERVAL_HOURS * 3600.0
-    if failures <= len(FAILED_RETRY_SECONDS):
-        return FAILED_RETRY_SECONDS[failures - 1]
-    return DOWNLOAD_INTERVAL_HOURS * 3600.0
+    wait = FAILED_RETRY_SECONDS[failures - 1]
+    if server_answered:
+        wait = max(wait, MIN_FORCED_DOWNLOAD_SECONDS)
+    return wait
 
 
 def _update_status(directory: Path, group: str, change: Callable) -> None:
@@ -749,15 +766,18 @@ def record_download_end(
                 count_sets(path) if path.exists() else 0,
                 0,
                 attempt + retry_wait_seconds(0),
+                attempt,
             )
         failures = old.failures + 1
+        answered = result.kind in (ERROR_HTTP, ERROR_DATA)
         return replace(
             old,
             result=RESULT_FAILED,
             last_attempt=attempt,
             error=download_error_text(result),
             failures=failures,
-            next_retry=attempt + retry_wait_seconds(failures),
+            next_retry=attempt + retry_wait_seconds(failures, answered),
+            last_request=attempt if answered else old.last_request,
         )
 
     try:

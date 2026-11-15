@@ -820,13 +820,41 @@ def test_forced_download_is_refused_a_short_time_after_a_download(
     assert again.status == "too_soon" and not again.ok
     assert 0 < again.wait_seconds <= satellites.MIN_FORCED_DOWNLOAD_SECONDS
     assert len(downloads.groups) == len(satellites.DEFAULT_GROUPS)
-    assert "Wait 5 min" in web_satellites.refresh_message(again)[1]
+    assert again.wait_seconds > satellites.MIN_FORCED_DOWNLOAD_SECONDS - 60
+    assert "Wait 2 h 00 min" in web_satellites.refresh_message(again)[1]
+
+    # One second before the end of the 2 h the download is still refused.
+    almost = system_now() + datetime.timedelta(
+        seconds=satellites.MIN_FORCED_DOWNLOAD_SECONDS - 1
+    )
+    assert satellites.refresh_groups(almost, True, tmp_path).status == "too_soon"
+    assert len(downloads.groups) == len(satellites.DEFAULT_GROUPS)
 
     later = system_now() + datetime.timedelta(
         seconds=satellites.MIN_FORCED_DOWNLOAD_SECONDS + 1
     )
     assert satellites.refresh_groups(later, True, tmp_path).status == "downloaded"
     assert satellites.refresh_groups(later, False, tmp_path).status == "current"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "seconds, text",
+    [
+        (5.0, "Wait 1 min"),
+        (300.0, "Wait 5 min"),
+        (3540.0, "Wait 59 min"),
+        (3541.0, "Wait 1 h 00 min"),
+        (6300.0, "Wait 1 h 45 min"),
+        (7199.5, "Wait 2 h 00 min"),
+    ],
+)
+def test_refused_group_message_shows_hours_from_60_min(seconds, text):
+    result = satellites.GroupRefresh(
+        "too_soon", wait_seconds=seconds, refused=(("visual", seconds),)
+    )
+    _message, error = web_satellites.refresh_message(result)
+    assert error == f"Brightest: the last download is too recent. {text}."
 
 
 @pytest.mark.unit
@@ -885,6 +913,10 @@ def test_device_refresh_is_refused_after_a_recent_download(catalog, monkeypatch)
     wait = catalog.refresh()
     assert wait is not None and 0 < wait <= satellites.MIN_FORCED_DOWNLOAD_SECONDS
     assert downloads.groups == []
+
+
+# A file age that permits a forced download, below the automatic age.
+OLDER_THAN_FORCED_WAIT_HOURS = satellites.MIN_FORCED_DOWNLOAD_SECONDS / 3600.0 + 1
 
 
 def make_old(path: Path, hours: float = 1.0) -> None:
@@ -951,7 +983,9 @@ def test_unselected_group_is_not_downloaded_and_not_loaded(tmp_path, monkeypatch
     assert satellites.refresh_groups(system_now(), False, tmp_path).downloaded == (
         "amateur",
     )
-    later = system_now() + datetime.timedelta(hours=1)
+    later = system_now() + datetime.timedelta(
+        seconds=satellites.MIN_FORCED_DOWNLOAD_SECONDS + 1
+    )
     assert satellites.refresh_groups(later, True, tmp_path).downloaded == ("amateur",)
     assert downloads.groups == ["amateur", "amateur"]
 
@@ -991,7 +1025,7 @@ def test_forced_download_wait_applies_to_each_group(tmp_path, monkeypatch):
     satellites.set_group_enabled("amateur", True, tmp_path)
     (tmp_path / "visual.tle").write_text((DATA / "visual.tle").read_text())
     (tmp_path / "stations.tle").write_text((DATA / "25544.3le").read_text())
-    make_old(tmp_path / "stations.tle")
+    make_old(tmp_path / "stations.tle", OLDER_THAN_FORCED_WAIT_HOURS)
 
     result = satellites.refresh_groups(system_now(), True, tmp_path)
     assert result.status == "downloaded"
@@ -999,7 +1033,7 @@ def test_forced_download_wait_applies_to_each_group(tmp_path, monkeypatch):
     assert [group for group, _seconds in result.refused] == ["visual"]
     message, error = web_satellites.refresh_message(result)
     assert message == "Downloaded: Space stations, Amateur radio."
-    assert error == "Brightest: the last download is too recent. Wait 5 min."
+    assert error == "Brightest: the last download is too recent. Wait 2 h 00 min."
 
     result = satellites.refresh_groups(system_now(), True, tmp_path, groups=["visual"])
     assert result.status == "too_soon" and result.downloaded == ()
@@ -1031,8 +1065,8 @@ def test_device_refresh_downloads_the_selected_groups_only(catalog, monkeypatch)
     monkeypatch.setattr(satellites, "download_group", downloads)
     satellites.set_group_enabled("stations", False, directory)
     satellites.set_group_enabled("amateur", True, directory)
-    make_old(directory / "visual.tle")
-    make_old(directory / "stations.tle")
+    make_old(directory / "visual.tle", OLDER_THAN_FORCED_WAIT_HOURS)
+    make_old(directory / "stations.tle", OLDER_THAN_FORCED_WAIT_HOURS)
 
     finished = threading.Event()
     refresh_sources = catalog._refresh_sources

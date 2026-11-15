@@ -227,7 +227,7 @@ def test_refresh_route_refuses_a_download_after_a_recent_one(web, monkeypatch):
     monkeypatch.setattr(satellites, "download_group", download)
     # The fixture wrote the group files a moment ago.
     response = client.post("/satellites/refresh")
-    assert "Wait 5 min" in redirect_query(response)["err"][0]
+    assert "Wait 2 h 00 min" in redirect_query(response)["err"][0]
     assert calls == []
 
 
@@ -246,7 +246,8 @@ class RecordedDownloads:
 
 
 def make_old(path: Path) -> None:
-    when = time.time() - 3600.0
+    """Make the file older than the 2 h wait of a forced download."""
+    when = time.time() - satellites.MIN_FORCED_DOWNLOAD_SECONDS - 3600.0
     os.utime(path, (when, when))
 
 
@@ -276,13 +277,13 @@ def test_update_route_downloads_one_group(web, monkeypatch):
     assert downloads.groups == ["visual"]
 
     response = client.post("/satellites/refresh", data={"group": "visual"})
-    assert "Wait 5 min" in redirect_query(response)["err"][0]
+    assert "Wait 2 h 00 min" in redirect_query(response)["err"][0]
     assert downloads.groups == ["visual"]
 
     response = client.post("/satellites/refresh")
     query = redirect_query(response)
     assert query["msg"] == ["Downloaded: Space stations."]
-    assert "Brightest" in query["err"][0] and "Wait 5 min" in query["err"][0]
+    assert "Brightest" in query["err"][0] and "Wait 2 h 00 min" in query["err"][0]
     assert downloads.groups == ["visual", "stations"]
 
     response = client.post("/satellites/refresh", data={"group": "amateur"})
@@ -385,7 +386,8 @@ def test_status_card_shows_each_selected_group(web, monkeypatch):
         "amateur": "downloading",
     }
     assert "Failed: CelesTrak has no data" in page
-    assert "Next try in 5 min" in page
+    # CelesTrak answered with HTTP 404: the retry waits 2 h.
+    assert "Next try in 2 h 00 min" in page
     assert "Downloading" in page
     assert 'data-state="downloading"' in page
     assert "Time: GPS" in page
@@ -438,7 +440,7 @@ def test_update_message_has_a_line_for_each_group(web, monkeypatch):
     lines = query["err"][0].split("\n")
     assert "Launched in the last 30 days: No network." in lines
     assert "Amateur radio: No network." in lines
-    assert any("Brightest" in line and "Wait 5 min" in line for line in lines)
+    assert any("Brightest" in line and "Wait 2 h 00 min" in line for line in lines)
     page = client.get("/satellites?err=" + quote(query["err"][0])).get_data(
         as_text=True
     )
