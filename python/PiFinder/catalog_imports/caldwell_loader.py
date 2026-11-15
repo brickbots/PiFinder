@@ -5,23 +5,50 @@ This module loads the Caldwell catalog of deep-sky objects.
 """
 
 import logging
+import re
 from pathlib import Path
+from typing import List
+
 from tqdm import tqdm
 
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg
+from PiFinder.calc_utils import ra_to_deg, dms_to_dec
 from .catalog_import_utils import (
     NewCatalogObject,
     delete_catalog_from_database,
     insert_catalog,
     insert_catalog_max_sequence,
-    add_space_after_prefix,
     parse_arcmin_size,
+    parse_designation,
 )
 
 # Import shared database object
 from .database import objects_db
+
+# Two numbers in one other-name: "NGC 869/884", "NGC 6992/5", "NGC 2237-9".
+_TWO_NUMBERS_RE = re.compile(r"(.*?)(\d+)\s*[/-]\s*(\d+)")
+
+
+def caldwell_akas(other_name: str) -> List[str]:
+    """The designations in caldwell.dat's other-name field.
+
+    "none" names nothing. A designation parse_designation reads stays whole,
+    so "Sh2-155" is Sh2 155. Two numbers are split, the second replacing the
+    first's trailing digits: "NGC 6992/5" is NGC 6992 and NGC 6995, and
+    "NGC 2237-9" is NGC 2237 and NGC 2239.
+    """
+    name = other_name.strip()
+    if not name or name.lower() == "none":
+        return []
+    if parse_designation(name) is not None:
+        return [name]
+    match = _TWO_NUMBERS_RE.fullmatch(name)
+    if match is None:
+        return [name]
+    prefix, first, second = match.groups()
+    second = first[: max(len(first) - len(second), 0)] + second
+    return [f"{prefix}{first}", f"{prefix}{second}"]
 
 
 def load_caldwell():
@@ -40,7 +67,7 @@ def load_caldwell():
             dfs = line.split("\t")
             sequence = dfs[0].strip()
             logging.debug(f"<----------------- Caldwell {sequence=} ----------------->")
-            other_names = add_space_after_prefix(dfs[1])
+            aka_names = caldwell_akas(dfs[1])
             obj_type = dfs[2]
             mag = dfs[4]
             if mag == "--":
@@ -52,13 +79,9 @@ def load_caldwell():
             ra_m = float(dfs[7])
             ra_deg = ra_to_deg(ra_h, ra_m, 0)
 
-            dec_sign = dfs[8]
-            dec_deg = int(dfs[9])
-            dec_m = float(dfs[10])
-            if dec_sign == "-":
-                dec_deg *= -1
-
-            dec_deg = dec_to_deg(dec_deg, dec_m, 0)
+            # The sign is a column of its own, so a declination between -1°
+            # and 0° would stay south (caldwell.dat has none today).
+            dec_deg = dms_to_dec(dfs[8], int(dfs[9]), float(dfs[10]), 0)
             new_object = NewCatalogObject(
                 object_type=obj_type,
                 catalog_code=catalog,
@@ -68,7 +91,7 @@ def load_caldwell():
                 mag=mag,
                 size=size,
                 description="",
-                aka_names=[other_names],
+                aka_names=aka_names,
             )
             objects_to_insert.append(new_object)
 

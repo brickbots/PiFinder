@@ -1,0 +1,641 @@
+#
+#   VizieR Astronomical Server vizier.cds.unistra.fr
+#    Date: 2026-10-24T17:14:21 [V7.6.2]
+#   In case of problem, please report to:	cds-question@unistra.fr
+#
+#
+#Coosys	J2000:	eq_FK5 J2000
+#INFO	service_protocol=ASU	  IVOID of the protocol through which the data was retrieved
+#INFO	request_date=2026-10-24T17:14:21	  Query execution date
+#INFO	request=https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=J/MNRAS/389/678/table3&-out=Names,RAJ2000,DEJ2000,Type,amaj,amin,PA,Com&Names=%3D*NGC%5B0-9%5D*&-out.max=unlimited	  Full request URL
+#INFO	contact=cds-question@unistra.fr	  Email or URL to contact publisher
+#INFO	server_software=VizieR/7.6.2	  Software version
+#INFO	publisher=CDS	  Data centre that produced the VOTable
+
+#RESOURCE=yCat_73890678
+#Name: J/MNRAS/389/678
+#Title: Catalogue of extended objects in Magellanic Clouds (Bica+, 2008)
+#INFO	ivoid=ivo://cds.vizier/j/mnras/389/678	    IVOID of underlying data collection
+#INFO	data_ivoid=ivo://cds.vizier/j/mnras/389/678	    IVOID of underlying data collection
+#INFO	creator=Bica E.	    First author or institution
+#INFO	cites=bibcode:2008MNRAS.389..678B	    Article or Data origin sources
+#INFO	journal=MNRA	    Journal name
+#INFO	original_date=2008	    Year of the article publication
+#INFO	reference_url=https://cdsarc.cds.unistra.fr/viz-bin/cat/J/MNRAS/389/678	    Dataset landing page
+#INFO	citation=doi:10.26093/cds/vizier.73890678	    Dataset identifier that can be used for citation
+#INFO	publication_date=2024-07-07	    Date of first publication in the data centre
+#INFO	rights_uri=https://cds.unistra.fr/vizier-org/licences_vizier.html	    Licence URI
+#Table	J_MNRAS_389_678_table3:
+#Name: J/MNRAS/389/678/table3
+#Title: Star clusters
+#Column	Names	(a32)	Source name(s) (2)	[ucd=meta.id;meta.main]
+#Column	RAJ2000	(A8)	right ascension (J2000)	[ucd=pos.eq.ra;meta.main]
+#Column	DEJ2000	(A9)	Declination (J2000)	[ucd=pos.eq.dec;meta.main]
+#Column	Type	(A3)	Object type (1)	[ucd=src.class]
+#Column	amaj	(F6.2)	Major axis	[ucd=phys.angSize]
+#Column	amin	(F5.2)	Minor axis	[ucd=phys.angSize;src]
+#Column	PA	(I3)	? Major axis position angle	[ucd=pos.posAng]
+#Column	Com	(a47)	Comments (IAC = Intermediate Age Cluster; mP, mT, m4 etc = member of Pair, Triplet, ...)	[ucd=meta.note]
+Names	RAJ2000	DEJ2000	Type	amaj	amin	PA	Com
+ 	"h:m:s"	"d:m:s"	 	arcmin	arcmin	deg	
+--------------------------------	--------	---------	---	------	-----	---	-----------------------------------------------
+NGC121,K2,L10,ESO50SC12         	00 26 47	-71 32 12	C  	  3.80	 3.10	 80	Globular Cluster
+NGC152,K10,L15,ESO28SC24        	00 32 56	-73 06 58	C  	  3.00	 3.00	   	
+NGC176,K12,L16,ESO29SC2         	00 35 58	-73 09 58	C  	  1.20	 1.20	   	
+NGC220,K18,L22,ESO29SC3,SOGLE8  	00 40 31	-73 24 10	C  	  1.20	 1.20	   	mT,in H-A3
+NGC222,K19,L24,ESO29SC4,SOGLE9  	00 40 44	-73 23 00	C  	  1.20	 1.20	   	mT,in H-A3
+NGC231,K20,L25,ESO29SC5,SOGLE11 	00 41 06	-73 21 07	C  	  1.80	 1.80	   	mP,in H-A3
+NGC241,K22w,L29W,ESO29SC6w,     	00 43 33	-73 26 25	C  	  0.95	 0.95	   	mP & SOGLE17
+NGC242,K22e,L29e,ESO29SC6e,BH1, 	00 43 38	-73 26 37	C  	  0.75	 0.75	   	mP & SOGLE18
+NGC256,K23,L30,ESO29SC11,SOGLE32	00 45 54	-73 30 24	C  	  0.90	 0.90	   	
+NGC265,K24,L34,ESO29SC14,SOGLE39	00 47 12	-73 28 38	C  	  1.20	 1.20	   	
+NGC269,K26,L37,ESO29SC16,SOGLE46	00 48 21	-73 31 49	C  	  1.20	 1.20	   	
+NGC290,L42,ESO29SC19,SOGLE69    	00 51 14	-73 09 41	C  	  1.10	 1.10	   	in BS51
+NGC294,L47,ESO29SC22,SOGLE90    	00 53 06	-73 22 49	C  	  1.70	 1.70	   	
+NGC299,K32,L49,ESO51SC5         	00 53 25	-72 11 47	C  	  0.90	 0.90	   	att DEMS66
+NGC306,K33,L50,ESO29SC23        	00 54 15	-72 14 29	C  	  1.10	 1.10	   	
+NGC330,K35,L54,ESO29SC24,       	00 56 19	-72 27 50	C  	  2.80	 2.50	120	mP,in H-A40,sup?DEMS87 & SOGLE107
+NGC339,K36,L59,ESO29SC25        	00 57 42	-74 28 22	C  	  2.90	 2.90	   	Old IAC
+NGC361,K46,L67,ESO51SC12        	01 02 11	-71 36 21	C  	  2.60	 2.60	   	Old IAC
+NGC376,K49,L72,ESO29SC29,       	01 03 53	-72 49 34	C  	  1.80	 1.80	   	mP & SOGLE139
+NGC411,K60,L82,ESO51SC19        	01 07 55	-71 46 08	C  	  2.10	 1.90	150	
+NGC416,K59,L83,ESO29SC32,       	01 07 59	-72 21 20	C  	  1.70	 1.70	   	&SOGLE158  Old IAC
+NGC419,K58,L85,ESO29SC33,       	01 08 19	-72 53 03	C  	  2.80	 2.80	   	& SOGLE159
+NGC422,K62,L87,ESO51SC22        	01 09 25	-71 46 00	C  	  1.00	 1.00	   	mP
+NGC458,K69,L96,ESO51SC26        	01 14 52	-71 33 00	C  	  2.60	 2.30	140	in BS153
+NGC643,L111,ESO29SC50           	01 35 00	-75 33 24	C  	  2.20	 2.20	   	
+NGC796,L115,WG9,ESO30SC6        	01 56 44	-74 13 10	C  	  1.20	 1.10	110	inc MP-1S,in BS215
+NGC1466,SL1,LW1,ESO54SC16,KMHK1 	03 44 33	-71 40 17	C  	  3.50	 3.50	   	Globular Cluster
+NGC1629,SL3,LW3,ESO55SC24,KMHK4 	04 29 36	-71 50 18	C  	  1.70	 1.70	   	
+NGC1651,SL7,LW12,ESO55SC30,     	04 37 32	-70 35 07	C  	  2.70	 2.70	   	& KMHK20
+NGC1644,SL9,LW11,ESO84SC30,     	04 37 39	-66 11 58	C  	  1.80	 1.50	150	& KMHK18
+NGC1649,ESO55SC31,KMHK22        	04 38 07	-68 46 39	C  	  0.60	 0.55	 30	
+NGC1652,SL10,LW14,ESO55SC32,    	04 38 22	-68 40 21	C  	  1.50	 1.50	   	& KMHK23
+NGC1673,SL17,LW31,ESO55SC34,    	04 42 39	-69 49 12	C  	  1.00	 0.95	 40	& KMHK43
+NGC1676,SL25,LW37,ESO55SC36,    	04 43 53	-68 49 39	CA 	  1.10	 1.00	 40	& KMHK53
+NGC1841,ESO4SC15                	04 45 23	-83 59 49	C  	  4.00	 4.00	   	Globular Cluster
+NGC1693,LMC-S66,SL39,ESO56SC02, 	04 47 38	-69 20 36	C  	  1.10	 1.00	 10	& KMHK100
+NGC1695,SL40,ESO56SC03,KMHK101  	04 47 44	-69 22 26	C  	  1.40	 1.30	100	
+NGC1696,SL43,ESO56SC04,KMHK108  	04 48 30	-68 14 34	C  	  1.10	 1.10	   	
+NGC1697,SL44,ESO56SC05,KMHK110  	04 48 37	-68 33 34	C  	  2.30	 2.30	   	
+NGC1698,SL45,ESO56SC06,KMHK115  	04 49 04	-69 06 53	C  	  1.50	 1.40	 70	mP
+NGC1702,SL46,ESO56SC08,KMHK122  	04 49 26	-69 51 07	C  	  1.20	 1.20	   	in SGshell-LMC7
+NGC1704,SL50,ESO56SC09,KMHK130  	04 49 55	-69 45 19	C  	  1.70	 1.60	 70	in SGshell-LMC7
+NGC1711,SL55,ESO56SC10,KMHK145  	04 50 37	-69 59 06	C  	  3.50	 3.30	 40	in?SGshell-LMC7
+NGC1718,SL65,ESO85SC10,KMHK181  	04 52 25	-67 03 05	C  	  1.80	 1.80	   	sup Shapley-VI
+NGC1732,SL77,ESO56SC17,KMHK209  	04 53 11	-68 39 01	C  	  1.10	 1.00	 50	mP,in? SGshell-LMC6
+NGC1734,SL83,ESO56SC18,KMHK221  	04 53 33	-68 46 05	C  	  1.20	 1.10	 50	mT,in? SGshell-LMC6
+NGC1733,SL85,ESO85SC13,KMHK224  	04 54 04	-66 40 57	C  	  1.50	 1.40	 20	in Shapley-VI
+NGC1751,SL89,ESO56SC23,KMHK239  	04 54 12	-69 48 25	C  	  1.60	 1.50	 60	sup?SGshell-LMC7
+NGC1754,SL91,ESO56SC25,KMHK247  	04 54 17	-70 26 29	C  	  1.60	 1.60	   	Globular Cluster
+NGC1735,SL86,ESO85SC15,KMHK234  	04 54 20	-67 06 01	C  	  1.80	 1.50	140	in Shapley-VI
+NGC1756,SL94,ESO56SC27,KMHK257  	04 54 50	-69 14 17	C  	  1.40	 1.30	130	in Shapley-VII
+NGC1749,SL93,ESO56SC26,KMHK254  	04 54 56	-68 11 20	C  	  1.50	 1.30	 50	mP
+NGC1755,SL99,ESO56SC28,KMHK272  	04 55 14	-68 12 17	C  	  2.20	 1.90	130	mP
+NGC1777,SL121,LW96,ESO33SC01,   	04 55 48	-74 16 59	C  	  2.40	 2.40	   	& KMHK328
+NGC1766,SL113,ESO56SC29,KMHK304 	04 55 57	-70 13 32	C  	  1.00	 0.90	 30	
+NGC1767,SL120,ESO56SC31,KMHK318 	04 56 27	-69 24 12	C  	  1.30	 1.20	 30	in LH8
+NGC1764,SL115,ESO56SC30,KMHK308 	04 56 28	-67 41 41	C  	  1.10	 1.10	   	
+NGC1772,SL128,ESO56SC33,KMHK334 	04 56 53	-69 33 22	C  	  1.50	 1.40	 30	in LH8
+NGC1775,SL129,ESO56SC34,BRHT2a, 	04 56 54	-70 25 49	C  	  1.00	 0.90	 80	mT & KMHK338
+NGC1768,SL127,ESO56SC32,KMHK331 	04 57 02	-68 14 56	C  	  0.65	 0.55	 50	mP
+NGC1789,SL144,LW104,ESO56SC37,  	04 57 51	-71 54 06	C  	  1.80	 1.80	   	& KMHK375
+NGC1782,SL140,ESO56SC36,KMHK363 	04 57 51	-69 23 35	C  	  1.20	 1.10	110	in LH8
+NGC1774,SL141,ESO85SC26,KMHK360,	04 58 06	-67 14 32	C  	  1.70	 1.50	 60	in Shapley-VI & GKK-O255
+NGC1776,SL145,ESO85SC28,KMHK374 	04 58 39	-66 25 46	C  	  1.30	 1.20	 40	sup LMC-N10
+NGC1786,SL149,ESO56SC39,KMHK385 	04 59 06	-67 44 42	C  	  2.00	 2.00	   	br*sup  Globular Cluster
+NGC1791,SL155,ESO56SC41,KMHK391 	04 59 06	-70 10 05	CA 	  1.20	 1.00	 30	mP,in LMC-N186E
+NGC1783,SL148,ESO85SC29,KMHK383 	04 59 08	-65 59 18	C  	  5.30	 4.70	 60	sup LMC-N10
+NGC1793,SL163,ESO56SC43,KMHK405,	04 59 38	-69 33 27	C  	  1.30	 1.10	130	& GKK-A101
+NGC1795,SL165,ESO56SC44,KMHK411 	04 59 46	-69 48 04	C  	  1.40	 1.30	170	
+NGC1801,SL170,ESO56SC45,KMHK429,	05 00 34	-69 36 50	C  	  2.20	 1.90	160	& GKK-O148
+NGC1804,SL172,ESO56SC46,LOGLE8  	05 01 04	-69 04 57	C  	  0.95	 0.85	170	
+NGC1806,SL184,ESO56SC47,KMHK462 	05 02 11	-67 59 17	C  	  2.50	 2.50	   	mP
+NGC1805,SL186,ESO85SC32,KMHK459 	05 02 21	-66 06 42	C  	  1.80	 1.60	 80	
+NGC1815,SL189,ESO56SC49,KMHK469 	05 02 27	-70 37 15	C  	  1.20	 1.00	 60	in DEML55
+NGC1813,SL190,ESO56SC50,KMHK472 	05 02 40	-70 19 04	C  	  0.95	 0.90	140	in LH18
+NGC1810,SL194,ESO85SC35,KMHK475 	05 03 23	-66 22 54	C  	  1.20	 1.10	 30	
+NGC1823,SL198,ESO56SC51,KMHK487 	05 03 24	-70 20 11	CA 	  1.00	 0.90	 10	in LH18
+NGC1814,ESO85SC36,KMHK484       	05 03 46	-67 18 15	DCN	  1.20	 1.10	 10	in LMC-N17 DC LMC-N17B
+NGC1816,ESO85SC37,KMHK488,      	05 03 52	-67 15 41	C  	  0.90	 0.75	   	in NGC1820  & LOGLE49
+NGC1818,SL201,ESO85SC40,KMHK491 	05 04 14	-66 26 05	C  	  3.10	 2.70	130	mP
+NGC1825,SL202,ESO56SC53,LOGLE54 	05 04 19	-68 55 39	C  	  1.00	 0.90	 40	in DEML62
+NGC1828,SL203,ESO56SC54,LOGLE55 	05 04 21	-69 23 16	C  	  1.20	 1.10	170	
+NGC1830,SL207,ESO56SC56,BRHT3a, 	05 04 39	-69 20 26	C  	  1.30	 1.20	 60	m5 & LOGLE61
+NGC1835,SL215,ESO56SC58,LOGLE69 	05 05 06	-69 24 14	C  	  2.30	 2.00	 80	Globular Cluster
+NGC1822,SL210,ESO85SC42,KMHK513 	05 05 08	-66 12 40	C  	  1.10	 1.00	100	
+NGC1834,ESO56SC60,LOGLE72       	05 05 12	-69 12 27	C  	  0.95	 0.85	100	
+NGC1826,SL221,ESO85SC43,KMHK524 	05 05 34	-66 13 51	C  	  1.20	 1.10	 60	
+NGC1836,SL223,ESO56SC31,BRHT4a, 	05 05 36	-68 37 43	C  	  1.50	 1.40	 50	mP,in BSDL578 & LOGLE81
+NGC1839,SL226,ESO56SC63,LOGLE93 	05 06 03	-68 37 42	C  	  1.60	 1.60	   	mP,in BSDL651
+NGC1838,SL225,ESO56SC64,LOGLE97 	05 06 09	-68 26 45	C  	  1.30	 1.20	 20	in DEML76
+NGC1831,SL227,LW133,ESO85SC44,  	05 06 16	-64 55 07	C  	  3.80	 3.20	170	& KMHK530
+NGC1847,SL240,ESO56SC66,LOGLE118	05 07 09	-68 58 23	C  	  1.80	 1.60	   	mT
+NGC1842,SL241,ESO85SC46,KMHK553,	05 07 19	-67 16 20	C  	  1.50	 1.50	   	& LOGLE121
+NGC1844,SL242,ESO85SC48,KMHK556,	05 07 30	-67 19 26	C  	  1.60	 1.60	   	& LOGLE126,GKK-O253
+NGC1846,SL243,ESO56SC67,KMHK557,	05 07 35	-67 27 39	C  	  3.80	 3.80	   	& LOGLE128
+Rob1,NGC1850A                   	05 08 39	-68 45 32	C  	  0.50	 0.45	   	mT,in LMC-N103B
+NGC1850,SL261,ESO56SC70,BRHT5a, 	05 08 46	-68 45 39	C  	  3.00	 3.00	   	mT,in? LMC-N103B & LOGLE142
+NGC1854,SL265,ESO56SC72,LOGLE154	05 09 20	-68 50 53	C  	  2.30	 2.30	   	mT,sup LMC-N105
+NGC1852,SL264,ESO56SC71,KMHK594 	05 09 23	-67 46 42	C  	  1.90	 1.90	   	
+NGC1856,SL271,ESO56SC73,LOGLE157	05 09 30	-69 07 45	C  	  2.70	 2.40	 90	
+NGC1849,SL267,ESO85SC49,KMHK593 	05 09 34	-66 18 59	C  	  1.50	 1.50	   	
+NGC1861,SL286,ESO56SC76,KMHK621 	05 10 21	-70 46 38	C  	  1.50	 1.50	   	
+NGC1860,SL284,ESO56SC75,LOGLE187	05 10 40	-68 45 13	C  	  1.10	 1.10	   	
+NGC1859,SL297,LW156,ESO85SC50,  	05 11 31	-65 14 57	C  	  1.50	 1.50	   	& KMHK635
+NGC1863,SL299,ESO56SC77,LOGLE206	05 11 40	-68 43 36	C  	  1.40	 1.20	 50	
+NGC1865,SL307,ESO56SC78,LOGLE221	05 12 25	-68 46 19	C  	  1.40	 1.40	   	
+NGC1862,SL306,ESO85SC51,BRHT6a, 	05 12 34	-66 09 18	C  	  0.90	 0.75	 10	mP & KMHK650
+NGC1864,SL309,ESO56SC79,KMHK656,	05 12 40	-67 37 24	C  	  1.10	 0.95	110	& LOGLE229 in GKK-A131
+NGC1878,SL316,ESO56SC80,KMHK661 	05 12 49	-70 28 18	C  	  1.10	 1.00	 50	
+NGC1870,SL317,ESO56SC81,LOGLE235	05 13 11	-69 07 03	C  	  1.10	 1.00	 10	
+NGC1872,SL318,ESO56SC83,LOGLE236	05 13 12	-69 18 45	C  	  1.70	 1.70	   	sup LMC-N113
+NGC1881,SL323,ESO56SC86,LOGLE245	05 13 37	-69 18 03	CN 	  1.20	 0.85	160	in DEML108
+NGC1866,SL319,LW163,ESO85SC52,  	05 13 39	-65 27 54	C  	  5.50	 5.50	   	& KMHK664
+NGC1867,SL321,ESO85SC53,KMHK665 	05 13 42	-66 17 36	C  	  1.50	 1.40	120	
+NGC1890,SL331,LW167,ESO56SC87,  	05 13 46	-72 04 40	C  	  1.10	 1.00	 70	in BSDL966 & KMHK678
+NGC1868,SL330,LW169,ESO85SC56,  	05 14 36	-63 57 18	C  	  2.70	 2.70	   	& KMHK674
+NGC1885,SL338,ESO56SC88,LOGLE261	05 15 07	-68 58 43	C  	  1.40	 1.20	130	
+NGC1882,SL340,ESO85SC57,KMHK609 	05 15 33	-66 07 45	C  	  1.60	 1.40	 20	
+NGC1894,SL344,ESO56SC89,BRHT8a, 	05 15 52	-69 28 08	C  	  1.40	 1.20	 60	mT & LOGLE278
+NGC1887,SL343,ESO85SC59,KMHK700 	05 16 05	-66 19 09	C  	  1.50	 1.50	   	
+NGC1898,SL350,ESO56SC90,LOGLE292	05 16 41	-69 39 23	C  	  1.60	 1.60	   	Globular Cluster
+NGC1903,SL356,ESO56SC93,BRHT9a, 	05 17 22	-69 20 16	C  	  1.90	 1.90	   	mT,sup? DEML130 & LOGLE309
+NGC1897,SL355,ESO56SC92,KMHK722 	05 17 31	-67 26 59	C  	  1.10	 1.00	170	
+NGC1902,SL367,ESO85SC66,KMHK734 	05 18 18	-66 37 38	C  	  1.70	 1.70	   	
+NGC1913,SL373,ESO56SC97,BRHT10a,	05 18 19	-69 32 15	C  	  1.30	 1.10	150	mT & LOGLE330
+NGC1905,SL369,ESO85SC67,KMHK739 	05 18 23	-67 16 41	C  	  0.95	 0.95	   	
+NGC1916,SL361,ESO56SC98,LOGLE336	05 18 38	-69 24 23	C  	  2.10	 2.10	   	sup DEML130  Globular Cluster
+NGC1917,SL379,ESO56SC100,       	05 19 02	-69 00 04	C  	  1.70	 1.70	   	& LOGLE343
+NGC1900,SL376,LW184,ESO85SC68,  	05 19 09	-63 01 25	C  	  1.80	 1.60	100	& KMHK746
+NGC1921w,BRHT49b                	05 19 17	-69 47 20	CN 	  0.65	 0.60	   	mP,inc LMC-N121,in DEML133 DC LMC-N121
+NGC1921e,SL381,ESO56SC102,      	05 19 24	-69 47 17	CN 	  1.00	 0.90	 20	mP,in DEML133 & BRHT49a,LOGLE348
+NGC1911,ESO85SC70,KMHK763       	05 19 25	-66 40 59	C  	  0.60	 0.60	   	
+NGC1915,ESO85SC71,KMHK761       	05 19 28	-66 44 21	C  	  0.60	 0.55	140	
+NGC1922,SL391,LOGLE354          	05 19 49	-69 29 50	C  	  1.00	 0.90	 30	
+NGC1926,SL403,ESO56SC105,BH11C2,	05 20 35	-69 31 33	C  	  1.40	 1.20	120	mP & LOGLE379
+NGC1928,SL405,HS243,ESO56SC106, 	05 20 57	-69 28 40	C  	  1.30	 1.30	   	mP & LOGLE382 Globular Cluster
+NGC1938,SL413,ESO56SC108w,      	05 21 24	-69 56 28	C  	  0.90	 0.80	 90	mT & BRHT11a,LOGLE394
+NGC1939,SL414,ESO56SC108e,      	05 21 26	-69 56 59	C  	  1.40	 1.30	 80	mT & BRHT11b,LOGLE395 Globular Cluster
+NGC1944,SL426,LW194,ESO33SC17,  	05 21 57	-72 29 39	C  	  2.70	 2.70	   	& KMHK836
+NGC1932,SL420,ESO85SC77,KMHK825 	05 22 27	-66 09 09	C  	  1.30	 1.30	   	sup DEML154
+NGC1943,SL430,ESO56SC114,       	05 22 30	-70 09 17	C  	  1.10	 1.00	140	mT,sup?LMC-N130   & LOGLE411
+NGC1940,SL427,ESO85SC78,KMHK834,	05 22 43	-67 11 10	C  	  1.20	 1.20	   	& GKK-O249
+NGC1950,SL450,ESO56SC116,       	05 24 33	-69 54 04	C  	  1.70	 1.70	   	mQ,in BSDL1626 & LOGLE436
+NGC1942,SL445,LW203,ESO85SC81,  	05 24 43	-63 56 27	C  	  1.90	 1.90	   	& KMHK856
+NGC1946,SL454,ESO85SC84,KMHK874 	05 25 15	-66 23 36	C  	  1.00	 0.90	130	in NGC1945
+NGC1953,SL459,ESO56SC118        	05 25 27	-68 50 18	C  	  1.20	 1.20	   	sup Shapley-II
+NGC1958,SL462,ESO56SC119,       	05 25 31	-69 50 10	C  	  1.50	 1.50	   	mP,in BSDL1626 & LOGLE457
+NGC1959,SL466,ESO56SC120,       	05 25 36	-69 55 36	C  	  1.60	 1.60	   	in BSDL1626 & LOGLE459
+NGC1951,SL464,ESO85SC86,KMHK886 	05 26 05	-66 35 50	C  	  1.70	 1.50	 20	mP,in BSDL1677
+NGC1969,SL479,ESO56SC124,       	05 26 34	-69 50 27	C  	  1.20	 1.20	   	m6,in LH59  & LOGLE477
+NGC1967,SL478,ESO56SC126        	05 26 43	-69 06 05	C  	  0.95	 0.90	100	in DEML198
+NGC1966,ESO56SC125,BH13C2       	05 26 45	-68 48 41	DCN	  1.10	 1.00	 30	mP,in SL476 DC LMC-N144A
+NGC1971,SL481,ESO56SC128,       	05 26 46	-69 51 03	C  	  1.10	 0.95	   	m6,in LH59 & BRHT12a,LOGLE480
+NGC1972,SL480,ESO56SC129,       	05 26 49	-69 50 17	C  	  0.90	 0.80	100	m6,in LH59  & BRHT12b,LOGLE481
+NGC1987,SL486,ESO56SC131,KMHK926	05 27 17	-70 44 08	C  	  1.70	 1.70	   	sup DEML208
+NGC2000,SL493,ESO56SC135,KMHK932	05 27 30	-71 52 48	C  	  1.60	 1.50	150	in BSDL1881
+NGC1986,SL489,ESO56SC134,       	05 27 38	-69 58 00	C  	  2.80	 2.40	140	& LOGLE496,GKK-O142
+NGC1984,SL488,ESO56SC132        	05 27 40	-69 08 03	C  	  1.50	 1.20	 60	mT,in DEML210
+NGC1994,SL499,ESO56SC136        	05 28 21	-69 08 30	C  	  1.60	 1.50	170	mP,in DEML210
+NGC1978,SL501,ESO85SC90,KMHK944 	05 28 45	-66 14 10	C  	  4.00	 2.70	160	sup Shapley-III
+NGC2005,SL518,ESO56SC138,       	05 30 10	-69 45 10	C  	  1.60	 1.60	   	mP, Globular Cluster & LOGLE538
+NGC2002,SL517,ESO56SC3,KMHK982  	05 30 21	-66 53 02	C  	  1.90	 1.70	 20	in LH77
+NGC1997,SL520,LW226,ESO86SC1,   	05 30 34	-63 12 12	C  	  1.80	 1.80	   	& KMHK978
+NGC2010,SL531,ESO56SC139,       	05 30 35	-70 49 11	C  	  1.90	 1.70	170	& KMHK1001,GKK-O98
+NGC2004,SL523,ESO86SC4,KMHK991  	05 30 40	-67 17 13	C  	  3.00	 2.80	 90	in BSDL2062
+NGC2003,SL526,ESO86SC6,KMHK998  	05 30 54	-66 27 59	C  	  1.70	 1.40	 70	mP,in Shapley-III
+NGC2009,SL534,ESO56SC140,       	05 30 59	-69 11 03	C  	  1.40	 1.20	 10	in BSDL2059 & KMK88-64
+NGC2006,SL537,ESO86SC8,BRHT13a, 	05 31 19	-66 58 22	C  	  1.60	 1.40	140	mP,in GKK-A145,in LH77 & KMHK1005
+NGC2016,SL547,ESO56SC142,       	05 31 35	-69 56 43	C  	  1.80	 1.80	   	LOGLE559
+NGC2019,SL554,ESO56SC145,       	05 31 56	-70 09 33	C  	  1.50	 1.50	   	mP, Globular Cluster & LOGLE565
+NGC2011,SL559,ESO56SC144,       	05 32 19	-67 31 16	C  	  1.00	 1.00	   	mP,in LH75 & BRHT14a,KMHK1039
+NGC2025,SL571,ESO56SC149,       	05 32 33	-71 43 01	C  	  1.90	 1.90	   	in BSDL2261 & KMHK1057
+NGC2021,SL570,ESO56SC150,       	05 33 30	-67 27 10	C  	  0.90	 0.90	   	in LH79 & KMHK1067
+NGC2031,SL577,ESO56SC153,       	05 33 41	-70 59 12	C  	  3.30	 2.80	150	mP & KMHK1084,GKK-O96
+NGC2028,SL575,ESO56SC152,       	05 33 48	-69 57 04	C  	  1.10	 1.00	 60	in LH80   & LOGLE594
+NGC2036,SL587,ESO56SC155,       	05 34 32	-70 03 57	C  	  1.60	 1.60	   	& LOGLE603
+NGC2038,SL590,ESO56SC158,       	05 34 42	-70 33 43	C  	  1.60	 1.50	120	& KMHK1110,LOGLE607,GKK-O118
+NGC2046,SL597,ESO56SC162,       	05 35 39	-70 14 23	C  	  1.10	 1.00	110	mP & KMHK1125,LOGLE622,GKK-O114
+NGC2047,SL600,ESO56SC167        	05 35 54	-70 11 29	C  	  0.95	 0.90	 90	in GKK-A87 & LOGLE626
+NGC2043,ESO56SC168,LOGLE627     	05 35 57	-70 04 23	C  	  0.65	 0.55	120	
+NGC2051,SL608,ESO56SC169,       	05 36 07	-71 00 42	C  	  1.50	 1.50	   	& KMHK1135
+NGC2041,SL605,ESO86SC15,KMHK1132	05 36 28	-66 59 26	C  	  2.60	 2.60	   	
+NGC2056,SL611,ESO56SC172,       	05 36 34	-70 40 18	C  	  1.50	 1.50	   	& KMHK1140
+NGC2059A,LOGLE632               	05 36 54	-70 06 21	C  	  0.90	 0.80	 20	in BSDL2588
+NGC2058,SL614,ESO56SC173,       	05 36 55	-70 09 44	C  	  2.10	 2.10	   	mP,in BSDL2588 & LOGLE633
+NGC2057,SL616,ESO56SC174,       	05 36 56	-70 16 10	C  	  1.30	 1.20	 20	& KMHK1145,LOGLE634
+NGC2059,SL613,ESO56SC175,       	05 37 01	-70 07 37	C  	  1.10	 1.00	170	in BSDL2588 & LOGLE636,GKK-O113
+NGC2065,SL626,ESO57SC2,KMHK1160,	05 37 38	-70 14 00	C  	  2.30	 2.30	   	mP,in BSDL2608 & LOGLE648
+NGC2053,SL623,ESO86SC17,        	05 37 40	-67 24 48	C  	  1.50	 1.30	 10	& KMHK1154,GKK-O231
+NGC2066,SL627,ESO57SC3,LOGLE651 	05 37 42	-70 09 54	C  	  1.00	 0.90	140	mT,in BSDL2608
+NGC2072,SL630,ESO57SC4,KMHK1170,	05 38 24	-70 14 01	C  	  1.00	 0.90	110	in BSDL2608 & LOGLE656
+NGC2062,SL640,ESO86SC20,KMHK1194	05 40 02	-66 52 34	C  	  1.20	 1.10	 20	in DEML257
+NGC2091,SL653,ESO57SC21,KMHK1229	05 40 58	-69 26 11	C  	  1.30	 1.20	 80	in GKK-O163,in LH106
+NGC2088,SL652,ESO57SC20,KMHK1227	05 40 59	-68 27 53	C  	  1.50	 1.40	 10	in GKK-A120,in DEML268
+NGC2092,ESO57SC22,KMHK1235      	05 41 22	-69 13 26	C  	  1.00	 0.90	 90	in LH111
+NGC2093,SL657,ESO56SC23,        	05 41 49	-68 55 15	CA 	  1.50	 1.30	170	in LH109 & KMHK1245,GKK-O160
+NGC2100,SL662,ESO57SC25,KMHK1257	05 42 08	-69 12 42	C  	  2.50	 2.50	   	in BSDL2839
+NGC2096,SL664,ESO57SC27,        	05 42 17	-68 27 30	C  	  1.10	 0.90	160	& KMHK1259,GKK-O191
+NGC2102,SL665,ESO57SC29,        	05 42 20	-69 29 17	C  	  0.85	 0.85	   	in BSDL2858 & KMHK1264,GKK-O165
+NGC2098,SL667,ESO57SC28,BM4,    	05 42 30	-68 16 29	C  	  2.20	 2.00	140	& KMHK1263,GKK-O192
+NGC2095,SL669,ESO86SC24,BRHT20a,	05 42 52	-67 19 17	C  	  1.50	 1.40	140	mP,in LH112 & KMHK1272
+NGC2107,SL679,ESO57SC32,        	05 43 13	-70 38 23	C  	  1.70	 1.70	   	& KMHK1291,LOGLE700
+NGC2108,SL686,ESO57SC33,KMHK1304	05 43 56	-69 10 50	C  	  1.80	 1.80	   	
+NGC2097,SL682,LW282,ESO56SC28,  	05 44 16	-62 47 06	C  	  1.90	 1.90	   	& KMHK1294
+NGC2105,SL687,ESO86SC29,        	05 44 20	-66 55 04	C  	  1.70	 1.50	160	& KMHK1306,GKK-O228
+NGC2109,SL688,ESO57SC34,BM28,   	05 44 22	-68 32 48	C  	  1.60	 1.60	   	in GKK-A118 & KMHK1314
+NGC2111,SL699,ESO57SC35,BRHT21a,	05 44 33	-70 59 35	C  	  1.50	 1.40	 60	m5 & KMHK1328,LOGLE715,GKK-O89
+NGC2114,SL706,ESO57SC37,BM64,   	05 46 12	-68 02 55	C  	  1.40	 1.20	 30	& KMHK1351
+NGC2116,SL715,ESO57SC38,BM79,   	05 47 14	-68 30 23	C  	  1.20	 1.10	160	mP & KMHK1370,GKK-O181
+NGC2118,SL717,ESO57SC39,KMHK1380	05 47 39	-69 07 54	C  	  1.60	 1.60	   	
+NGC2117,SL718,ESO86SC33,BM87,   	05 47 46	-67 27 03	C  	  2.00	 1.80	 90	& KMHK1377,GKK-O224
+NGC2121,SL725,LW303,ESO57SC40,  	05 48 12	-71 28 50	C  	  2.70	 2.20	 30	& KMHK1398
+NGC2120,SL742,LW316,ESO86SC34,  	05 50 34	-63 40 31	C  	  2.20	 2.20	   	& KMHK1426
+NGC2125,SL750,ESO57SC44,KMHK1451	05 50 53	-69 28 43	C  	  1.10	 1.10	   	
+NGC2127,SL751,ESO57SC45,        	05 51 22	-69 21 39	C  	  1.50	 1.50	   	& KMHK1462,GKK-O124
+NGC2133,SL757,ESO57SC46,KMHK1471	05 51 28	-71 10 29	C  	  1.60	 1.60	   	
+NGC2123,SL755,LW324,ESO86SC36,  	05 51 43	-65 19 17	C  	  1.50	 1.50	   	& KMHK1458
+NGC2134,SL760,ESO57SC47,        	05 51 56	-71 05 51	C  	  2.80	 2.80	   	& KMHK1480,GKK-O90
+NGC2130,SL758,ESO86SC37,        	05 52 23	-67 20 02	C  	  1.40	 1.30	160	& KMHK1476,GKK-O227
+NGC2136,SL762,ESO57SC48,BRHT22a,	05 52 59	-69 29 33	C  	  2.80	 2.50	140	mP & KMHK1490
+NGC2137,SL764,ESO57SC49,BRHT22b,	05 53 12	-69 28 57	C  	  1.10	 1.00	 30	mP & KMHK1495,GKK-O122
+NGC2135,SL765,ESO86SC39,BM151,  	05 53 35	-67 25 40	C  	  1.50	 1.50	   	mP & KMHK1496,GKK-O225
+NGC2140,SL773,ESO57SC51,BM159,  	05 54 17	-68 36 01	C  	  1.50	 1.50	   	mP & KMHK1511
+NGC2145,SL780,ESO57SC52,        	05 54 22	-70 54 04	C  	  1.50	 1.50	   	& KMHK1520,GKK-O85
+NGC2138,SL777,LW330,ESO86SC40,  	05 54 48	-65 50 12	C  	  1.20	 1.20	   	& KMHK1516
+NGC2161,SL789,LW337,ESO33SC31,  	05 55 42	-74 21 14	C  	  2.30	 2.30	   	& KMHK1544
+NGC2147,SL784,ESO57SC54,KMHK1531	05 55 45	-68 12 09	CN 	  0.95	 0.95	   	sup? LMC-N75B
+NGC2151,SL786,ESO57SC57,KMHK1541	05 56 20	-69 01 03	C  	  1.30	 1.30	   	
+NGC2157,SL794,ESO57SC58,KMHK1558	05 57 34	-69 11 48	C  	  2.80	 2.80	   	
+NGC2154,SL793,LW339,ESO86SC42,  	05 57 38	-67 15 43	C  	  2.40	 2.40	   	& KMHK1551
+NGC2156,SL796,ESO57SC59,BM185,  	05 57 45	-68 27 38	C  	  2.10	 2.10	   	& KMHK1560
+NGC2153,SL792,LW341,ESO86SC43,  	05 57 51	-66 24 02	C  	  1.50	 1.50	   	& KMHK1555
+NGC2159,SL799,ESO57SC60,BM187,  	05 57 57	-68 37 26	C  	  1.90	 1.90	   	& KMHK1561
+NGC2173,SL807,LW348,ESO33SC34,  	05 57 58	-72 58 43	C  	  2.60	 2.60	   	& KMHK1570
+NGC2160,SL801,ESO57SC61,BM188,  	05 58 12	-68 17 24	C  	  1.40	 1.40	   	& KMHK1564
+NGC2171,SL809,KMHK1571          	05 58 26	-70 39 15	C  	  1.00	 0.85	   	
+NGC2155,SL803,LW347,ESO86SC45,  	05 58 33	-65 28 37	C  	  2.40	 2.40	   	& KMHK1563
+NGC2164,SL808,ESO57SC62,BM191,  	05 58 54	-68 31 04	C  	  2.80	 2.80	   	& KMHK1574
+NGC2166,SL811,ESO57SC64,BM194,  	05 59 33	-67 56 30	C  	  1.40	 1.40	   	& KMHK1576
+NGC2172,SL812,ESO57SC65,BM195,  	06 00 05	-68 38 13	C  	  1.70	 1.70	   	& KMHK1580
+NGC2162,SL814,LW351,ESO86SC47,  	06 00 31	-63 43 17	C  	  3.00	 3.00	   	& KMHK1579
+NGC2190,SL819,LW357,ESO33SC36,  	06 01 02	-74 43 33	C  	  2.20	 2.20	   	& KMHK1601
+NGC2177,SL816,LW355,ESO57SC66,  	06 01 16	-67 44 02	C  	  1.50	 1.40	160	& BM204,KMHK1590
+NGC2176,SL815,LW356,ESO86SC50,  	06 01 19	-66 51 14	C  	  1.10	 1.00	 20	& KMHK1589
+NGC2181,SL825,LW366,ESO86SC54,  	06 02 43	-65 15 53	C  	  1.50	 1.50	   	& KMHK1602
+NGC2203,SL836,LW380,ESO34SC04,  	06 04 42	-75 26 16	C  	  3.20	 3.20	   	& KMHK1639
+NGC2197,SL838,LW385,ESO86SC58,  	06 06 07	-67 05 52	C  	  1.80	 1.60	 80	& KMHK1636
+NGC2193,SL839,LW387,ESO86SC57,  	06 06 17	-65 05 55	C  	  1.70	 1.70	   	& KMHK1633
+NGC2209,SL849,LW408,ESO34SC06,  	06 08 34	-73 50 28	C  	  2.90	 2.90	   	& KMHK1669
+NGC2213,SL857,LW419,ESO57SC70,  	06 10 42	-71 31 44	C  	  2.10	 2.10	   	& KMHK1681
+NGC2210,SL858,LW423,ESO57SC71,  	06 11 31	-69 07 18	C  	  3.30	 3.30	   	& KMHK1682 Globular Cluster
+NGC2214w,SL860w,LW426w,         	06 12 53	-68 15 35	C  	  3.10	 3.10	   	mP & ESO57SC74w,BM260w,KMHK1688w
+NGC2214e,SL860e,LW426e,         	06 12 58	-68 15 30	C  	  2.40	 2.40	   	mP & ESO57SC74e,BM260e,KMHK1688e
+NGC2231,SL884,LW466,ESO87SC06,  	06 20 44	-67 31 05	C  	  2.10	 2.10	   	& BM277,KMHK1737
+NGC2241,SL888,LW471,ESO57SC79,  	06 22 53	-68 55 30	C  	  1.60	 1.60	   	& KMHK1743
+NGC2249,SL893,LW479,ESO57SC82,  	06 25 49	-68 55 12	C  	  2.30	 2.30	   	& KMHK1755
+NGC2257,SL895,LW481,ESO87SC24,  	06 30 12	-64 19 34	C  	  4.00	 4.00	   	& KMHK1756 Globular Cluster
+
+#
+#   VizieR Astronomical Server vizier.cds.unistra.fr
+#    Date: 2026-10-24T17:14:22 [V7.6.2]
+#   In case of problem, please report to:	cds-question@unistra.fr
+#
+#
+#Coosys	J2000:	eq_FK5 J2000
+#INFO	service_protocol=ASU	  IVOID of the protocol through which the data was retrieved
+#INFO	request_date=2026-10-24T17:14:22	  Query execution date
+#INFO	request=https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=J/MNRAS/389/678/table3&-out=Names,RAJ2000,DEJ2000,Type,amaj,amin,PA,Com&Names=%3D*IC%5B0-9%5D*&-out.max=unlimited	  Full request URL
+#INFO	contact=cds-question@unistra.fr	  Email or URL to contact publisher
+#INFO	server_software=VizieR/7.6.2	  Software version
+#INFO	publisher=CDS	  Data centre that produced the VOTable
+
+#RESOURCE=yCat_73890678
+#Name: J/MNRAS/389/678
+#Title: Catalogue of extended objects in Magellanic Clouds (Bica+, 2008)
+#INFO	ivoid=ivo://cds.vizier/j/mnras/389/678	    IVOID of underlying data collection
+#INFO	data_ivoid=ivo://cds.vizier/j/mnras/389/678	    IVOID of underlying data collection
+#INFO	creator=Bica E.	    First author or institution
+#INFO	cites=bibcode:2008MNRAS.389..678B	    Article or Data origin sources
+#INFO	journal=MNRA	    Journal name
+#INFO	original_date=2008	    Year of the article publication
+#INFO	reference_url=https://cdsarc.cds.unistra.fr/viz-bin/cat/J/MNRAS/389/678	    Dataset landing page
+#INFO	citation=doi:10.26093/cds/vizier.73890678	    Dataset identifier that can be used for citation
+#INFO	publication_date=2024-07-07	    Date of first publication in the data centre
+#INFO	rights_uri=https://cds.unistra.fr/vizier-org/licences_vizier.html	    Licence URI
+#Table	J_MNRAS_389_678_table3:
+#Name: J/MNRAS/389/678/table3
+#Title: Star clusters
+#Column	Names	(a32)	Source name(s) (2)	[ucd=meta.id;meta.main]
+#Column	RAJ2000	(A8)	right ascension (J2000)	[ucd=pos.eq.ra;meta.main]
+#Column	DEJ2000	(A9)	Declination (J2000)	[ucd=pos.eq.dec;meta.main]
+#Column	Type	(A3)	Object type (1)	[ucd=src.class]
+#Column	amaj	(F6.2)	Major axis	[ucd=phys.angSize]
+#Column	amin	(F5.2)	Minor axis	[ucd=phys.angSize;src]
+#Column	PA	(I3)	? Major axis position angle	[ucd=pos.posAng]
+#Column	Com	(a47)	Comments (IAC = Intermediate Age Cluster; mP, mT, m4 etc = member of Pair, Triplet, ...)	[ucd=meta.note]
+Names	RAJ2000	DEJ2000	Type	amaj	amin	PA	Com
+ 	"h:m:s"	"d:m:s"	 	arcmin	arcmin	deg	
+--------------------------------	--------	---------	---	------	-----	---	-----------------------------------------------
+IC1611,K40,L61,ESO29SC27,       	00 59 48	-72 20 02	C  	  1.50	 1.50	   	& SOGLE118
+IC1612,K41,L62,ESO29SC28,       	01 00 01	-72 22 08	C  	  1.20	 0.80	 20	mP, att DEMS114 & SOGLE120
+IC1624,K52,L76,ESO51SC17,       	01 05 22	-72 02 35	C  	  0.90	 0.90	   	in SMC-N78 & SOGLE149
+IC1626,K53,L77,ESO29SC30        	01 06 13	-73 17 49	C  	  1.00	 1.00	   	
+IC1641,HW62,ESO51SC21           	01 09 39	-71 46 07	C  	  0.75	 0.65	 40	mP
+IC1655,L90,ESO51SC23            	01 11 53	-71 19 53	C  	  1.70	 1.50	 50	in BS153
+IC1662,L92,ESO29SC37            	01 12 33	-73 27 24	C  	  1.20	 1.20	   	
+IC1660,K64,L89,ESO51SC24        	01 12 38	-71 45 41	C  	  1.10	 1.10	   	
+IC1708,L102,ESO52SC2            	01 24 56	-71 11 01	C  	  1.20	 1.20	   	
+IC2134,SL437,LW198,ESO33SC19,   	05 23 06	-75 26 48	C  	  1.40	 1.40	   	& KMHK864
+IC2140,SL581,LW241,ESO33SC24,   	05 33 21	-75 22 35	C  	  2.30	 2.30	   	& KMHK1106
+IC2146,SL632,LW258,ESO33SC26,   	05 37 46	-74 46 58	C  	  3.30	 3.30	   	& KMHK1178
+IC2148,SL642,LW265,ESO33SC28,   	05 39 11	-75 33 47	C  	  1.30	 1.30	   	& KMHK1216
+IC2161,SL802,LW345,ESO33SC35,   	05 57 25	-75 08 23	C  	  1.60	 1.60	   	& KMHK1572
+
+#
+#   VizieR Astronomical Server vizier.cds.unistra.fr
+#    Date: 2026-10-24T17:14:23 [V7.6.2]
+#   In case of problem, please report to:	cds-question@unistra.fr
+#
+#
+#Coosys	J2000:	eq_FK5 J2000
+#INFO	service_protocol=ASU	  IVOID of the protocol through which the data was retrieved
+#INFO	request_date=2026-10-24T17:14:23	  Query execution date
+#INFO	request=https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=J/MNRAS/389/678/table4&-out=Names,RAJ2000,DEJ2000,Type,amaj,amin,PA,Com&Names=%3D*NGC%5B0-9%5D*&-out.max=unlimited	  Full request URL
+#INFO	contact=cds-question@unistra.fr	  Email or URL to contact publisher
+#INFO	server_software=VizieR/7.6.2	  Software version
+#INFO	publisher=CDS	  Data centre that produced the VOTable
+
+#RESOURCE=yCat_73890678
+#Name: J/MNRAS/389/678
+#Title: Catalogue of extended objects in Magellanic Clouds (Bica+, 2008)
+#INFO	ivoid=ivo://cds.vizier/j/mnras/389/678	    IVOID of underlying data collection
+#INFO	data_ivoid=ivo://cds.vizier/j/mnras/389/678	    IVOID of underlying data collection
+#INFO	creator=Bica E.	    First author or institution
+#INFO	cites=bibcode:2008MNRAS.389..678B	    Article or Data origin sources
+#INFO	journal=MNRA	    Journal name
+#INFO	original_date=2008	    Year of the article publication
+#INFO	reference_url=https://cdsarc.cds.unistra.fr/viz-bin/cat/J/MNRAS/389/678	    Dataset landing page
+#INFO	citation=doi:10.26093/cds/vizier.73890678	    Dataset identifier that can be used for citation
+#INFO	publication_date=2024-07-07	    Date of first publication in the data centre
+#INFO	rights_uri=https://cds.unistra.fr/vizier-org/licences_vizier.html	    Licence URI
+#Table	J_MNRAS_389_678_table4:
+#Name: J/MNRAS/389/678/table4
+#Title: Associations
+#Column	Names	(a32)	Source name(s) (2)	[ucd=meta.id;meta.main]
+#Column	RAJ2000	(A8)	right ascension (J2000)	[ucd=pos.eq.ra;meta.main]
+#Column	DEJ2000	(A9)	Declination (J2000)	[ucd=pos.eq.dec;meta.main]
+#Column	Type	(A3)	Object type (1)	[ucd=src.class]
+#Column	amaj	(F6.2)	Major axis	[ucd=phys.angSize]
+#Column	amin	(F5.2)	Minor axis	[ucd=phys.angSize;src]
+#Column	PA	(I3)	? Major axis position angle	[ucd=pos.posAng]
+#Column	Com	(a47)	Comments (IAC = Intermediate Age Cluster; mP, mT, m4 etc = member of Pair, Triplet, ...)	[ucd=meta.note]
+Names	RAJ2000	DEJ2000	Type	amaj	amin	PA	Com
+ 	"h:m:s"	"d:m:s"	 	arcmin	arcmin	deg	
+--------------------------------	--------	---------	---	------	-----	---	-----------------------------------------------
+NGC346,K39,L60,ESO51SC10,H-A45  	00 59 05	-72 10 37	DAN	  8.50	 8.50	   	in DEMS103 DC SMC-N66
+NGC371,K48,L71,ESO51SC14,B-OB22e	01 03 29	-72 03 24	DAN	  4.20	 3.80	 60	in H-A53 DC SMC-N76
+NGC456,K65,L94,ESO29SC38,H-A61  	01 13 48	-73 17 33	DAN	  3.80	 2.90	110	DC SMC-N83
+NGC460nw,ESO29SC39nw            	01 14 37	-73 17 59	DAN	  1.90	 1.70	 30	in SMC-N84s DC DEMS151
+NGC460se,K66,L97,ESO29SC39se,   	01 14 54	-73 19 44	DAN	  2.60	 1.50	 20	in SMC-N84s & H-A62,B-OB31w DC DEM152
+NGC465,K67,L99,ESO29SC40,H-A63, 	01 15 42	-73 19 45	A  	  5.00	 4.00	120	in DEMS157 & B-OB31e
+NGC602,L105,ESO29SC43,H-A68     	01 29 26	-73 33 23	DAN	  3.20	 2.90	 90	in DEMS167 DC SMC-N90
+NGC1712,SL60,ESO56SC11,LH1w,    	04 50 58	-69 24 27	AN 	  4.00	 3.00	 20	in LMC-N79 & KMHK155
+NGC1727,SL67,LH2,ESO56SC14      	04 52 13	-69 20 16	DAN	  2.80	 2.00	 90	in DEML10 & KMHK182 DC LMC-N79E
+NGC1731,LH4,ESO85SC12           	04 53 15	-66 55 33	DAN	  4.80	 4.50	 90	in Shapley-VI DC LMC-N4D
+NGC1747,LH6,ESO85SC16           	04 55 11	-67 10 39	AN 	  4.40	 4.40	   	in LMC-N9
+NGC1761,SL122,ESO85SC18,        	04 56 39	-66 29 00	A  	  4.20	 3.00	110	in LH9
+NGC1770,SL130,LH12,ESO56SC35,   	04 57 13	-68 25 21	DAN	  4.10	 4.10	   	in DEML39 DC LMC-N91 & GKK-A126
+NGC1785                         	04 58 35	-68 50 43	A  	  2.00	 1.20	130	in SGshell-LMC6
+NGC1787,LH15                    	05 00 18	-65 47 01	AN 	 24.00	14.00	140	in DEML43
+NGC1820,SL199,LH19,ESO85SC39,   	05 04 06	-67 16 40	AN 	  7.00	 5.40	 20	in DEML59 & GKK-A153
+NGC1833,SL206,ESO56SC55,KMHK510 	05 04 19	-70 43 43	AN 	  1.60	 1.10	 60	in LMC-N190
+NGC1837,SL217,ESO56SC59,KMHK523 	05 04 54	-70 42 55	AC 	  1.90	 1.50	 10	in LH24
+NGC1829,LMC-N23A,SL208,         	05 04 57	-68 03 19	DAN	  1.80	 1.60	 20	in DEML66e DC LMC-N23A & ESO56SC57,KMHK515
+NGC1840,ESO56SC62,KMHK529       	05 05 18	-71 45 42	AC 	  0.80	 0.70	 80	in BSDL586
+NGC1845,GKK-A85                 	05 05 59	-70 32 07	A  	  8.90	 5.60	 30	in LH26
+NGC1848,SL247,ESO56SC68         	05 07 27	-71 11 43	AN 	  2.20	 2.00	140	in DEML81
+NGC1869,SL326,LH37,ESO85SC55,   	05 13 53	-67 22 49	AN 	  2.00	 1.40	100	in DEML105 & KMHK671
+NGC1871,SL325,LH38,ESO56SC85    	05 13 53	-67 27 09	AN 	  2.30	 1.60	 60	in LMC-N30C & GKK-O250
+NGC1873,SL324,LH36,ESO85SC54,   	05 13 54	-67 20 08	AN 	  2.80	 2.20	120	120 in DEML105 & KMHK670
+NGC1914,SL365,LH40,ESO56SC95,   	05 17 37	-71 15 02	AN 	  1.50	 1.20	150	in LMC-N195 & KMHK732
+NGC1919,SL392,ESO85SC73,KMHK786 	05 20 09	-66 52 26	AN 	  1.40	 1.20	 50	in LMC-N37
+NGC1925,LH45s,ESO85SC76         	05 21 42	-65 50 27	A  	  6.00	 6.00	   	in DEML154
+NGC1937,SL422,LH48,ESO56-SC112  	05 22 29	-67 53 40	DAN	  3.20	 2.00	 70	in Shapley-I DC DEML156
+NGC1948,SL458,LH52,LH53s,       	05 25 51	-66 15 51	DAN	  7.00	 5.70	 30	in LMC-N48 DC DEML189 & ESO85SC85
+NGC1955,LH54,ESO56SC121         	05 26 12	-67 29 56	AN 	  4.00	 3.60	 20	in LMC-N51D
+NGC1962,ESO56SC122              	05 26 17	-68 50 15	AN 	  1.40	 1.40	   	in SL476
+NGC1965,ESO56SC123,BH13C1       	05 26 29	-68 48 22	AN 	  1.20	 1.10	 50	mP,in SL476
+NGC1970,ESO56SC127              	05 26 49	-68 49 40	AN 	  1.50	 1.50	   	in SL476
+NGC1968,SL483,LH60,ESO56SC130   	05 27 23	-67 28 16	AN 	  5.00	 2.70	 70	in DEML201
+NGC1983,LH61                    	05 27 48	-68 59 11	AN 	  4.00	 3.00	150	in DEML210
+NGC1974,SL494,ESO85SC89,KMHK929 	05 28 00	-67 25 28	AN 	  1.60	 1.60	   	in LMC-N51
+NGC2001,SL507,LH64,ESO56SC137,  	05 29 03	-68 46 09	A  	  7.30	 3.60	 40	in Shapley-II & GKK-A121
+NGC2018,SL533,ESO56SC141,       	05 31 24	-71 04 21	DAN	  2.80	 1.70	170	in LH69 DC LMC-N206A & KMHK1018
+NGC2015,LH74,ESO56SC147         	05 31 59	-69 14 28	AN 	  4.70	 4.00	110	in DEML224
+NGC2014,SL560,LH76,ESO56SC146,  	05 32 24	-67 41 19	AN 	  5.10	 3.50	 60	in LMC-N57 & GKK-A144
+NGC2033,SL589,LH81,ESO56SC157   	05 34 43	-69 44 12	AN 	  5.90	 4.60	 10	in LMC-N154
+NGC2037,ESO56SC159,GKK-O139     	05 34 58	-69 43 50	AN 	  2.90	 1.30	170	in NGC2033
+NGC2027                         	05 35 02	-66 54 46	A  	  4.60	 2.80	100	in LH84
+NGC2034,ESO86SC14               	05 35 49	-66 53 24	A  	  4.50	 3.20	 20	in LH84
+NGC2044,LH90,ESO56SC165,GKK-O166	05 36 01	-69 11 16	AN 	  5.50	 4.50	100	in LMC-N157
+NGC2042,LH89n,ESO56SC163        	05 36 05	-68 54 36	A  	  4.50	 4.50	   	in LMC-N135
+NGC2050,SL609,LH93,ESO56SC170   	05 36 38	-69 23 00	AN 	  3.00	 2.40	 70	in LH96
+NGC2055,LH94,SL610,ESO56SC171   	05 36 44	-69 29 55	A  	  1.90	 1.30	120	in LH96
+NGC2081,GKK-A107                	05 39 50	-69 24 40	AN 	  8.50	 6.00	 70	in LMC-N158
+NGC2094,SL659,ESO57SC26,KMHK1260	05 42 12	-68 55 02	AC 	  0.90	 0.55	100	
+
+#
+#   VizieR Astronomical Server vizier.cds.unistra.fr
+#    Date: 2026-10-24T17:14:24 [V7.6.2]
+#   In case of problem, please report to:	cds-question@unistra.fr
+#
+#
+#Coosys	J2000:	eq_FK5 J2000
+#INFO	service_protocol=ASU	  IVOID of the protocol through which the data was retrieved
+#INFO	request_date=2026-10-24T17:14:24	  Query execution date
+#INFO	request=https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=J/MNRAS/389/678/table4&-out=Names,RAJ2000,DEJ2000,Type,amaj,amin,PA,Com&Names=%3D*IC%5B0-9%5D*&-out.max=unlimited	  Full request URL
+#INFO	contact=cds-question@unistra.fr	  Email or URL to contact publisher
+#INFO	server_software=VizieR/7.6.2	  Software version
+#INFO	publisher=CDS	  Data centre that produced the VOTable
+
+#RESOURCE=yCat_73890678
+#Name: J/MNRAS/389/678
+#Title: Catalogue of extended objects in Magellanic Clouds (Bica+, 2008)
+#INFO	ivoid=ivo://cds.vizier/j/mnras/389/678	    IVOID of underlying data collection
+#INFO	data_ivoid=ivo://cds.vizier/j/mnras/389/678	    IVOID of underlying data collection
+#INFO	creator=Bica E.	    First author or institution
+#INFO	cites=bibcode:2008MNRAS.389..678B	    Article or Data origin sources
+#INFO	journal=MNRA	    Journal name
+#INFO	original_date=2008	    Year of the article publication
+#INFO	reference_url=https://cdsarc.cds.unistra.fr/viz-bin/cat/J/MNRAS/389/678	    Dataset landing page
+#INFO	citation=doi:10.26093/cds/vizier.73890678	    Dataset identifier that can be used for citation
+#INFO	publication_date=2024-07-07	    Date of first publication in the data centre
+#INFO	rights_uri=https://cds.unistra.fr/vizier-org/licences_vizier.html	    Licence URI
+#Table	J_MNRAS_389_678_table4:
+#Name: J/MNRAS/389/678/table4
+#Title: Associations
+#Column	Names	(a32)	Source name(s) (2)	[ucd=meta.id;meta.main]
+#Column	RAJ2000	(A8)	right ascension (J2000)	[ucd=pos.eq.ra;meta.main]
+#Column	DEJ2000	(A9)	Declination (J2000)	[ucd=pos.eq.dec;meta.main]
+#Column	Type	(A3)	Object type (1)	[ucd=src.class]
+#Column	amaj	(F6.2)	Major axis	[ucd=phys.angSize]
+#Column	amin	(F5.2)	Minor axis	[ucd=phys.angSize;src]
+#Column	PA	(I3)	? Major axis position angle	[ucd=pos.posAng]
+#Column	Com	(a47)	Comments (IAC = Intermediate Age Cluster; mP, mT, m4 etc = member of Pair, Triplet, ...)	[ucd=meta.note]
+#
+#   VizieR Astronomical Server vizier.cds.unistra.fr
+#    Date: 2026-10-24T17:14:25 [V7.6.2]
+#   In case of problem, please report to:	cds-question@unistra.fr
+#
+#
+#Coosys	J2000:	eq_FK5 J2000
+#INFO	service_protocol=ASU	  IVOID of the protocol through which the data was retrieved
+#INFO	request_date=2026-10-24T17:14:25	  Query execution date
+#INFO	request=https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=J/MNRAS/389/678/table5&-out=Names,RAJ2000,DEJ2000,Type,amaj,amin,PA,Com&Names=%3D*NGC%5B0-9%5D*&-out.max=unlimited	  Full request URL
+#INFO	contact=cds-question@unistra.fr	  Email or URL to contact publisher
+#INFO	server_software=VizieR/7.6.2	  Software version
+#INFO	publisher=CDS	  Data centre that produced the VOTable
+
+#RESOURCE=yCat_73890678
+#Name: J/MNRAS/389/678
+#Title: Catalogue of extended objects in Magellanic Clouds (Bica+, 2008)
+#INFO	ivoid=ivo://cds.vizier/j/mnras/389/678	    IVOID of underlying data collection
+#INFO	data_ivoid=ivo://cds.vizier/j/mnras/389/678	    IVOID of underlying data collection
+#INFO	creator=Bica E.	    First author or institution
+#INFO	cites=bibcode:2008MNRAS.389..678B	    Article or Data origin sources
+#INFO	journal=MNRA	    Journal name
+#INFO	original_date=2008	    Year of the article publication
+#INFO	reference_url=https://cdsarc.cds.unistra.fr/viz-bin/cat/J/MNRAS/389/678	    Dataset landing page
+#INFO	citation=doi:10.26093/cds/vizier.73890678	    Dataset identifier that can be used for citation
+#INFO	publication_date=2024-07-07	    Date of first publication in the data centre
+#INFO	rights_uri=https://cds.unistra.fr/vizier-org/licences_vizier.html	    Licence URI
+#Table	J_MNRAS_389_678_table5:
+#Name: J/MNRAS/389/678/table5
+#Title: Emission nebulae
+#Column	Names	(a32)	Source name(s) (2)	[ucd=meta.id;meta.main]
+#Column	RAJ2000	(A8)	right ascension (J2000)	[ucd=pos.eq.ra;meta.main]
+#Column	DEJ2000	(A9)	Declination (J2000)	[ucd=pos.eq.dec;meta.main]
+#Column	Type	(A3)	Object type (1)	[ucd=src.class]
+#Column	amaj	(F6.2)	Major axis	[ucd=phys.angSize]
+#Column	amin	(F5.2)	Minor axis	[ucd=phys.angSize;src]
+#Column	PA	(I3)	? Major axis position angle	[ucd=pos.posAng]
+#Column	Com	(a47)	Comments (IAC = Intermediate Age Cluster; mP, mT, m4 etc = member of Pair, Triplet, ...)	[ucd=meta.note]
+Names	RAJ2000	DEJ2000	Type	amaj	amin	PA	Com
+ 	"h:m:s"	"d:m:s"	 	arcmin	arcmin	deg	
+--------------------------------	--------	---------	---	------	-----	---	-----------------------------------------------
+NGC248,DEMS16,ESO29EN8          	00 45 24	-73 22 44	NA 	  1.20	 0.80	   	in SMC-OGLE26
+NGC249,ESO29EN9,                	00 45 30	-73 04 43	DNA	  1.10	 0.70	   	in SMC-N12B,inc SOGLE29 DC B35
+NGC261,ESO29EN12                	00 46 32	-73 05 55	NA 	  1.30	 1.10	100	in SMC-N12A,inc B42
+NGC267,SMC-N22,DEMS37,MA203     	00 48 02	-73 16 26	DNA	  2.00	 1.70	170	DC ESO29SC15
+NGC395,K51,L75,ESO51SC16        	01 05 07	-71 59 37	NA 	  1.50	 1.10	140	in DEMS126
+NGC1722,DEML10a                 	04 51 49	-69 23 55	DNA	  2.50	 2.10	170	in DEML10 DC LH1e
+NGC1714,LMC-N4A,DEML8b,ESO85EN08	04 52 07	-66 55 29	DNC	  1.10	 1.10	   	in Shapley-VI DC SL64
+NGC1715,LMC-N4B,DEML8c,ESO85EN09	04 52 10	-66 54 26	NA 	  1.10	 1.00	130	in Shapley-VI
+NGC1736,LMC-N8,ESO56EN16        	04 53 04	-68 03 11	DNA	  1.90	 1.40	170	in DEML13 DC KMHK200
+NGC1737,DEML22a,ESO56EN20       	04 53 56	-69 10 25	NA 	  1.10	 0.95	110	in LMC-N83
+NGC1743,LMC-N83A,ESO56EN21      	04 54 03	-69 12 04	DNC	  0.95	 0.85	130	in DEML22b DC SL87
+NGC1745                         	04 54 20	-69 09 28	NA 	  1.20	 1.10	 90	in DEML22d
+NGC1748,IC2114,LMC-N83B,DEML22c,	04 54 23	-69 11 05	NC 	  0.90	 0.80	100	in LMC-N83 & ESO56EN24
+NGC1760,LMC-N11F,ESO85EN19      	04 56 43	-66 31 28	NA 	  5.10	 2.10	 80	in LH9
+NGC1763,IC2115,LMC-N11B,        	04 56 49	-66 24 23	DNA	  5.20	 3.60	 70	in LMC-N11 DC SL125 & ESO85EN20
+NGC1769,LMC-N11C                	04 57 45	-66 27 52	DNA	  4.10	 2.60	 60	in LMC-N11 DC LH13
+NGC1773,LMC-N11E,DEML41,        	04 58 11	-66 21 32	DNA	  2.70	 2.10	 30	in LMC-N11 DC LH14 & ESO85EN25
+NGC1858,LMC-N105A               	05 09 56	-68 53 59	NA 	  4.40	 2.60	170	in LMC-N105
+NGC1874,LMC-N113D,ESO56EN82     	05 13 10	-69 22 31	NA 	  1.40	 1.10	100	mP,in SL320
+NGC1876,LMC-N113C,ESO56EN84     	05 13 19	-69 21 36	NA 	  1.50	 1.50	   	mP,in SL320
+NGC1877                         	05 13 19	-69 22 36	NA 	  1.10	 0.60	130	in SL320
+NGC1880,LMC-N113F               	05 13 38	-69 22 59	NA 	  1.20	 1.00	140	in DEML104
+NGC1895,LMC-N33,DEML121,        	05 16 52	-67 19 48	NA 	  1.40	 1.30	 40	& ESO85EN62 inc BSBD6
+NGC1899,LMC-N36                 	05 17 48	-67 54 02	NA 	  1.10	 1.00	 20	in DEML129
+NGC1910                         	05 18 45	-69 14 03	NA 	  3.60	 2.80	120	in LH41
+NGC1918,ESO56EN10               	05 19 21	-69 39 11	NA 	  3.90	 1.70	120	in LMC-N120
+NGC1920,LMC-N38,ESO85EN74       	05 20 33	-66 46 44	DNC	  1.20	 1.10	100	in DEML138 DC KMHK792
+NGC1923,SL404,ESO85SC75,KMHK808 	05 21 33	-65 29 16	NC 	  0.95	 0.85	 80	in LMC-N40
+NGC1929,HD269407,LMC-N44F,      	05 21 38	-67 54 47	NA 	  1.20	 1.10	 90	in SL417 & DEML151a,ESO56EN107
+NGC1934                         	05 21 50	-67 54 14	NA 	  1.90	 1.30	150	in SL417
+NGC1935,IC2126,HD35814,LMC-N44B,	05 21 58	-67 57 20	NC 	  1.20	 1.20	   	in SL417 & ESO56EN110
+NGC1936,IC2127,HD35861,LMC-N44C,	05 22 14	-67 58 33	NC 	  1.00	 1.00	   	in BSDL1393 & ESO56EN111
+NGC1941,LMC-N46,ESO85EN79       	05 23 07	-66 22 42	DNC	  0.90	 0.80	100	mP,in DEML162 DC KMHK839
+NGC1945                         	05 24 51	-66 24 06	NA 	 10.00	 6.00	 60	in LMC-N48
+NGC1949,LMC-N138A,ESO56EN117    	05 25 06	-68 28 18	DNC	  0.95	 0.90	100	in DEML180 DC KMHK875
+NGC2020,LMC-N57C,DEML231,       	05 33 12	-67 42 57	NA 	  3.20	 2.90	 50	in LMC-N56  & ESO56EN148
+NGC2029,ESO56EN156              	05 34 59	-67 33 23	NC 	  1.10	 0.85	 60	in BSDL2435
+NGC2032,LMC-N59Anw,ESO56EN160   	05 35 20	-67 34 06	NC 	  2.80	 1.40	 30	in LH82
+NGC2035,LMC-N59Ase,ESO56EN161   	05 35 32	-67 35 07	NA 	  1.80	 1.30	 20	in LH82
+NGC2030,SL595,ESO86SC15,KMHK1113	05 35 39	-66 01 50	NC 	  1.70	 1.70	   	in LMC-N63s
+NGC2048,LMC-N154A,ESO56EN166    	05 35 55	-69 38 57	NC 	  1.40	 1.00	100	in LH87n
+NGC2040,LMC-N59B,ESO56EN164     	05 36 07	-67 34 00	DNA	  2.10	 1.70	160	in LMC-N59 DC LH88
+NGC2052,LMC-N155,DEML260,       	05 37 12	-69 46 27	NA 	  1.10	 0.95	120	in LMC-N135 & ESO56EN176
+NGC2060,ESO57EN1                	05 37 48	-69 10 23	NA 	  2.20	 2.00	160	in LMC-N157B
+NGC2075,LMC-N213,ESO57EN5,      	05 38 17	-70 41 18	DNA	  2.20	 1.80	 30	in DEML265 DC KMHK1173
+30 Doradus,NGC2070,LMC-N157A,   	05 38 38	-69 05 39	DNA	 16.00	16.00	   	in LMC-N157 DC LH100 & ESO57EN6
+NGC2069,ESO57EN7                	05 38 48	-68 58 31	NA 	  5.00	 2.20	 30	in 30 Doradus
+NGC2074,LMC-N158C,ESO57EN8      	05 39 03	-69 29 53	DNA	  4.00	 3.40	 50	in LMC-N158 DC SL637
+NGC2077,LMC-N160D,ESO57EN9      	05 39 36	-69 39 23	NC 	  1.30	 1.30	   	in LH103
+NGC2079,LMC-N159A,ESO57EN11     	05 39 39	-69 46 22	NC 	  1.10	 0.95	160	in LMC-N159
+NGC2078,ESO57EN10               	05 39 40	-69 44 21	NA 	  1.20	 1.10	   	in LMC-N159
+NGC2080,LMC-N160A,ESO57EN12     	05 39 44	-69 38 45	NC 	  1.70	 1.50	130	in LH103
+NGC2084w,LMC-N159Cw,ESO57EN15w  	05 39 53	-69 45 42	NC 	  1.50	 1.30	130	in LMC-N159
+NGC2083,LMC-N159D,ESO57EN14     	05 39 59	-69 44 09	NC 	  2.00	 1.80	 70	in LMC-N159
+NGC2084e,LMC-N159Ce,ESO57EN15e  	05 40 06	-69 45 51	NA 	  1.70	 1.20	 40	in LMC-N159
+NGC2085,LMC-N160B,ESO57EN16     	05 40 09	-69 40 23	NC 	  0.95	 0.95	   	in LH103
+NGC2086,IC2145,LMC-N160C,       	05 40 23	-69 40 15	NC 	  0.85	 0.80	 70	in LH103 & ESO57EN18
+NGC2103,LMC-N214C,DEML293,      	05 41 36	-71 20 01	DNA	  4.10	 3.50	 40	in LMC-N214 DC LH110 & ESO57EN24
+NGC2113,ESO57EN36               	05 45 22	-69 46 27	DNA	  1.10	 1.10	   	in DEML311
+NGC2122,LMC-N180B,DEML323       	05 48 55	-70 04 07	DNA	  6.50	 5.00	 50	in LMC-N180 DC SL731 & ESO57EN41
+
+#
+#   VizieR Astronomical Server vizier.cds.unistra.fr
+#    Date: 2026-10-24T17:14:26 [V7.6.2]
+#   In case of problem, please report to:	cds-question@unistra.fr
+#
+#
+#Coosys	J2000:	eq_FK5 J2000
+#INFO	service_protocol=ASU	  IVOID of the protocol through which the data was retrieved
+#INFO	request_date=2026-10-24T17:14:26	  Query execution date
+#INFO	request=https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=J/MNRAS/389/678/table5&-out=Names,RAJ2000,DEJ2000,Type,amaj,amin,PA,Com&Names=%3D*IC%5B0-9%5D*&-out.max=unlimited	  Full request URL
+#INFO	contact=cds-question@unistra.fr	  Email or URL to contact publisher
+#INFO	server_software=VizieR/7.6.2	  Software version
+#INFO	publisher=CDS	  Data centre that produced the VOTable
+
+#RESOURCE=yCat_73890678
+#Name: J/MNRAS/389/678
+#Title: Catalogue of extended objects in Magellanic Clouds (Bica+, 2008)
+#INFO	ivoid=ivo://cds.vizier/j/mnras/389/678	    IVOID of underlying data collection
+#INFO	data_ivoid=ivo://cds.vizier/j/mnras/389/678	    IVOID of underlying data collection
+#INFO	creator=Bica E.	    First author or institution
+#INFO	cites=bibcode:2008MNRAS.389..678B	    Article or Data origin sources
+#INFO	journal=MNRA	    Journal name
+#INFO	original_date=2008	    Year of the article publication
+#INFO	reference_url=https://cdsarc.cds.unistra.fr/viz-bin/cat/J/MNRAS/389/678	    Dataset landing page
+#INFO	citation=doi:10.26093/cds/vizier.73890678	    Dataset identifier that can be used for citation
+#INFO	publication_date=2024-07-07	    Date of first publication in the data centre
+#INFO	rights_uri=https://cds.unistra.fr/vizier-org/licences_vizier.html	    Licence URI
+#Table	J_MNRAS_389_678_table5:
+#Name: J/MNRAS/389/678/table5
+#Title: Emission nebulae
+#Column	Names	(a32)	Source name(s) (2)	[ucd=meta.id;meta.main]
+#Column	RAJ2000	(A8)	right ascension (J2000)	[ucd=pos.eq.ra;meta.main]
+#Column	DEJ2000	(A9)	Declination (J2000)	[ucd=pos.eq.dec;meta.main]
+#Column	Type	(A3)	Object type (1)	[ucd=src.class]
+#Column	amaj	(F6.2)	Major axis	[ucd=phys.angSize]
+#Column	amin	(F5.2)	Minor axis	[ucd=phys.angSize;src]
+#Column	PA	(I3)	? Major axis position angle	[ucd=pos.posAng]
+#Column	Com	(a47)	Comments (IAC = Intermediate Age Cluster; mP, mT, m4 etc = member of Pair, Triplet, ...)	[ucd=meta.note]
+Names	RAJ2000	DEJ2000	Type	amaj	amin	PA	Com
+ 	"h:m:s"	"d:m:s"	 	arcmin	arcmin	deg	
+--------------------------------	--------	---------	---	------	-----	---	-----------------------------------------------
+IC1644,SMC-N81,L61-481,         	01 09 12	-73 11 42	NC 	  0.80	 0.65	 40	m4,in H-A60 & ESO29EN35,MA1688/MA1687
+IC2105,LMC-N77A,ESO56EN07       	04 49 26	-69 12 02	NC 	  0.65	 0.60	170	in DEML4b
+IC2111,ESO56EN13                	04 51 51	-69 23 35	NC 	  0.65	 0.55	130	mT,in LMC-N79A
+NGC1748,IC2114,LMC-N83B,DEML22c,	04 54 23	-69 11 05	NC 	  0.90	 0.80	100	in LMC-N83 & ESO56EN24
+NGC1763,IC2115,LMC-N11B,        	04 56 49	-66 24 23	DNA	  5.20	 3.60	 70	in LMC-N11 DC SL125 & ESO85EN20
+IC2117,LMC-N91A                 	04 57 14	-68 26 31	NA 	  1.00	 0.90	110	in KMHK341
+IC2116,LMC-N11A                 	04 57 16	-66 23 21	NC 	  0.60	 0.60	   	in LMC-N11
+NGC1935,IC2126,HD35814,LMC-N44B,	05 21 58	-67 57 20	NC 	  1.20	 1.20	   	in SL417 & ESO56EN110
+NGC1936,IC2127,HD35861,LMC-N44C,	05 22 14	-67 58 33	NC 	  1.00	 1.00	   	in BSDL1393 & ESO56EN111
+IC2128,DEML160                  	05 22 48	-68 03 14	DNA	  4.80	 3.60	 40	in Shapley-I DC LH49
+NGC2086,IC2145,LMC-N160C,       	05 40 23	-69 40 15	NC 	  0.85	 0.80	 70	in LH103 & ESO57EN18
+

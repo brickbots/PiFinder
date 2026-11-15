@@ -1,0 +1,51 @@
+# Corrections to NGC 2000.0's names file (ngc_ic_m/ngc2000/names.dat; Sinnott 1988, CDS VII/118).
+# See README.md in this directory for the format.
+# was values from a build of 4da2a0a2b.
+
+["M 82"]
+why = "NGC 2000.0's names.dat gives 'Bode's nebulae', the name of the M 81/M 82 pair, to M 82 alone. M 82 is the Cigar Galaxy, which messier_names.dat already puts first."
+sources = [
+    "https://cdsarc.cds.unistra.fr/viz-bin/cat/VII/118",
+    "http://www.messier.seds.org/m/m082.html",
+    "https://en.wikipedia.org/wiki/List_of_Messier_objects",
+]
+names.remove = ["Bode's Nebulae"]
+
+["IC 434"]
+why = "NGC 2000.0's names.dat puts 'Horsehead nebula' on IC 434; its own note says 'Dark nebula in IC 434'. The Horsehead is Barnard 33."
+sources = [
+    "https://cdsarc.cds.unistra.fr/viz-bin/cat/VII/118",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=Barnard%2033",
+    "https://en.wikipedia.org/wiki/IC_434",
+    "https://en.wikipedia.org/wiki/Horsehead_Nebula",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+names.remove = ["Horsehead Nebula"]
+
+["B 33"]
+why = "The other half of names.dat's misplaced 'Horsehead nebula': the dark nebula in IC 434 is Barnard 33."
+sources = [
+    "https://cdsarc.cds.unistra.fr/viz-bin/cat/VII/118",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=Barnard%2033",
+    "https://en.wikipedia.org/wiki/Horsehead_Nebula",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+names.preferred = "Horsehead Nebula"
+
+["NGC 5195"]
+why = "NGC 2000.0's names.dat gives 'M51' and 'Whirlpool galaxy' to NGC 5195 as well as to NGC 5194. M 51 is NGC 5194; NGC 5195 is its companion."
+sources = [
+    "https://cdsarc.cds.unistra.fr/viz-bin/cat/VII/118",
+    "http://www.messier.seds.org/m/m051.html",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=61%20Cet",
+]
+names.remove = ["M51", "Whirlpool Galaxy"]
+
+["NGC 2261"]
+why = "NGC 2000.0's names.dat truncates the name to 'Hubble's variable neb'. NGC 2261 already carries the full 'Hubble's Variable Nebula' from the Caldwell list."
+sources = [
+    "https://cdsarc.cds.unistra.fr/viz-bin/cat/VII/118",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%202261",
+    "https://en.wikipedia.org/wiki/NGC_2261",
+]
+names.remove = ["Hubble's Variable Neb"]

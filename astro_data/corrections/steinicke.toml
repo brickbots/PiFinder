@@ -1,0 +1,1388 @@
+# Corrections to Steinicke's Revised NGC and IC, NI2023 (ngc_ic_m/steinicke).
+# See README.md in this directory for the format.
+# was values from a build of 4da2a0a2b.
+
+["NGC 2034"]
+why = "Bica 2008 classes it a plain association (A, in LH84) with no nebula, and SIMBAD As*; Steinicke's OCL+EN adds a nebula that is not there."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%202034",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "OC"
+was.obj_type = "C+N"
+
+["NGC 1943"]
+why = "A ~220 Myr populous LMC cluster (Baumgardt 2013; Bica 2008 class C, nebula LMC-N130 only possibly superposed; SIMBAD Cl*); Steinicke's EN+OCL nebula reading is not supported. OpenNGC's GCl is the young-populous-cluster convention."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/430/676",
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%201943",
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+]
+obj_type = "OC"
+was.obj_type = "C+N"
+
+["NGC 1839"]
+why = "An ~80 Myr LMC cluster (Baumgardt 2013) with no nebula (Bica 2008 class C, SIMBAD Cl*); Dreyer's 'st + neb' was unresolved glow."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/430/676",
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%201839",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "OC"
+was.obj_type = "C+N"
+
+["NGC 361"]
+why = "An old (6-8 Gyr) SMC cluster (Bica 2008 'Old IAC', class C; SIMBAD OpC) with no nebula; Steinicke's OCL+EN is wrong. Gb is arguable for its age."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20361",
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "OC"
+was.obj_type = "C+N"
+
+["IC 2128"]
+why = "LMC association with nebula: IC description 'Cl, few st and neb', Bica 2008 lists it among the emission nebulae (DNA, in Shapley-I), SIMBAD HII."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%202128",
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "C+N"
+was.obj_type = "OC"
+
+["NGC 2244"]
+why = "The ~4 Myr cluster (Hunt & Reffert 2023) that ionises the Rosette Nebula; Steinicke's remark 'in Rosette nebula' but class 'II3p' has no 'n'. C 50: the catalog's 06 32 19.0 +04 51 24 (Steinicke) is 7.0' from the Gaia centre (r50 6.3'), 8.1' from Corwin and 4.0' from SIMBAD, to the southeast; OpenNGC is 1.0' from the Gaia centre. Minor, but it is a Caldwell object. Structure: the catalog also keeps NGC 2239 (= NGC 2244) as a second object at the same point."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/A+A/673/A114",
+    "https://en.wikipedia.org/wiki/Rosette_Nebula",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%202244",
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+    "https://ned.ipac.caltech.edu/byname?objname=NGC%202244",
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR-3?-source=J/A%2BA/673/A114/clusters",
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+]
+obj_type = "C+N"
+ra = "06 31 56.5"
+dec = "+04 55 36"
+was.obj_type = "OC"
+was.ra = "06 32 19.00"
+was.dec = "+04 51 24.0"
+
+["NGC 2579"]
+why = "An HII region ionised by three O stars of its embedded cluster (Copetti et al. 2007); Dreyer 'D* in pS neb, am 70 st'. Steinicke gives only a Trumpler class. Steinicke 19' is about twice every other estimate; OpenNGC's MajAx for clusters comes from HEASARC mwsc 'central_radius' (Kharchenko et al. 2013 r1) and is the radius in arcmin stored as a diameter: it equals 60*r1 exactly (0.055 deg)."
+sources = [
+    "https://arxiv.org/abs/0707.2062",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%202579",
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+    "Kharchenko+ 2013 MWSC, VizieR J/A+A/558/A53",
+    "Dias+ 2002 v3.5, VizieR B/ocl",
+    "Lynga 1987, VizieR VII/92A",
+    "NGC 2000.0 (Sinnott 1988), PiFinder astro_data/ngc_ic_m/ngc2000/ngc2000.dat",
+    "OpenNGC README (data sources) and NGC.csv Sources column",
+]
+obj_type = "C+N"
+size = "10'"
+was.obj_type = "OC"
+was.size = "19'"
+
+["NGC 3247"]
+why = "NGC 3247 is RCW 49, a bright HII region with stars involved (Dreyer 'st inv in neb'; Steinicke 'in EN'); OpenNGC's HII is acceptable, the catalog's bare OC drops the nebula."
+sources = [
+    "https://en.wikipedia.org/wiki/RCW_49",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%203247",
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "C+N"
+was.obj_type = "OC"
+
+["NGC 1921"]
+why = "Bica 2008 classes both components as a cluster in nebula (CN, inside LMC-N121/DEML133): Steinicke's EN (Nb) drops the cluster, OpenNGC's OCl drops the nebula."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%201921",
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "C+N"
+was.obj_type = "Nb"
+
+["IC 1308"]
+why = "An HII region inside another galaxy (M 33, M 101, NGC 6822, NGC 2403, NGC 3184, NGC 4559; NED and SIMBAD HII); Steinicke itself marks it status 6 'GxyP' (part of a galaxy), so 'Gx' wrongly makes it a separate galaxy."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://en.wikipedia.org/wiki/NGC_604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205461",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "?"
+
+["IC 3551"]
+why = "An HII region inside another galaxy (M 33, M 101, NGC 6822, NGC 2403, NGC 3184, NGC 4559; NED and SIMBAD HII); Steinicke itself marks it status 6 'GxyP' (part of a galaxy), so 'Gx' wrongly makes it a separate galaxy."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://en.wikipedia.org/wiki/NGC_604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205461",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "?"
+
+["NGC 3181"]
+why = "An HII region inside another galaxy (M 33, M 101, NGC 6822, NGC 2403, NGC 3184, NGC 4559; NED and SIMBAD HII); Steinicke itself marks it status 6 'GxyP' (part of a galaxy), so 'Gx' wrongly makes it a separate galaxy."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://en.wikipedia.org/wiki/NGC_604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205461",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "?"
+
+["NGC 5447"]
+why = "An HII region inside another galaxy (M 33, M 101, NGC 6822, NGC 2403, NGC 3184, NGC 4559; NED and SIMBAD HII); Steinicke itself marks it status 6 'GxyP' (part of a galaxy), so 'Gx' wrongly makes it a separate galaxy."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://en.wikipedia.org/wiki/NGC_604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205461",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "?"
+
+["NGC 5449"]
+why = "An HII complex/superassociation in NGC 4395 or M 101 (NED; Steinicke 'HII in N 4395'/'part of M 101', status 6), not a galaxy; OpenNGC's 'Other' is vague but not wrong (HII would be better)."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://ned.ipac.caltech.edu/byname?objname=NGC%204401",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%204399",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205449",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "?"
+
+["NGC 5451"]
+why = "An HII region inside another galaxy (M 33, M 101, NGC 6822, NGC 2403, NGC 3184, NGC 4559; NED and SIMBAD HII); Steinicke itself marks it status 6 'GxyP' (part of a galaxy), so 'Gx' wrongly makes it a separate galaxy."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://en.wikipedia.org/wiki/NGC_604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205461",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "?"
+
+["NGC 5453"]
+why = "An HII region inside another galaxy (M 33, M 101, NGC 6822, NGC 2403, NGC 3184, NGC 4559; NED and SIMBAD HII); Steinicke itself marks it status 6 'GxyP' (part of a galaxy), so 'Gx' wrongly makes it a separate galaxy."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://en.wikipedia.org/wiki/NGC_604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205461",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "?"
+
+["NGC 5455"]
+why = "An HII region inside another galaxy (M 33, M 101, NGC 6822, NGC 2403, NGC 3184, NGC 4559; NED and SIMBAD HII); Steinicke itself marks it status 6 'GxyP' (part of a galaxy), so 'Gx' wrongly makes it a separate galaxy."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://en.wikipedia.org/wiki/NGC_604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205461",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "?"
+
+["NGC 5461"]
+why = "An HII region inside another galaxy (M 33, M 101, NGC 6822, NGC 2403, NGC 3184, NGC 4559; NED and SIMBAD HII); Steinicke itself marks it status 6 'GxyP' (part of a galaxy), so 'Gx' wrongly makes it a separate galaxy."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://en.wikipedia.org/wiki/NGC_604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205461",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "?"
+
+["NGC 5462"]
+why = "An HII region inside another galaxy (M 33, M 101, NGC 6822, NGC 2403, NGC 3184, NGC 4559; NED and SIMBAD HII); Steinicke itself marks it status 6 'GxyP' (part of a galaxy), so 'Gx' wrongly makes it a separate galaxy."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://en.wikipedia.org/wiki/NGC_604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205461",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "?"
+
+["NGC 5471"]
+why = "An HII region inside another galaxy (M 33, M 101, NGC 6822, NGC 2403, NGC 3184, NGC 4559; NED and SIMBAD HII); Steinicke itself marks it status 6 'GxyP' (part of a galaxy), so 'Gx' wrongly makes it a separate galaxy."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://en.wikipedia.org/wiki/NGC_604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205461",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "?"
+
+["IC 142"]
+why = "An HII region inside another galaxy (M 33, M 101, NGC 6822, NGC 2403, NGC 3184, NGC 4559; NED and SIMBAD HII); Steinicke itself marks it status 6 'GxyP' (part of a galaxy), so 'Gx' wrongly makes it a separate galaxy."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://en.wikipedia.org/wiki/NGC_604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20604",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205461",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "OC"
+
+["NGC 206"]
+why = "A stellar association/star cloud inside M 33 or M 31 (NED; Steinicke 'OCL in M 33'/'part of M 31', status 6; NGC 206 is an OB association), not a galaxy; PiFinder has no association code, OC is the nearest. OpenNGC's *Ass is right (its current master calls IC 139 a single star)."
+sources = [
+    "https://en.wikipedia.org/wiki/NGC_206",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%20136",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20206",
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "OC"
+was.obj_type = "?"
+
+["IC 4685"]
+why = "An emission/reflection nebula around a 7.5 mag star near NGC 6559 (IC: '*7.5 in L, dif neb'; NED 'star embedded in nebulosity'; SIMBAD ISM), not a cluster; Steinicke's 'IV3pn' cluster reading would at best give C+N. Steinicke's Trumpler class 'IV3pn' makes it C+N by the loader's rule; the object is the nebula."
+sources = [
+    "https://astrodrudis.com/ic-4685-and-ic-1274/",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%204685",
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Nb"
+was.obj_type = "C+N"
+
+["NGC 5120"]
+why = "Steinicke's own remark identifies it with Ruprecht 166, which Hunt & Reffert (2023) confirm as a real ~11 Myr cluster within 0.5' of the position; SIMBAD OpC. The *Grp type contradicts the cross-ID."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/A+A/673/A114",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205120",
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "OC"
+was.obj_type = "Ast"
+
+["NGC 5299"]
+why = "Not a nebula: Steinicke calls it a star cloud, NED/SIMBAD/Kharchenko MWSC an open cluster (Gaia clusters UBC 295 / UBC 107 lie within 8'); OC follows OpenNGC, Ast would follow Steinicke."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205299",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%206682",
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/A+A/673/A114",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "OC"
+was.obj_type = "Ast"
+
+["NGC 6682"]
+why = "Not a nebula: Steinicke calls it a star cloud, NED/SIMBAD/Kharchenko MWSC an open cluster (Gaia clusters UBC 295 / UBC 107 lie within 8'); OC follows OpenNGC, Ast would follow Steinicke."
+sources = [
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%205299",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%206682",
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/A+A/673/A114",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "OC"
+was.obj_type = "Ast"
+
+["M 18"]
+why = "Steinicke's Trumpler class 'II3pn' makes NGC 6613 C+N by the loader's rule, but M 18 is an open cluster of about 33 Myr whose only nebulosity is a faint hint in deep images. SIMBAD types it OpC, OpenNGC OCl (Rich's decision, #676)."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=M%2018",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+]
+obj_type = "OC"
+was.obj_type = "C+N"
+
+["IC 1311"]
+why = "Steinicke's Trumpler class 'II3rn' makes it C+N by the loader's rule, but IC 1311 is an open cluster of about 1.6 Gyr, too old for a nebula of its own: the 'n' is foreground Cygnus nebulosity. SIMBAD types it OpC, OpenNGC OCl (#676)."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%201311",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+    "http://www.klima-luft.de/steinicke/ngcic/rev2000/Explan.htm",
+]
+obj_type = "OC"
+was.obj_type = "C+N"
+
+["M 43"]
+why = "Steinicke has no Vmag; his Bmag 6.8 is NU Ori (HD 37061, V 6.83), the nebula's exciting star, so a blind fallback to Bmag would be wrong. SEDS and NGC 2000.0 give 9.0, as OpenNGC does (HEASARC messier table)."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "SEDS Messier database (messier.seds.org)",
+    "NGC 2000.0, Sinnott 1988 (PiFinder astro_data/ngc_ic_m/ngc2000/ngc2000.dat; 'p' = photographic)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+    "Wikipedia",
+]
+mag = 9
+was.mag = ""
+
+["M 78"]
+why = "No Steinicke Vmag (Bmag 8.0); OpenNGC 8.0, NGC 2000.0 8, SEDS 8.3. Any of these serves."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+    "NGC 2000.0, Sinnott 1988 (PiFinder astro_data/ngc_ic_m/ngc2000/ngc2000.dat; 'p' = photographic)",
+    "SEDS Messier database (messier.seds.org)",
+]
+mag = 8.3
+was.mag = ""
+
+["M 8"]
+why = "No Steinicke Vmag (Bmag 5.8); OpenNGC V 5.8 (B 5.0), NGC 2000.0 5.8, SEDS 6.0."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+    "NGC 2000.0, Sinnott 1988 (PiFinder astro_data/ngc_ic_m/ngc2000/ngc2000.dat; 'p' = photographic)",
+    "SEDS Messier database (messier.seds.org)",
+]
+mag = 6
+was.mag = ""
+
+["NGC 2070"]
+why = "No Steinicke Vmag (Bmag 5.0). NGC 2000.0 8.2, Wikipedia 8; OpenNGC V 7.25 (SIMBAD), B 5.0. Inside the LMC every value here passes the page's Cloud cut of 10."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "NGC 2000.0, Sinnott 1988 (PiFinder astro_data/ngc_ic_m/ngc2000/ngc2000.dat; 'p' = photographic)",
+    "Wikipedia",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 8
+was.mag = ""
+
+["IC 1266"]
+why = "A compact planetary with a bright central star. No Steinicke Vmag; Bmag 12.1 is photographic. Tycho-2 V 11.49 (SIMBAD, 2000A&A...355L..27H), OpenNGC V 11.2. A Bmag fallback would put it at 12.1, off the page."
+sources = [
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 11.4
+was.mag = ""
+
+["NGC 4504"]
+why = "Steinicke's B 13.9 is about 1.8 mag too faint. RC3 mB 11.89, OpenNGC/LEDA B 12.11, SIMBAD B 12.1 (2005MNRAS.361...34D), SGA g 12.09, r 11.55 (V 11.76). For an Scd, V is about 11.5-11.8; OpenNGC's 11.61 is right. Web pages giving 13.2 copy Steinicke. Cut: page: newly drawn (cut 12)."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "RC3, de Vaucouleurs et al. 1991 (VizieR VII/155): BT, (B-V)T, mB",
+    "Siena Galaxy Atlas, Moustakas et al. 2023, ApJS 269, 3 (total g, r via SIMBAD); V = g - 0.59(g-r) - 0.01",
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 11.6
+was.mag = 13.2
+
+["NGC 5339"]
+why = "Steinicke's B 15.0 (and SIMBAD's undated B 16.5) disagree with modern photometry: OpenNGC/LEDA B 12.82, SGA g 12.81, r 12.17 (V 12.42), 2MASS K 9.70. V is about 12.2; OpenNGC's 12.24 is right."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "Siena Galaxy Atlas, Moustakas et al. 2023, ApJS 269, 3 (total g, r via SIMBAD); V = g - 0.59(g-r) - 0.01",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 12.2
+was.mag = 14.1
+
+["NGC 4861"]
+why = "RC3 BT 12.9 (+-0.3), (B-V)T 0.58, VT 12.32; RC3 mB 12.54; LEDA B 12.86. Steinicke's B 14.1 is about 1.2 mag too faint (it may omit the bright HII knot Mrk 59 at the galaxy's end). OpenNGC's 12.32 is right."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "RC3, de Vaucouleurs et al. 1991 (VizieR VII/155): BT, (B-V)T, mB",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 12.3
+was.mag = 13.5
+
+["NGC 1265"]
+why = "RC3 BT 13.22, (B-V)T 1.12, VT 12.10; LEDA B 13.04. Steinicke's B 14.4 is about 1.2 mag too faint. OpenNGC's 11.92 is close."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "RC3, de Vaucouleurs et al. 1991 (VizieR VII/155): BT, (B-V)T, mB",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 12.1
+was.mag = 13.4
+
+["NGC 3219"]
+why = "Steinicke's B 14.2 is about 1 mag too bright: LEDA B 15.24, SIMBAD B 15.4, SDSS g 14.65, r 13.72 (V 14.1), 2MASS K 11.0. V is about 14.2; OpenNGC's 14.21 is right."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 14.2
+was.mag = 13.2
+
+["IC 2378"]
+why = "Steinicke's B 15.3 (same as SIMBAD's undated B) is too faint: LEDA B 14.38, SDSS g 14.10, r 13.17 (V 13.55), 2MASS K 10.03 (S0, so B about 14.0). V is about 13.4; OpenNGC's 13.23 is close."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 13.4
+was.mag = 14.3
+
+["IC 1029"]
+why = "Steinicke's B 13.3 (V 12.4) disagrees with the independent totals. Independent totals (V): 2MASS K 12.08, LEDA B 11.45, RC3 VT 11.29; median 11.45 (spread 0.16). Catalog 12.4 is +0.95, OpenNGC 11.29 -0.16. Cut: page: newly drawn (cut 12)."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+    "RC3, de Vaucouleurs et al. 1991 (VizieR VII/155): BT, (B-V)T, mB",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+]
+mag = 11.4
+was.mag = 12.4
+
+["IC 3383"]
+why = "Steinicke's B 15.0 (V 14.1) disagrees with the independent totals. Independent totals (V): SGA 14.80, 2MASS K 15.98, LEDA B 14.19; median 14.80 (spread 0.61). Catalog 14.1 is -0.70, OpenNGC 15.18 +0.38."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+    "Siena Galaxy Atlas, Moustakas et al. 2023, ApJS 269, 3 (total g, r via SIMBAD); V = g - 0.59(g-r) - 0.01",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+]
+mag = 14.8
+was.mag = 14.1
+
+["NGC 3798"]
+why = "Steinicke's B 13.1 (V 12.1) disagrees with the independent totals. Independent totals (V): 2MASS K 12.71, LEDA B 12.76, RC3 mB 12.15; median 12.71 (spread 0.05). Catalog 12.1 is -0.61, OpenNGC 13.1 +0.39."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+    "RC3, de Vaucouleurs et al. 1991 (VizieR VII/155): BT, (B-V)T, mB",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+]
+mag = 12.7
+was.mag = 12.1
+
+["NGC 5735"]
+why = "Steinicke's B 13.1 (V 12.3) disagrees with the independent totals. Independent totals (V): 2MASS K 13.38, LEDA B 12.91, RC3 mB 12.35; median 12.91 (spread 0.47). Catalog 12.3 is -0.61, OpenNGC 13.36 +0.45."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+    "RC3, de Vaucouleurs et al. 1991 (VizieR VII/155): BT, (B-V)T, mB",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+]
+mag = 12.9
+was.mag = 12.3
+
+["IC 1210"]
+why = "Steinicke's B 14.0 (V 13.1) disagrees with the independent totals. Independent totals (V): SGA 13.65, 2MASS K 13.91, LEDA B 14.11, RC3 mB 13.15; median 13.78 (spread 0.23). Catalog 13.1 is -0.68, OpenNGC 14.56 +0.78. OpenNGC is off too: OpenNGC's V 14.56 (B 14.96)."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+    "RC3, de Vaucouleurs et al. 1991 (VizieR VII/155): BT, (B-V)T, mB",
+    "Siena Galaxy Atlas, Moustakas et al. 2023, ApJS 269, 3 (total g, r via SIMBAD); V = g - 0.59(g-r) - 0.01",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+]
+mag = 13.8
+was.mag = 13.1
+
+["IC 1901"]
+why = "Steinicke's B 15.7 (V 14.9) disagrees with the independent totals. Independent totals (V): 2MASS K 13.56, LEDA B 14.53; median 14.05 (spread 0.48). Catalog 14.9 is +0.85, OpenNGC 16.76 +2.71. OpenNGC is off too: OpenNGC's V 16.76 is fainter than its own B 15.38 (B-V -1.38; galaxies run 0.4-1.1), so it is not a total V."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+]
+mag = 14
+was.mag = 14.9
+
+["IC 3492"]
+why = "Steinicke's B 14.8 (V 13.8) disagrees with the independent totals. Independent totals (V): SGA 14.70, 2MASS K 16.06, LEDA B 14.17, RC3 mB 14.54; median 14.62 (spread 0.27). Catalog 13.8 is -0.82, OpenNGC 15.3 +0.68. OpenNGC is off too: OpenNGC's V 15.3 is fainter than its own B 15.12 (B-V -0.18; galaxies run 0.4-1.1), so it is not a total V."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+    "RC3, de Vaucouleurs et al. 1991 (VizieR VII/155): BT, (B-V)T, mB",
+    "Siena Galaxy Atlas, Moustakas et al. 2023, ApJS 269, 3 (total g, r via SIMBAD); V = g - 0.59(g-r) - 0.01",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+]
+mag = 14.6
+was.mag = 13.8
+
+["NGC 2718"]
+why = "Steinicke's B 12.6 (V 11.8) disagrees with the independent totals. Independent totals (V): 2MASS K 12.61, LEDA B 12.47, RC3 mB 11.88; median 12.47 (spread 0.14). Catalog 11.8 is -0.67, OpenNGC 14.24 +1.77. OpenNGC is off too: OpenNGC's V 14.24 is SIMBAD's V for this galaxy, which comes from the Veron-Cetty & Veron 2010 AGN catalogue: a nuclear magnitude, not the galaxy's (OpenNGC B 13.32). Cut: page: dropped (cut 12)."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+    "RC3, de Vaucouleurs et al. 1991 (VizieR VII/155): BT, (B-V)T, mB",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+    "Veron-Cetty & Veron 2010, A&A 518, A10 (AGN catalogue; SIMBAD's V for these galaxies)",
+]
+mag = 12.5
+was.mag = 11.8
+
+["NGC 4297"]
+why = "OpenNGC's V 12.92 (LEDA B 13.86) is far too bright, probably the light of the pair with NGC 4296. SIMBAD B 16.0, SDSS g 15.57, r 14.81 (V 15.11), 2MASS K 12.29 all put V near 15.1; Steinicke's 14.6 is about 0.5 too bright, which is the wrong side of the quarter page's 15 cut. Cut: quarter: dropped (cut 15)."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 15.1
+was.mag = 14.6
+
+["NGC 1814"]
+why = "NGC 2000.0 gives '9.p' for this LMC object, an old rough photographic figure that Steinicke carries as Vmag 9.0 (the same 9.0 appears for NGC 1814, 1816, 1820 and 1974). SIMBAD's modern integrated V (Bica et al. 1996 cluster photometry) is 12.76; a 1-2' LMC cluster at 9.0 would rival NGC 1850 and NGC 1866, the brightest. OpenNGC is right. Cut: page (Cloud cut): dropped (cut 10)."
+sources = [
+    "NGC 2000.0, Sinnott 1988 (PiFinder astro_data/ngc_ic_m/ngc2000/ngc2000.dat; 'p' = photographic)",
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 12.76
+was.mag = 9
+
+["NGC 1816"]
+why = "NGC 2000.0 gives '9.p' for this LMC object, an old rough photographic figure that Steinicke carries as Vmag 9.0 (the same 9.0 appears for NGC 1814, 1816, 1820 and 1974). SIMBAD's modern integrated V (Bica et al. 1996 cluster photometry) is 13.02; a 1-2' LMC cluster at 9.0 would rival NGC 1850 and NGC 1866, the brightest. OpenNGC is right. Cut: page (Cloud cut): dropped (cut 10); quarter: dropped (cut 12)."
+sources = [
+    "NGC 2000.0, Sinnott 1988 (PiFinder astro_data/ngc_ic_m/ngc2000/ngc2000.dat; 'p' = photographic)",
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 13.02
+was.mag = 9
+
+["NGC 1820"]
+why = "NGC 2000.0 gives '9.p' for this LMC object, an old rough photographic figure that Steinicke carries as Vmag 9.0 (the same 9.0 appears for NGC 1814, 1816, 1820 and 1974). SIMBAD's modern integrated V (Bica et al. 1996 cluster photometry) is 11.5; a 1-2' LMC cluster at 9.0 would rival NGC 1850 and NGC 1866, the brightest. OpenNGC is right. Cut: page (Cloud cut): dropped (cut 10)."
+sources = [
+    "NGC 2000.0, Sinnott 1988 (PiFinder astro_data/ngc_ic_m/ngc2000/ngc2000.dat; 'p' = photographic)",
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 11.5
+was.mag = 9
+
+["NGC 1974"]
+why = "NGC 2000.0 gives '9.p' for this LMC object, an old rough photographic figure that Steinicke carries as Vmag 9.0 (the same 9.0 appears for NGC 1814, 1816, 1820 and 1974). SIMBAD's modern integrated V (Bica et al. 1996 cluster photometry) is 10.3; a 1-2' LMC cluster at 9.0 would rival NGC 1850 and NGC 1866, the brightest. OpenNGC is right. Cut: page (Cloud cut): dropped (cut 10)."
+sources = [
+    "NGC 2000.0, Sinnott 1988 (PiFinder astro_data/ngc_ic_m/ngc2000/ngc2000.dat; 'p' = photographic)",
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 10.3
+was.mag = 9
+
+["NGC 1938"]
+why = "Steinicke's V 11.8 is that of its brighter neighbour NGC 1939 (OpenNGC V 11.83, B 12.52); NGC 1938 itself has SIMBAD V 13.09, B 13.54. Cut: quarter: dropped (cut 12)."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 13.1
+was.mag = 11.8
+
+["NGC 1847"]
+why = "SIMBAD's integrated V 12.469, B 12.508 (CCD, three decimals) against Steinicke's 11.1, which has no source in NGC 2000.0. Moderate confidence: LMC integrated magnitudes depend on aperture. Cut: quarter: dropped (cut 12)."
+sources = [
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+mag = 12.5
+was.mag = 11.1
+
+["NGC 7513"]
+why = "RC3's V-coded BT of 11.39, which the RC3 supplementary source gives it, is the low outlier among the independent totals (2MASS 12.08, LEDA 11.85, ESO-LV 11.98). 11.9 is the audit's median of the four, spread 0.12 (Rich's decision, #681)."
+sources = [
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+    "RC3, de Vaucouleurs et al. 1991 (VizieR VII/155): BT, (B-V)T, mB",
+    "2MASS XSC K via SIMBAD (2006AJ....131.1163S)",
+    "ESO-LV, Lauberts & Valentijn 1989 (via SIMBAD)",
+]
+mag = 11.9
+was.mag = 11.4
+
+["NGC 4874"]
+why = "Steinicke's rows for NGC 4872 and NGC 4874 are swapped: his 'NGC 4872' row is the Coma cD galaxy NGC 4874, with its position, size and V 11.7 (RC3 VT 11.68). Position Corwin's; size about 2.0' (RC3 1.95', UGC 2.4', SDSS 1.9', NGC 2000.0 2.7')."
+sources = [
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "RC3, VizieR VII/155",
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "RC3, de Vaucouleurs et al. 1991 (VizieR VII/155): BT, (B-V)T, mB",
+    "Siena Galaxy Atlas, Moustakas et al. 2023, ApJS 269, 3 (total g, r via SIMBAD); V = g - 0.59(g-r) - 0.01",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+ra = "12 59 35.71"
+dec = "+27 57 33.3"
+size = "2.0'x2.0'"
+mag = 11.7
+was.ra = "12 59 34.30"
+was.dec = "+27 56 48.0"
+was.size = "30\"x18\""
+was.mag = 14.4
+
+["NGC 4872"]
+why = "Steinicke's rows for NGC 4872 and NGC 4874 are swapped: his 'NGC 4874' row (12 59 34.3 +27 56 48, 0.5'x0.3', V 14.4) is NGC 4872, and NGC 4872's V is 14.4 (RC3 VT 14.41)."
+sources = [
+    "RC3, VizieR VII/155",
+    "Steinicke Revised NGC/IC as PiFinder ships it (astro_data/ngc_ic_m/steinicke/steinicke_catalog.json: Bmag, Vmag)",
+    "RC3, de Vaucouleurs et al. 1991 (VizieR VII/155): BT, (B-V)T, mB",
+    "SIMBAD flux table, TAP query 2026-10-21",
+    "OpenNGC NGC.csv B-Mag, V-Mag and Sources (starplot-ongc v0.1.2 copy; starplot's magnitude is V-Mag only)",
+]
+ra = "12 59 34.3"
+dec = "+27 56 48"
+size = "0.5'x0.3'"
+mag = 14.4
+was.ra = "12 59 35.80"
+was.dec = "+27 57 34.0"
+was.size = "1.9'x1.9'"
+was.mag = 11.7
+
+["IC 501"]
+why = "Steinicke 0.2', well below every isophotal measure; OpenNGC (HyperLEDA) agrees with the correct value. Steinicke often falls back on MCG/CGCG eye estimates of the inner part."
+sources = [
+    "NED diameters (RC3 D25, UGC, MCG, ESO, 2MASS, SDSS)",
+    "RC3, VizieR VII/155",
+    "PGC 2003, VizieR VII/237",
+    "NGC 2000.0",
+]
+size = "0.7'x0.5'"
+was.size = "12\"x12\""
+
+["IC 1062"]
+why = "Steinicke 0.3' (as NGC 2000.0), well below every isophotal measure; OpenNGC (HyperLEDA) agrees with the correct value. Steinicke often falls back on MCG/CGCG eye estimates of the inner part."
+sources = [
+    "NED diameters (RC3 D25, UGC, MCG, ESO, 2MASS, SDSS)",
+    "RC3, VizieR VII/155",
+    "PGC 2003, VizieR VII/237",
+    "NGC 2000.0",
+]
+size = "0.9'x0.7'"
+was.size = "18\"x12\""
+
+["IC 1391"]
+why = "Steinicke 0.2' is MCG's inner diameter, well below every isophotal measure; OpenNGC (HyperLEDA) agrees with the correct value. Steinicke often falls back on MCG/CGCG eye estimates of the inner part."
+sources = [
+    "NED diameters (RC3 D25, UGC, MCG, ESO, 2MASS, SDSS)",
+    "RC3, VizieR VII/155",
+    "PGC 2003, VizieR VII/237",
+    "NGC 2000.0",
+]
+size = "0.7'x0.5'"
+was.size = "12\"x12\""
+
+["IC 1635"]
+why = "Steinicke 0.3' is MCG's outer diameter, well below every isophotal measure; OpenNGC (HyperLEDA) agrees with the correct value. Steinicke often falls back on MCG/CGCG eye estimates of the inner part."
+sources = [
+    "NED diameters (RC3 D25, UGC, MCG, ESO, 2MASS, SDSS)",
+    "RC3, VizieR VII/155",
+    "PGC 2003, VizieR VII/237",
+    "NGC 2000.0",
+]
+size = "1.1'x0.7'"
+was.size = "18\"x18\""
+
+["IC 3410"]
+why = "Steinicke 0.2', well below every isophotal measure; OpenNGC (HyperLEDA) agrees with the correct value. Steinicke often falls back on MCG/CGCG eye estimates of the inner part."
+sources = [
+    "NED diameters (RC3 D25, UGC, MCG, ESO, 2MASS, SDSS)",
+    "RC3, VizieR VII/155",
+    "PGC 2003, VizieR VII/237",
+    "NGC 2000.0",
+]
+size = "0.7'x0.6'"
+was.size = "12\"x12\""
+
+["IC 5351"]
+why = "Steinicke 0.5', well below every isophotal measure; OpenNGC (HyperLEDA) agrees with the correct value. Steinicke often falls back on MCG/CGCG eye estimates of the inner part."
+sources = [
+    "NED diameters (RC3 D25, UGC, MCG, ESO, 2MASS, SDSS)",
+    "RC3, VizieR VII/155",
+    "PGC 2003, VizieR VII/237",
+    "NGC 2000.0",
+]
+size = "1.6'x0.8'"
+was.size = "30\"x24\""
+
+["NGC 5759"]
+why = "Steinicke 0.3'x0.2' is MCG's outer diameter, well below every isophotal measure; OpenNGC (HyperLEDA) agrees with the correct value. Steinicke often falls back on MCG/CGCG eye estimates of the inner part."
+sources = [
+    "NED diameters (RC3 D25, UGC, MCG, ESO, 2MASS, SDSS)",
+    "RC3, VizieR VII/155",
+    "PGC 2003, VizieR VII/237",
+    "NGC 2000.0",
+]
+size = "1.1'x0.5'"
+was.size = "18\"x12\""
+
+["NGC 6810"]
+why = "Steinicke 1.2'x0.9', well below every isophotal measure; OpenNGC (HyperLEDA) agrees with the correct value. Steinicke often falls back on MCG/CGCG eye estimates of the inner part."
+sources = [
+    "NED diameters (RC3 D25, UGC, MCG, ESO, 2MASS, SDSS)",
+    "RC3, VizieR VII/155",
+    "PGC 2003, VizieR VII/237",
+    "NGC 2000.0",
+]
+size = "3.2'x0.9'"
+was.size = "1.2'x0.9'"
+
+["NGC 7317"]
+why = "Two different objects are compared: the atlas joined OpenNGC's NGC 7318A/B rows to the catalog's NGC 7317 through the shared name \"Stephan's Quintet\" (these rows are not drawn; the NGC 7317 row is nearer). But the catalog's 0.4'x0.4' for NGC 7317 (MCG's outer diameter) is itself wrong. Same error in both findings."
+sources = [
+    "NED diameters (RC3 D25, UGC, MCG, ESO, 2MASS, SDSS)",
+    "RC3, VizieR VII/155",
+    "PGC 2003, VizieR VII/237",
+    "NGC 2000.0",
+]
+size = "1.1'x1.1'"
+was.size = "24\"x24\""
+
+["IC 3022"]
+why = "Steinicke 2.9'x0.9' is twice any measure; OpenNGC 0.2' (and NGC 2000.0 0.2') is MCG's inner diameter."
+sources = [
+    "NED diameters (RC3 D25, UGC, MCG, ESO, 2MASS, SDSS)",
+    "RC3, VizieR VII/155",
+    "PGC 2003, VizieR VII/237",
+    "NGC 2000.0",
+]
+size = "1.2'x1.1'"
+was.size = "2.9'x0.9'"
+
+["IC 4461"]
+why = "Steinicke 1.3'x0.7' is about twice the measures (possibly UGC 9384's pair size, with IC 4462); OpenNGC 0.41' is half."
+sources = [
+    "NED diameters (RC3 D25, UGC, MCG, ESO, 2MASS, SDSS)",
+    "RC3, VizieR VII/155",
+    "PGC 2003, VizieR VII/237",
+    "NGC 2000.0",
+]
+size = "0.8'x0.5'"
+was.size = "1.3'x0.7'"
+
+["IC 4732"]
+why = "Steinicke 13\" is several times every measured extent of this near-stellar planetary; OpenNGC (Acker) is right. Info box only."
+sources = [
+    "Acker+ 1992, VizieR V/84",
+    "Tylenda+ 2003, VizieR J/A+A/405/627",
+    "SIMBAD dimensions",
+    "Wikipedia/arXiv for IC 4997 and IC 5117",
+]
+size = "4\""
+was.size = "13.2\""
+
+["IC 4846"]
+why = "Steinicke 11\" is several times every measured extent of this near-stellar planetary; OpenNGC (Acker) is right. Info box only."
+sources = [
+    "Acker+ 1992, VizieR V/84",
+    "Tylenda+ 2003, VizieR J/A+A/405/627",
+    "SIMBAD dimensions",
+    "Wikipedia/arXiv for IC 4997 and IC 5117",
+]
+size = "0.05'"
+was.size = "10.8\""
+
+["IC 4997"]
+why = "Steinicke 13\" is several times every measured extent of this near-stellar planetary; OpenNGC (Acker) is right. Info box only."
+sources = [
+    "Acker+ 1992, VizieR V/84",
+    "Tylenda+ 2003, VizieR J/A+A/405/627",
+    "SIMBAD dimensions",
+    "Wikipedia/arXiv for IC 4997 and IC 5117",
+]
+size = "3\""
+was.size = "13.2\""
+
+["IC 5117"]
+why = "Steinicke 12\" is several times every measured extent of this near-stellar planetary; OpenNGC (Acker) is right. Info box only."
+sources = [
+    "Acker+ 1992, VizieR V/84",
+    "Tylenda+ 2003, VizieR J/A+A/405/627",
+    "SIMBAD dimensions",
+    "Wikipedia/arXiv for IC 4997 and IC 5117",
+]
+size = "2\""
+was.size = "12\""
+
+["NGC 6644"]
+why = "Steinicke 12\" is several times every measured extent of this near-stellar planetary; OpenNGC (Acker) is right. Info box only."
+sources = [
+    "Acker+ 1992, VizieR V/84",
+    "Tylenda+ 2003, VizieR J/A+A/405/627",
+    "SIMBAD dimensions",
+    "Wikipedia/arXiv for IC 4997 and IC 5117",
+]
+size = "0.08'"
+was.size = "12\""
+
+["NGC 6807"]
+why = "Steinicke 8\" is several times every measured extent of this near-stellar planetary; OpenNGC (Acker) is right. Info box only."
+sources = [
+    "Acker+ 1992, VizieR V/84",
+    "Tylenda+ 2003, VizieR J/A+A/405/627",
+    "SIMBAD dimensions",
+    "Wikipedia/arXiv for IC 4997 and IC 5117",
+]
+size = "2.6\""
+was.size = "7.8\""
+
+["NGC 6833"]
+why = "Steinicke 11\" is several times every measured extent of this near-stellar planetary; OpenNGC (Acker) is right. Info box only."
+sources = [
+    "Acker+ 1992, VizieR V/84",
+    "Tylenda+ 2003, VizieR J/A+A/405/627",
+    "SIMBAD dimensions",
+    "Wikipedia/arXiv for IC 4997 and IC 5117",
+]
+size = "2\""
+was.size = "10.8\""
+
+["NGC 395"]
+why = "Steinicke 17'; NGC 2000.0 'group of about 10 st, no neb', no size: about ten times Bica et al. 2008, which OpenNGC carries (a decimal slip in NI2023.xls, read unchanged by the loader)."
+sources = [
+    "Bica+ 2008 via OpenNGC (HEASARC lmcextobj/smcclustrs)",
+    "NGC 2000.0",
+    "Steinicke NI2023.xls",
+]
+size = "1.5'x1.1'"
+was.size = "17'"
+
+["NGC 602"]
+why = "Steinicke 34' for a 3' cluster in N 90; NGC 2000.0 'B, S, R', no size: about ten times Bica et al. 2008, which OpenNGC carries (a decimal slip in NI2023.xls, read unchanged by the loader)."
+sources = [
+    "Bica+ 2008 via OpenNGC (HEASARC lmcextobj/smcclustrs)",
+    "NGC 2000.0",
+    "Steinicke NI2023.xls",
+]
+size = "3.2'x2.9'"
+was.size = "34'"
+
+["NGC 1869"]
+why = "Steinicke 14'; NGC 2000.0 no size: about ten times Bica et al. 2008, which OpenNGC carries (a decimal slip in NI2023.xls, read unchanged by the loader)."
+sources = [
+    "Bica+ 2008 via OpenNGC (HEASARC lmcextobj/smcclustrs)",
+    "NGC 2000.0",
+    "Steinicke NI2023.xls",
+]
+size = "2.0'x1.4'"
+was.size = "14'"
+
+["IC 424"]
+why = "Steinicke's 120' is a 2 degree cloud; IC 424 is Fleming's small nebula near delta Ori, catalogued by Dorschner-Gurtler (DG 59) and Magakian as a small cometary nebula; LBN 914 2'x2'; NGC 2000.0 gives no size. With no magnitude, the nebula rule then drops it from the page (2.5' < 5')."
+sources = [
+    "Magakian 2003, VizieR J/A+A/399/141",
+    "LBN, VizieR VII/9",
+    "OpenNGC note 'Dimensions from LEDA are wrong, values inferred by author'",
+    "Corwin IC notes (IC 434)",
+]
+size = "2.5'"
+was.size = "2°"
+
+["IC 1995"]
+why = "One of Barnard's exterior nebulosities of the Pleiades, around HD 23985. Steinicke 135'x135' overstates it; OpenNGC's 2' (SIMBAD) is only the part next to the star."
+sources = [
+    "Corwin, IC notes (IC 1995)",
+    "NGC 2000.0 '*6 in eF, eeL neb'",
+    "Cederblad 22, VizieR VII/231",
+]
+size = "60'x30'"
+was.size = "135'x135'"
+
+["NGC 6526"]
+why = "Corwin: NGC 6526 is the part of M 8 south-east of the dark lane, a region tens of arcminutes across; Steinicke's 6'x3' is a single knot. With no outline, the atlas then draws it as the largest nebula symbol inside M 8."
+sources = [
+    "Corwin NGC notes (NGC 6526)",
+    "NGC 2000.0",
+]
+size = "40'"
+was.size = "6'x3'"
+
+["NGC 2455"]
+why = "Steinicke 15' is about twice every visual estimate (only MWSC 2*r2 16.8' is as large); OpenNGC's MajAx for clusters comes from HEASARC mwsc 'central_radius' (Kharchenko et al. 2013 r1) and is the radius in arcmin stored as a diameter: it equals 60*r1 exactly (0.075 deg)."
+sources = [
+    "Kharchenko+ 2013 MWSC, VizieR J/A+A/558/A53",
+    "Dias+ 2002 v3.5, VizieR B/ocl",
+    "Lynga 1987, VizieR VII/92A",
+    "NGC 2000.0 (Sinnott 1988), PiFinder astro_data/ngc_ic_m/ngc2000/ngc2000.dat",
+    "OpenNGC README (data sources) and NGC.csv Sources column",
+]
+size = "8'"
+was.size = "15'"
+
+["NGC 6605"]
+why = "Steinicke 29' is twice Corwin's 15'x15'; OpenNGC's MajAx for clusters comes from HEASARC mwsc 'central_radius' (Kharchenko et al. 2013 r1) and is the radius in arcmin stored as a diameter: it equals 60*r1 exactly (0.105 deg)."
+sources = [
+    "Kharchenko+ 2013 MWSC, VizieR J/A+A/558/A53",
+    "Dias+ 2002 v3.5, VizieR B/ocl",
+    "Lynga 1987, VizieR VII/92A",
+    "NGC 2000.0 (Sinnott 1988), PiFinder astro_data/ngc_ic_m/ngc2000/ngc2000.dat",
+    "OpenNGC README (data sources) and NGC.csv Sources column",
+    "Corwin, NGC notes (NGC 6605)",
+]
+size = "15'"
+was.size = "29'"
+
+["NGC 6625"]
+why = "Steinicke's 39' exceeds every other estimate; OpenNGC's MajAx for clusters comes from HEASARC mwsc 'central_radius' (Kharchenko et al. 2013 r1) and is the radius in arcmin stored as a diameter: it equals 60*r1 exactly (0.10 deg). The identification is uncertain (Corwin). The catalog sits near the nominal position, where Corwin finds nothing obvious. Corwin's probable (':') cluster (12' x 8') is 7' west-northwest, 1.2' from OpenNGC's point (taken from SIMBAD, Kharchenko 2013)."
+sources = [
+    "Kharchenko+ 2013 MWSC, VizieR J/A+A/558/A53",
+    "Dias+ 2002 v3.5, VizieR B/ocl",
+    "Lynga 1987, VizieR VII/92A",
+    "NGC 2000.0 (Sinnott 1988), PiFinder astro_data/ngc_ic_m/ngc2000/ngc2000.dat",
+    "OpenNGC README (data sources) and NGC.csv Sources column",
+    "Corwin, NGC notes (NGC 6625)",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%206625",
+    "https://ned.ipac.caltech.edu/byname?objname=NGC%206625",
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+ra = "18 22 45"
+dec = "-11 58 24"
+size = "15'"
+was.ra = "18 23 12.80"
+was.dec = "-12 00 47.0"
+was.size = "39'"
+
+["IC 1871"]
+why = "The catalog has no size (Steinicke blank). OpenNGC's LBN value is right."
+sources = [
+    "LBN, VizieR VII/9",
+    "NGC 2000.0",
+    "Corwin notes",
+]
+size = "4'x4'"
+was.size = ""
+
+["NGC 2246"]
+why = "The catalog has no size (Steinicke blank). OpenNGC's value is reasonable."
+sources = [
+    "LBN, VizieR VII/9",
+    "NGC 2000.0",
+    "Corwin notes",
+]
+size = "10'"
+was.size = ""
+
+["NGC 1986"]
+why = "Steinicke 0.7' vs Bica 2.8'x2.4' ('B, pL' in NGC 2000.0): Steinicke gives the cluster's core; Bica the cluster's extent, which matches the NGC descriptions. Bica's axes are 2.8'x2.4'; the Bica supplementary source only fills a missing size, so it cannot replace Steinicke's core."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "Bica+ 2008 via OpenNGC (HEASARC lmcextobj/smcclustrs)",
+    "NGC 2000.0",
+    "Steinicke NI2023.xls",
+]
+size = "2.8'x2.4'"
+was.size = "42\""
+
+["NGC 2016"]
+why = "Steinicke 0.3' vs Bica 1.8' ('F, vL' in NGC 2000.0): Steinicke gives the cluster's core; Bica the cluster's extent, which matches the NGC descriptions. Bica's axes are 1.8'x1.8'; the Bica supplementary source only fills a missing size, so it cannot replace Steinicke's core."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "Bica+ 2008 via OpenNGC (HEASARC lmcextobj/smcclustrs)",
+    "NGC 2000.0",
+    "Steinicke NI2023.xls",
+]
+size = "1.8'x1.8'"
+was.size = "18\""
+
+["NGC 2027"]
+why = "Steinicke 0.7' vs Bica 4.6'x2.8' ('Cl, vL, Ri' in NGC 2000.0): Steinicke gives the cluster's core; Bica the cluster's extent, which matches the NGC descriptions. Bica's axes are 4.6'x2.8'; the Bica supplementary source only fills a missing size, so it cannot replace Steinicke's core."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "Bica+ 2008 via OpenNGC (HEASARC lmcextobj/smcclustrs)",
+    "NGC 2000.0",
+    "Steinicke NI2023.xls",
+]
+size = "4.6'x2.8'"
+was.size = "42\""
+
+["NGC 2037"]
+why = "Steinicke 0.5' vs Bica 2.9'x1.3': Steinicke gives the cluster's core; Bica the cluster's extent, which matches the NGC descriptions. Bica's axes are 2.9'x1.3'; the Bica supplementary source only fills a missing size, so it cannot replace Steinicke's core."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "Bica+ 2008 via OpenNGC (HEASARC lmcextobj/smcclustrs)",
+    "NGC 2000.0",
+    "Steinicke NI2023.xls",
+]
+size = "2.9'x1.3'"
+was.size = "30\""
+
+["NGC 2041"]
+why = "Steinicke 0.7' vs Bica 2.6'x2.6': Steinicke gives the cluster's core; Bica the cluster's extent, which matches the NGC descriptions. Bica's axes are 2.6'x2.6'; the Bica supplementary source only fills a missing size, so it cannot replace Steinicke's core."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "Bica+ 2008 via OpenNGC (HEASARC lmcextobj/smcclustrs)",
+    "NGC 2000.0",
+    "Steinicke NI2023.xls",
+]
+size = "2.6'x2.6'"
+was.size = "42\""
+
+["NGC 2029"]
+why = "Steinicke gives no size. Bica et al. 2008's row at NGC 2029's position (05 35 39 -66 01 50) is named NGC2030: Corwin notes that NGC 2029 and NGC 2030 have their positions interchanged in the GC and NGC, and that ESO and KMHK followed the swap. Steinicke's identifications agree with Corwin's, so the size is that row's, 1.7'x1.7'."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "http://haroldcorwin.net/ngcic/ngcnotes.all",
+]
+size = "1.7'x1.7'"
+was.size = ""
+
+["NGC 2030"]
+why = "Steinicke gives no size. Bica et al. 2008's row at NGC 2030's position (05 34 59 -67 33 23) is named NGC2029: Corwin notes that NGC 2029 and NGC 2030 have their positions interchanged in the GC and NGC, and that ESO and KMHK followed the swap. Steinicke's identifications agree with Corwin's, so the size is that row's, 1.1'x0.85'."
+sources = [
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/MNRAS/389/678",
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "http://haroldcorwin.net/ngcic/ngcnotes.all",
+]
+size = "1.1'x0.85'"
+was.size = ""
+
+["NGC 1404"]
+why = "NGC 1404 sits within seconds of arc of the Fornax/Eridanus boundary, the parallel -36 00 00 (B1875) between RA 3h30m and 3h45m. At the modern position (03 38 51.9 -35 35 39, SIMBAD/Corwin) it is south of the line: B1875 dec -36 00 03 (skyfield) / -36 00 08 (astropy), so Eridanus, as OpenNGC says. The catalog's Steinicke position is 6\" north (-35 35 34), and skyfield's B1875 precession puts that at -35 59 58, just inside Fornax. Using the modern position flips it to Eridanus with either tool."
+sources = [
+    "https://cdsarc.cds.unistra.fr/viz-bin/cat/VI/42",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%201404",
+    "https://ned.ipac.caltech.edu/byname?objname=NGC%201404",
+]
+const = "Eri"
+was.const = "For"
+
+["IC 346"]
+why = "Corwin gives IC 346 a firm identification, the galaxy at OpenNGC's position, as do SIMBAD and NED. Steinicke marks IC 346 'not found' (status 10) at a nominal position (Corwin's 'IC 346.1' nominal, 'comparison star misidentified?'), and PiFinder imports it as an unknown-type object at empty sky. Identified, it no longer leads its description with Steinicke's not-found note."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%20346",
+    "https://ned.ipac.caltech.edu/byname?objname=IC%20346",
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Gx"
+ra = "03 41 44.7"
+dec = "-18 16 01"
+size = "1.95'x1.47'"
+description = "eF, pL, E 80deg , dif"
+was.obj_type = "?"
+was.ra = "03 41 24.90"
+was.dec = "-18 22 16.0"
+was.size = ""
+was.description = "Not found: nothing at Dreyer's position (Steinicke).\neF, pL, E 80deg , dif"
+
+["IC 3056"]
+why = "Steinicke marks IC 3056 not found (status 10) at a nominal position 58' (one degree of declination) north. Corwin (firm), SIMBAD and NED all identify UGC 7249 at OpenNGC's position. The wrong position also puts the catalog's IC 3056 in Coma Berenices instead of Virgo. Identified, it no longer leads its description with Steinicke's not-found note."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%203056",
+    "https://ned.ipac.caltech.edu/byname?objname=IC%203056",
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Gx"
+ra = "12 14 36.9"
+dec = "+12 48 43"
+size = "1.3'x0.5'"
+description = "pL, vmE 50deg"
+was.obj_type = "?"
+was.ra = "12 14 37.90"
+was.dec = "+13 46 47.0"
+was.size = ""
+was.description = "Not found: nothing at Dreyer's position (Steinicke).\npL, vmE 50deg"
+
+["IC 4991"]
+why = "Steinicke: not found (status 10), with the remark 'ESO 340-11 ?'; PiFinder stores the nominal position, where Corwin says there is nothing. Corwin's candidate, SIMBAD and NED all give ESO 340-11 at OpenNGC's position. Identified, it no longer leads its description with Steinicke's not-found note."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%204991",
+    "https://ned.ipac.caltech.edu/byname?objname=IC%204991",
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Gx"
+ra = "20 18 23.3"
+dec = "-41 03 01"
+size = "2.9'x2.1'"
+description = "vF, cS, R"
+was.obj_type = "?"
+was.ra = "20 17 45.70"
+was.dec = "-41 34 55.0"
+was.size = ""
+was.description = "Not found: nothing at Dreyer's position (Steinicke).\nvF, cS, R"
+
+["NGC 4323"]
+why = "Steinicke gives NGC 4322 to the galaxy UGC 7450 and marks NGC 4323 not found. Corwin (firm), NED and OpenNGC give NGC 4323 to the galaxy and NGC 4322 to a star 4.8' west; SIMBAD puts both names on the galaxy. The catalog's NGC 4323 is an empty nominal point 3.4' east of the galaxy. V 13.9 is Steinicke's own for the galaxy, on his NGC 4322 row (UGC 7450). Identified, it no longer leads its description with Steinicke's not-found note."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%204323",
+    "https://ned.ipac.caltech.edu/byname?objname=NGC%204323",
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "Gx"
+ra = "12 23 01.7"
+dec = "+15 54 20"
+size = "1.23'x0.71'"
+mag = 13.9
+description = "2nd of 2, vF, n of M100; = 4322?"
+was.obj_type = "?"
+was.ra = "12 23 16.00"
+was.dec = "+15 54 07.0"
+was.size = ""
+was.mag = ""
+was.description = "Not found: nothing at Dreyer's position (Steinicke).\n2nd of 2, vF, n of M100; = 4322?"
+
+["NGC 6847"]
+why = "Steinicke: not found (status 10); PiFinder stores 19 56 33.7 +29 13 27, 59' south of any candidate, typed unknown. Corwin's candidate (a 19' x 13' star cloud), SIMBAD (open cluster), NED and Hunt & Reffert 2023 (cluster NGC 6847, r50 1.7') all sit at OpenNGC's position, about one degree of declination north. The wrong position also gives the catalog Vulpecula instead of Cygnus. A cluster with nebulosity: SIMBAD and Hunt & Reffert 2023 give the cluster, LBN 151 the 10'x10' nebula, OpenNGC Cl+N (Rich's decision). Identified, it no longer leads its description with Steinicke's not-found note."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%206847",
+    "https://ned.ipac.caltech.edu/byname?objname=NGC%206847",
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR-3?-source=J/A%2BA/673/A114/clusters",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "C+N"
+ra = "19 56 37.8"
+dec = "+30 12 47"
+size = "10'x10'"
+description = "neb, r"
+was.obj_type = "?"
+was.ra = "19 56 33.70"
+was.dec = "+29 13 27.0"
+was.size = ""
+was.description = "Not found: nothing at Dreyer's position (Steinicke).\nneb, r"
+
+["IC 2477"]
+why = "Steinicke: not found (status 10) at the nominal position, which Corwin confirms is empty ('18 seconds off if = IC 2480'). Corwin's probable identification is IC 2477 = IC 2480, OpenNGC's position (OpenNGC lists IC 2480 as its duplicate). Structure: the catalog should put IC 2477 on its IC 2480 object instead of a separate empty-sky object. Identified, it no longer leads its description with Steinicke's not-found note."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%202477",
+    "https://ned.ipac.caltech.edu/byname?objname=IC%202477",
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+same_as = "IC 2480"
+description = "F, S, gbM, r"
+was.description = "Not found: nothing at Dreyer's position (Steinicke).\nF, S, gbM, r"
+
+["IC 919"]
+why = "Corwin's probable (':') identification, SIMBAD and NED all agree on PGC 48570 at OpenNGC's position. Steinicke's PGC 2507977 is 5' away, near the nominal position."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%20919",
+    "https://ned.ipac.caltech.edu/byname?objname=IC%20919",
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+ra = "13 42 47.5"
+dec = "+55 31 17"
+was.ra = "13 42 56.50"
+was.dec = "+55 36 12.0"
+
+["IC 4494"]
+why = "Corwin ranks OpenNGC's galaxy first (':') and the catalog's second ('::'); SIMBAD and NED both choose OpenNGC's. Steinicke alone chooses PGC 52645, 4.2' south. Weak call: both are probable."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%204494",
+    "https://ned.ipac.caltech.edu/byname?objname=IC%204494",
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+ra = "14 44 25.5"
+dec = "+15 33 05"
+was.ra = "14 44 27.10"
+was.dec = "+15 28 52.0"
+
+["NGC 6174"]
+why = "Corwin's probable (':') identification, SIMBAD and NED all give the pair at OpenNGC's position; Steinicke's PGC 58334 is 4.5' west and not among Corwin's candidates."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%206174",
+    "https://ned.ipac.caltech.edu/byname?objname=NGC%206174",
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+ra = "16 29 46.6"
+dec = "+40 52 24"
+was.ra = "16 29 23.80"
+was.dec = "+40 52 30.0"
+
+["NGC 4230"]
+why = "Corwin's firm identification and the nominal position (6' cluster) agree with OpenNGC and NED. The catalog's position (12 17 16 -55 05.2) is 12' north, close to Kharchenko's object that SIMBAD flags 'err' and NED says is ESO 171-SC14, 'not NGC 4230'."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%204230",
+    "https://ned.ipac.caltech.edu/byname?objname=NGC%204230",
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+ra = "12 17 07"
+dec = "-55 17 30"
+was.ra = "12 17 16.00"
+was.dec = "-55 05 12.0"
+
+["IC 998"]
+why = "Corwin's candidate and both nominal positions, and NED, put IC 998 at OpenNGC's position. The catalog's IC 998 (Steinicke PGC 51220) sits on the IC 997 pair (0.0' from it), so two catalog objects are shifted by one. Steinicke's IC 998 row (PGC 51220) is the IC 997 pair, so its magnitude and size go to IC 997 with it; no source gives LEDA 1058483's, so they are cleared."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%20998",
+    "https://ned.ipac.caltech.edu/byname?objname=IC%20998",
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+ra = "14 20 19.3"
+dec = "-04 24 59"
+size = ""
+mag = ""
+was.ra = "14 19 59.20"
+was.dec = "-04 27 08.0"
+was.size = "1.4'x0.7'"
+was.mag = 12.8
+
+["IC 997"]
+why = "Corwin (':'), SIMBAD and NED identify IC 997 as the pair at OpenNGC's position. Steinicke puts IC 997 on PGC 51173 ('= IC 4401') 8.8' west and moves IC 998 onto the IC 997 pair. IC 4401 keeps PGC 51173. Its split copies PGC 51173's magnitude and size; the pair's are those of Steinicke's IC 998 row, PGC 51220, which is the pair: V 12.8, 1.4'x0.7'."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%20997",
+    "https://ned.ipac.caltech.edu/byname?objname=IC%20997",
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+own_object = true
+ra = "14 19 59.5"
+dec = "-04 27 06"
+size = "1.4'x0.7'"
+mag = 12.8
+was.ra = "14 19 25.10"
+was.dec = "-04 29 24.0"
+was.size = "1.4'x0.5'"
+was.mag = 14.2
+
+["IC 1795"]
+why = "Steinicke equates IC 1795 with NGC 896 (status 8), so the catalog puts IC 1795 on NGC 896's position (02 25 27.8 +62 01 10, 0.0' from the catalog's NGC 896). Corwin, NED and OpenNGC list them separately, IC 1795 7.6' east; OpenNGC also lists NGC 896 at the catalog's position. A 10-12' nebula, so the catalog's point is off it."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%201795",
+    "https://ned.ipac.caltech.edu/byname?objname=IC%201795",
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+own_object = true
+ra = "02 26 33"
+dec = "+62 02 30"
+was.ra = "02 25 27.80"
+was.dec = "+62 01 10.0"
+
+["IC 5281"]
+why = "Corwin (firm), NED and OpenNGC identify IC 5281 as a double star. Steinicke (status 8) and SIMBAD equate it with NGC 7466, so the catalog's IC 5281 is a second object on top of NGC 7466. The split copies NGC 7466's magnitude and size, which a double star does not have, so they are cleared."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%205281",
+    "https://ned.ipac.caltech.edu/byname?objname=IC%205281",
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+own_object = true
+obj_type = "D*"
+ra = "23 02 23.5"
+dec = "+27 00 21"
+size = ""
+mag = ""
+was.obj_type = "Gx"
+was.ra = "23 02 03.40"
+was.dec = "+27 03 11.0"
+was.size = "1.5'x0.5'"
+was.mag = 13.5
+
+["NGC 4322"]
+why = "Pair with NGC 4323: Corwin (firm) and NED identify NGC 4322 as a star 4.8' west of UGC 7450; the catalog (Steinicke) puts NGC 4322 on the galaxy that is NGC 4323. The galaxy's data (type, mag 12.5-ish, size) belong on NGC 4323. The galaxy's magnitude and size go to NGC 4323 with its identification; no source gives the star's, so they are cleared."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%204322",
+    "https://ned.ipac.caltech.edu/byname?objname=NGC%204322",
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+obj_type = "*"
+ra = "12 22 41.9"
+dec = "+15 54 12"
+size = ""
+mag = ""
+was.obj_type = "Gx"
+was.ra = "12 23 01.70"
+was.dec = "+15 54 19.0"
+was.size = "1.1'x0.8'"
+was.mag = 13.9
+
+["NGC 4362"]
+why = "Steinicke makes NGC 4362 a duplicate of NGC 4358 (status 7); Corwin (NGC 4362 = NGC 4364), OpenNGC/NED and SIMBAD's NGC 4362 put it on the second galaxy. The catalog has the right position already, under NGC 4364; NGC 4362 should be an entry on that object."
+sources = [
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%204362",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+]
+same_as = "NGC 4364"
+
+["NGC 6138"]
+why = "Steinicke makes NGC 6363 a duplicate of NGC 6138, but puts his NGC 6138 row on the galaxy that Corwin identifies as NGC 6141, 11 degrees from NGC 6363. Corwin: NGC 6138 = NGC 6363 (Stephan misidentified his comparison star; Esmiol's N6138 = N6263 is a misprint for N6363). NGC 6141 is the faint galaxy at 16 23 06.4 +40 51 30."
+sources = [
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "http://haroldcorwin.net/ngcic/ngcnotes.all",
+]
+same_as = "NGC 6363"
+guard = false
+
+["IC 1028"]
+why = "Steinicke makes IC 1028 a duplicate of NGC 5731, 62' away, so the import keeps it apart; his IC 1028 row is at NGC 5739's position. Corwin: IC 1028 = NGC 5739."
+sources = [
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "http://haroldcorwin.net/ngcic/icnotes.all",
+]
+same_as = "NGC 5739"
+
+["IC 2145"]
+why = "Steinicke lists IC 2145 and NGC 2086 as two objects 0.97' apart, so the import keeps two. Corwin: IC 2145 = NGC 2086, one nebula (N 160C); Bica et al. 2008 names them in one row, NGC2086,IC2145,LMC-N160C, 0.85'x0.80', the size NGC 2086 already has. Steinicke's 2.0' for IC 2145 goes with the duplicate."
+sources = [
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "http://haroldcorwin.net/ngcic/icnotes.all",
+    "Bica et al. 2008, VizieR J/MNRAS/389/678 (astro_data/bica2008)",
+]
+same_as = "NGC 2086"
+
+["IC 4763"]
+why = "Steinicke makes IC 4763 a duplicate of NGC 6677. Corwin, after reducing Bigourdan's micrometry: NGC 6677 is object A, and object B is NGC 6679 = IC 4763."
+sources = [
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "http://haroldcorwin.net/ngcic/icnotes.all",
+]
+same_as = "NGC 6679"
+
+["NGC 6885"]
+why = "NGC 6885 = NGC 6882 (Corwin, OpenNGC, Steinicke): one open cluster around 20 Vul. Steinicke's shared position is 5' north-west of Corwin's and OpenNGC's centre, 20 12 00 +26 30.2."
+sources = [
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%206885",
+    "https://en.wikipedia.org/wiki/Caldwell_catalogue",
+]
+ra = "20 12 00"
+dec = "+26 30 12"
+was.ra = "20 11 40.60"
+was.dec = "+26 32 54.0"

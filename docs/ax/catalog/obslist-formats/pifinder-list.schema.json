@@ -100,7 +100,7 @@
             },
             "filter_mag": {
               "type": "number",
-              "description": "Mean of the parseable magnitudes, used for filtering."
+              "description": "The brightest of the parseable magnitudes, used for filtering."
             }
           }
         }
