@@ -87,10 +87,8 @@ def _listing_index(object_list, listing, hint: Optional[int] = None) -> Optional
     key = (listing.catalog_code, listing.sequence)
     if hint is not None and 0 <= hint < len(object_list):
         candidate = object_list[hint]
-        if candidate is listing or (
-            candidate.catalog_code,
-            candidate.sequence,
-        ) == key:
+        candidate_key = (candidate.catalog_code, candidate.sequence)
+        if candidate is listing or candidate_key == key:
             return hint
     if isinstance(object_list, ObjectSequence):
         wanted = listing_keys(
