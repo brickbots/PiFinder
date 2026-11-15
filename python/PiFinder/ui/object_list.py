@@ -15,6 +15,7 @@ import functools
 from functools import cache
 import math as math
 import re
+import time
 
 from PIL import Image, ImageChops
 from itertools import cycle
@@ -64,7 +65,27 @@ class SortOrder(Enum):
 
     CATALOG_SEQUENCE = 0  # By catalog/sequence
     NEAREST = 1  # By Distance to target
+    BRIGHTEST = 2  # By apparent magnitude
     RA = 3  # By RA
+    EARTH_DISTANCE = 4  # By physical distance from Earth
+    OPPOSITION = 5  # By next opposition / greatest elongation
+
+
+def _sort_objects(objects: ObjectSequence, order: SortOrder) -> ObjectSequence:
+    """
+    ``objects`` in ``order`` (a stable sort, so ties keep their order). Works
+    on columns, so no object is made; an object without a distance or an
+    opposition date sorts last.
+    """
+    column = {
+        SortOrder.RA: "ra",
+        SortOrder.BRIGHTEST: "filter_mag",
+        SortOrder.EARTH_DISTANCE: "earth_distance_au",
+        SortOrder.OPPOSITION: "opposition_ordinal",
+    }.get(order)
+    if column is None:
+        return objects
+    return objects.take(np.argsort(objects.column(column), kind="stable"))
 
 
 # Sentinel for "the Nearby spatial index has never been built". A plain None
@@ -94,11 +115,14 @@ def _name_group(name: str) -> int:
 
 
 def _sort_order_label(sort_order: "SortOrder") -> str:
-    if sort_order == SortOrder.CATALOG_SEQUENCE:
-        return _("Catalog")
-    if sort_order == SortOrder.RA:
-        return _("RA")
-    return _("Nearby")
+    return {
+        SortOrder.CATALOG_SEQUENCE: _("Catalog"),
+        SortOrder.NEAREST: _("Nearby"),
+        SortOrder.BRIGHTEST: _("Brightest"),
+        SortOrder.RA: _("RA"),
+        SortOrder.EARTH_DISTANCE: _("Distance"),
+        SortOrder.OPPOSITION: _("Opposition"),
+    }[sort_order]
 
 
 def _next_target_index(
@@ -158,6 +182,7 @@ class UIObjectList(UITextMenu):
         self._menu_items_sorted: ObjectSequence = ObjectSequence()
         self.catalog_info_1: str = ""
         self.catalog_info_2: str = ""
+        self.catalog_data_label: str = ""
         # Filter dirty_time the Nearby spatial index was last built against
         self._nearby_index_key: Any = _NEARBY_INDEX_UNBUILT
         # Filter dirty_time the object list was last built against
@@ -196,27 +221,41 @@ class UIObjectList(UITextMenu):
         # Base marking menu
         marking_menu_down = MarkingMenuOption()
 
-        # Add refresh option for comet catalog only
-        if (
-            self.item_definition.get("objects") == "catalog"
-            and self.item_definition.get("value") == "CM"
-        ):
+        # Downloaded dynamic catalogs can refresh without discarding their
+        # currently displayed objects.
+        if self.item_definition.get(
+            "objects"
+        ) == "catalog" and self.item_definition.get("value") in ("CM", "MP"):
             marking_menu_down = MarkingMenuOption(
                 label=_("Refresh"),
-                callback=self.mm_refresh_comets,  # TRANSLATORS: Marking menu option to refresh comet catalog
+                callback=self.mm_refresh_dynamic_catalog,
             )
+
+        asteroid_list = self.item_definition.get("value") == "MP"
 
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
                 label=_("Sort"),
                 callback=MarkingMenu(
-                    up=MarkingMenuOption(),
-                    left=MarkingMenuOption(
-                        label=_("Nearest"), callback=self.mm_change_sort
+                    up=MarkingMenuOption(
+                        label=_("MAG"),
+                        callback=self.mm_change_sort,
+                        value=SortOrder.BRIGHTEST,
                     ),
-                    down=MarkingMenuOption(),
+                    left=MarkingMenuOption(
+                        label=_("NEAR"),
+                        callback=self.mm_change_sort,
+                        value=SortOrder.NEAREST,
+                    ),
+                    down=MarkingMenuOption(
+                        label=_("OPP") if asteroid_list else _("RA"),
+                        callback=self.mm_change_sort,
+                        value=(SortOrder.OPPOSITION if asteroid_list else SortOrder.RA),
+                    ),
                     right=MarkingMenuOption(
-                        label=_("Standard"), callback=self.mm_change_sort
+                        label=_("STD"),
+                        callback=self.mm_change_sort,
+                        value=SortOrder.CATALOG_SEQUENCE,
                     ),
                 ),
             ),
@@ -283,6 +322,8 @@ class UIObjectList(UITextMenu):
         # Filter only the catalogs this list shows: a large catalog (WDS has
         # over 130,000 objects) must not slow down opening a small one.
         self.catalogs.filter_catalogs(self._source_catalogs())
+        # Recorded before sort(), whose update() must see the list as current.
+        self._list_dirty_time = catalog_filter.dirty_time
 
         # The object list can display objects from various sources
         # This key of the item definition controls where to get the
@@ -295,8 +336,12 @@ class UIObjectList(UITextMenu):
         if self.item_definition["objects"] == "catalog":
             for catalog in self._source_catalogs():
                 self._menu_items = catalog.as_sequence(filtered=True)
-                age = catalog.get_age()
-                self.catalog_info_2 = "" if age is None else str(round(age, 0))
+                self.catalog_data_label = catalog.get_data_label() or ""
+                if self.catalog_data_label:
+                    self.catalog_info_2 = ""
+                else:
+                    age = catalog.get_age()
+                    self.catalog_info_2 = "" if age is None else str(round(age, 0))
 
         if self.item_definition["objects"] == "recent":
             self._menu_items = ObjectSequence.of(self.ui_state.recent_list())
@@ -323,7 +368,14 @@ class UIObjectList(UITextMenu):
         self._current_item_index = _next_target_index(
             self._menu_items_sorted, old_order, old_index
         )
-        self._list_dirty_time = catalog_filter.dirty_time
+
+    def _sources_replaced(self) -> bool:
+        """True when a catalog this list shows replaced its objects (a comet
+        or asteroid update) and was not filtered since."""
+        return any(
+            catalog.catalog_filter is not None and catalog.last_filtered == 0
+            for catalog in self._source_catalogs()
+        )
 
     def _source_catalogs(self) -> list:
         """The catalogs whose filtered objects this list shows."""
@@ -339,22 +391,26 @@ class UIObjectList(UITextMenu):
         return []
 
     def get_nr_of_menu_items(self):
-        """
-        How many rows the carousel can navigate.
-
-        UITextMenu counts ``_menu_items``, but this screen draws, scrolls,
-        opens and serialises ``_menu_items_sorted`` -- which is shorter
-        whenever the active sort produces fewer rows than the source list
-        (the Nearby sort caps at NEAREST_LIST_CAP, and deduplicates listings
-        that share an object_id). Counting the source instead would let the
-        cursor address rows that do not exist.
-
-        The catalog's own object count is reported separately, in
-        ``catalog_info_1``.
-        """
+        """Count the sorted rows that this screen actually navigates."""
         return len(self._menu_items_sorted)
 
-    def _get_catalog_status_message(self) -> Tuple[Optional[str], Optional[int]]:
+    def _get_catalog_status(self):
+        if self.item_definition.get("objects") != "catalog":
+            return None
+        catalog = self.catalogs.get_catalog_by_code(self.item_definition.get("value"))
+        if catalog is None:
+            return None
+        status = catalog.get_status()
+        if (
+            status.previous != CatalogState.READY
+            and status.current == CatalogState.READY
+        ):
+            self.refresh_object_list(force_update=True)
+        return status
+
+    def _get_catalog_status_message(
+        self, status=None
+    ) -> Tuple[Optional[str], Optional[int]]:
         """
         Generate status message explaining why catalog might be empty.
         Returns tuple of (message, progress_percentage).
@@ -362,62 +418,21 @@ class UIObjectList(UITextMenu):
 
         Also handles refreshing object list when catalog transitions to READY.
         """
-        if self.item_definition.get("objects") != "catalog":
+        status = status or self._get_catalog_status()
+        if status is None:
             return (None, None)
-
-        catalog_code = self.item_definition.get("value")
-        if not catalog_code:
+        progress = status.data.get("progress") if status.data else None
+        if status.current == CatalogState.READY:
             return (None, None)
-
-        for catalog in self.catalogs.get_catalogs(only_selected=False):
-            if catalog.catalog_code == catalog_code:
-                status = catalog.get_status()
-
-                # Handle state transitions - refresh immediately when transitioning to READY
-                if (
-                    status.previous != CatalogState.READY
-                    and status.current == CatalogState.READY
-                ):
-                    self.refresh_object_list(force_update=True)
-
-                # Extract progress if available
-                progress = None
-                if status.data and "progress" in status.data:
-                    progress = status.data["progress"]
-
-                # Map state to user-facing messages
-                if status.current == CatalogState.READY:
-                    return (None, None)
-                elif status.current == CatalogState.DOWNLOADING:
-                    return (
-                        _(
-                            "Downloading..."
-                        ),  # TRANSLATORS: Status when catalog data is downloading
-                        progress,
-                    )
-                elif status.current == CatalogState.NO_GPS:
-                    return (
-                        _(
-                            "No GPS lock"
-                        ),  # TRANSLATORS: Status when waiting for GPS position
-                        None,
-                    )
-                elif status.current == CatalogState.CALCULATING:
-                    return (
-                        _(
-                            "Calculating..."
-                        ),  # TRANSLATORS: Status when computing object positions
-                        progress,
-                    )
-                elif status.current == CatalogState.ERROR:
-                    return (_("Error"), None)  # TRANSLATORS: Generic error status
-                else:
-                    return (
-                        _("Loading..."),
-                        None,
-                    )  # TRANSLATORS: Generic loading status
-
-        return (None, None)
+        if status.current == CatalogState.DOWNLOADING:
+            return (_("Downloading..."), progress)
+        if status.current == CatalogState.NO_GPS:
+            return (_("No GPS lock"), None)
+        if status.current == CatalogState.CALCULATING:
+            return (_("Calculating..."), progress)
+        if status.current == CatalogState.ERROR:
+            return (_("Error"), None)
+        return (_("Loading..."), None)
 
     def sort(self, announce: bool = False) -> None:
         """
@@ -445,15 +460,8 @@ class UIObjectList(UITextMenu):
                 self.nearby_refresh()
                 self._current_item_index = 0
 
-        if self.current_sort == SortOrder.CATALOG_SEQUENCE:
-            self._menu_items_sorted = self._menu_items
-            self._current_item_index = 0
-
-        if self.current_sort == SortOrder.RA:
-            ra = self._menu_items.column("ra")
-            self._menu_items_sorted = self._menu_items.take(
-                np.argsort(ra, kind="stable")
-            )
+        if self.current_sort != SortOrder.NEAREST:
+            self._menu_items_sorted = _sort_objects(self._menu_items, self.current_sort)
             self._current_item_index = 0
         self.update()
 
@@ -678,6 +686,29 @@ class UIObjectList(UITextMenu):
         else:
             self.refresh_object_list()
 
+    def _draw_download_progress(self, progress: Optional[int], intensity: int) -> None:
+        """Draw a compact determinate/indeterminate bar beside catalog age."""
+        width = max(18, min(36, self.display.width // 4))
+        height = 4
+        x = self.display.width - width - 2
+        y = self.line_position(0) + self.fonts.bold.height - height
+        color = self.colors.get(intensity)
+        self.draw.rectangle((x, y, x + width, y + height), outline=color)
+        inner_width = width - 2
+        if progress is None:
+            segment = max(3, inner_width // 4)
+            offset = int(time.monotonic() * 8) % max(1, inner_width - segment + 1)
+            self.draw.rectangle(
+                (x + 1 + offset, y + 1, x + offset + segment, y + height - 1),
+                fill=color,
+            )
+        else:
+            filled = round(inner_width * max(0, min(100, progress)) / 100)
+            if filled:
+                self.draw.rectangle(
+                    (x + 1, y + 1, x + filled, y + height - 1), fill=color
+                )
+
     def update(self, force: bool = False) -> None:
         self.clear_screen()
 
@@ -689,17 +720,25 @@ class UIObjectList(UITextMenu):
         begin_x = layout.text_x
 
         # Altitude verdicts age out while the screen sits open (the sky
-        # rotates); refresh the list when the filter reports staleness.
-        # Before the no-objects check so an emptied-by-altitude list can
-        # repopulate as objects rise.
+        # rotates); refresh the list when the filter reports staleness or a
+        # dynamic catalog replaced its objects. Before the no-objects check so
+        # an emptied-by-altitude list can repopulate as objects rise.
         catalog_filter = self.catalogs.catalog_filter
-        if catalog_filter is not None and catalog_filter.is_stale():
-            self.refresh_object_list()
+        if catalog_filter is not None and (
+            catalog_filter.dirty_time != self._list_dirty_time
+            or catalog_filter.is_stale()
+            or self._sources_replaced()
+        ):
+            self.refresh_object_list(force_update=True)
+
+        # Poll dynamic-catalog state even while objects remain populated: an
+        # update keeps serving the old catalog and reports download progress.
+        catalog_status = self._get_catalog_status()
 
         # no objects to display
         if self.get_nr_of_menu_items() == 0:
             # Get catalog-specific status message if available
-            status_msg, progress = self._get_catalog_status_message()
+            status_msg, progress = self._get_catalog_status_message(catalog_status)
 
             # Re-check menu items in case refresh happened during status check
             if self.get_nr_of_menu_items() > 0:
@@ -760,17 +799,19 @@ class UIObjectList(UITextMenu):
         # Draw sorting mode in the empty rows above the focus line
         if self._current_item_index < half:
             intensity: int = int(64 + (((half - 1) - self._current_item_index) * 32.0))
+            catalog_header = _("{catalog_info_1} obj").format(
+                catalog_info_1=self.catalog_info_1
+            )
+            if self.catalog_data_label:
+                catalog_header += f", {self.catalog_data_label}"
+            elif self.catalog_info_2:
+                catalog_header += _(", {catalog_info_2}d old").format(
+                    catalog_info_2=self.catalog_info_2
+                )
             draw_text_cached(
                 self.screen,
                 (begin_x, self.line_position(0)),
-                _("{catalog_info_1} obj").format(
-                    catalog_info_1=self.catalog_info_1
-                )  # TRANSLATORS: number of objects in object list
-                + _(", {catalog_info_2}d old").format(
-                    catalog_info_2=self.catalog_info_2
-                )
-                if self.catalog_info_2
-                else "",  # TRANSLATORS: suffix to number of objects in object list (indicating age of catalog data)
+                catalog_header,
                 self.fonts.bold.font,
                 self.colors.get(intensity),
             )
@@ -783,6 +824,14 @@ class UIObjectList(UITextMenu):
                 self.fonts.bold.font,
                 self.colors.get(intensity),
             )
+            if (
+                catalog_status is not None
+                and catalog_status.current == CatalogState.DOWNLOADING
+            ):
+                progress = (
+                    catalog_status.data.get("progress") if catalog_status.data else None
+                )
+                self._draw_download_progress(progress, intensity)
         # Draw current selection hint
         self.draw.rectangle(layout.selection_box, outline=self.colors.get(128), width=1)
         line_number, line_pos = 0, 0
@@ -1027,20 +1076,13 @@ class UIObjectList(UITextMenu):
         marking_menu.select_none()
         menu_item.selected = True
 
-        if menu_item.label == _("Nearest"):
-            self.current_sort = SortOrder.NEAREST
-            self.sort(announce=True)
-            return True
+        sort_order = getattr(menu_item, "value", None)
+        if not isinstance(sort_order, SortOrder):
+            return False
 
-        if menu_item.label == _("Standard"):
-            self.current_sort = SortOrder.CATALOG_SEQUENCE
-            self.sort(announce=True)
-            return True
-
-        if menu_item.label == _("RA"):
-            self.current_sort = SortOrder.RA
-            self.sort(announce=True)
-            return True
+        self.current_sort = sort_order
+        self.sort(announce=True)
+        return True
 
     def mm_jump_to_filter(self, marking_menu, menu_item):
         pass
@@ -1073,19 +1115,20 @@ class UIObjectList(UITextMenu):
                 else str(self.current_sort),
                 "catalog_info_1": self.catalog_info_1,
                 "catalog_info_2": self.catalog_info_2,
+                "catalog_data_label": self.catalog_data_label,
             }
         except Exception as e:
             return {"error": f"Failed to serialize object list state: {str(e)}"}
 
-    def mm_refresh_comets(self, marking_menu, menu_item):
-        """Force refresh of comet data from the internet"""
-        catalog = self.catalogs.get_catalog_by_code("CM")
+    def mm_refresh_dynamic_catalog(self, marking_menu, menu_item):
+        """Refresh downloaded elements while retaining the active objects."""
+        catalog = self.catalogs.get_catalog_by_code(self.item_definition.get("value"))
         if catalog and hasattr(catalog, "refresh"):
             self.message(
                 _("Refreshing..."), 1
             )  # TRANSLATORS: Status message when refreshing comet catalog
             catalog.refresh()
-            # Clear the UI object list and refresh to show status
+            # Keep the current objects visible and refresh the status header.
             self.refresh_object_list(force_update=True)
         return True
 

@@ -35,7 +35,8 @@ At a high level:
         │                  logged array from the observations DB)
         │
         ├── dynamic catalogs:  PlanetCatalog (TimerMixin, every ~5 min)
-        │                       CometCatalog (similar)
+        │                       CometCatalog (downloaded MPC elements)
+        │                       AsteroidCatalog (annual MPC bright subset)
         │
         └─► Catalogs object (single instance shared across the app)
                  │
@@ -76,7 +77,9 @@ displays. It's a dataclass that merges three things:
   key on their own listing — see ADR 0025),
   `last_filtered_time`/`last_filtered_result` (the last filter verdict;
   object details dims the designator of an object that the filter
-  rejects).
+  rejects), and optional structured solar-system fields
+  (`earth_distance_au`, `sun_distance_au`, `opposition_date`,
+  `peak_magnitude`, `peak_date`).
 
 For a DB listing, `ArrayCatalog.row(i)` makes the object from the
 catalog arrays (§2.5). For planets, comets and observing-list objects,
@@ -300,8 +303,11 @@ from the main process. It:
    `np.isin(object_id, observed_object_ids) | np.isin(sequence,
    observed sequences of this catalog)`. This is the same rule as
    `ObservationsDatabase.check_logged`.
-5. Makes the `Catalogs` instance and adds two dynamic catalogs:
-   `PlanetCatalog` (`PL`) and, via local import, `CometCatalog`.
+5. Makes the `Catalogs` instance and adds three dynamic catalogs:
+   `PlanetCatalog` (`PL`) and, via local imports, `CometCatalog` (`CM`)
+   and `AsteroidCatalog` (`MP`).
+6. Asserts `check_catalogs_sequences(...)`: every catalog has unique
+   sequences.
 
 Every DB catalog is complete when `build()` returns. There is no
 background loader thread, and no message on `ui_queue` when loading
@@ -381,6 +387,12 @@ Two freshness triggers advance `dirty_time` besides the setters
   see 4.2); `Catalogs.filter_catalogs()` promotes it to a dirty bump,
   and `UIObjectList.update()` polls it so an open list refreshes in
   place.
+
+Runtime position/catalog replacements call `invalidate_filter_cache()` for
+the changed catalog and set a catalog-content-dirty flag. This wakes an open
+list without advancing `dirty_time`, so unchanged catalogs retain their cached
+results. Automatic list rebuilds reapply the current sort silently, reserving
+the “Sorting by…” toast for a user-selected sort.
 
 ### 4.2 Altitude requires GPS
 
@@ -467,10 +479,28 @@ A `Catalog` subclass that:
 ### 6.2 `CometCatalog`
 
 Imported locally in `CatalogBuilder.build()` to avoid a circular
-import. Same general pattern: dynamic, status-aware, registered as a
-regular `Catalog` in the `Catalogs` collection.
+import. It downloads MPC comet elements transactionally and keeps the active
+objects visible while a replacement downloads. `CatalogStatus` carries known
+percentage progress or `None` for an indeterminate progress bar. Successful
+downloads trigger a full recalculation; failed downloads leave both the old
+objects and their displayed source age intact.
 
-### 6.3 `TimerMixin`
+### 6.3 `AsteroidCatalog`
+
+The `MP` catalog reads MPC's annual `Soft00Bright.txt` observing subset (ADR
+0021). Its catalog listing sequence is the stable numbered minor planet, while
+its negative object ID remains session-minted like every virtual object.
+Vectorized propagation supplies J2000 RA/Dec, Earth/Sun distance, and an IAU
+H-G apparent magnitude. Objects above the magnitude-15 safety limit are omitted;
+ordinary catalog filters can impose a brighter user limit.
+
+Visible objects are enriched across the next 550 days with the first upcoming
+ecliptic-longitude opposition (or greatest elongation) plus the peak magnitude
+and date for that apparition. These structured values drive the Asteroids list's
+Brightest, Distance, and Opposition sorts; description text is presentation
+only.
+
+### 6.4 `TimerMixin`
 
 Provides `start_timer()` / `stop()` plus a `time_delay_seconds` that can
 be either an int or a callable. Each fire schedules itself again via
@@ -479,7 +509,7 @@ catalog method does not run on the timer thread directly — useful
 because `do_timed_task` can take a noticeable amount of time
 (`sf_utils.calc_planets` is not cheap).
 
-### 6.4 `VirtualIDManager`
+### 6.5 `VirtualIDManager`
 
 Static helper that hands out monotonically decreasing `object_id`
 values for non-DB objects. Held under `virtual_id_lock` and persists
@@ -535,8 +565,8 @@ of logged status, for example).
 1. CI builds the catalog arrays. Without them, the first start builds
    them into the cache directory.
 2. `CatalogBuilder.build()` opens the arrays as `ArrayCatalog`s,
-   computes their `logged` arrays, and attaches `PlanetCatalog` and
-   `CometCatalog`.
+   computes their `logged` arrays, and attaches `PlanetCatalog`,
+   `CometCatalog` and `AsteroidCatalog`.
 3. `CatalogFilter` is constructed and hooked in via
    `set_catalog_filter`. `load_from_config(cfg)` restores user
    preferences.

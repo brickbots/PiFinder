@@ -324,6 +324,8 @@ class CameraInterface:
                 shared_state.set_camera_type(camera_type)
                 logger.info(f"Camera type set to: {camera_type}")
 
+            debug = False
+
             # Published beside the sensor because it qualifies it: the sensor
             # a playback camera declares is the one its *frames* were shot on,
             # which is not the same claim a live camera makes.
@@ -436,12 +438,12 @@ class CameraInterface:
                         pointing_diff = 0.0
 
                     # Make image available
-                    if test_mode_on and abs(pointing_diff) > 0.01:
-                        # Scope moved during the fake exposure: return a blank
-                        # image so the solver doesn't report a stale solve
+                    if debug and abs(pointing_diff) > 0.01:
+                        # Check if we moved and return a blank image
                         camera_image.paste(self._blank_capture())
                     else:
                         camera_image.paste(base_image)
+
                     image_metadata = {
                         "exposure_start": image_start_time,
                         "exposure_end": image_end_time,
@@ -543,6 +545,12 @@ class CameraInterface:
                         logger.error(f"CameraInterface: Command error: {e}")
 
                     try:
+                        if command == "debug":
+                            if debug:
+                                debug = False
+                            else:
+                                debug = True
+
                         if command.startswith("set_exp"):
                             transient_exposure = command.startswith(
                                 "set_exp_transient:"

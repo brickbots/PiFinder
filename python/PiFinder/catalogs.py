@@ -31,7 +31,13 @@ from PiFinder.catalog_arrays import (  # noqa: F401  (public keypad maps)
     CatalogColumns,
     name_to_t9_digits,
 )
-from PiFinder.object_sequence import ListSource, ObjectSequence, catalog_code_id
+from PiFinder.object_sequence import (
+    NO_DISTANCE,
+    NO_OPPOSITION,
+    ListSource,
+    ObjectSequence,
+    catalog_code_id,
+)
 from PiFinder import timez
 
 logger = logging.getLogger("Catalog")
@@ -93,6 +99,10 @@ class CatalogFilter:
         self._constellations = constellations
         self._selected_catalogs = set(selected_catalogs)
         self.last_filtered_time = 0
+        # Dynamic catalogs can replace their objects without changing the
+        # active filter criteria. Wake open lists without invalidating every
+        # unchanged catalog's cached result.
+        self._catalog_content_dirty = False
         # Whether alt/az was available when verdicts were last computed.
         # Verdicts computed without it skip the altitude test entirely, so
         # they go stale the moment a fix arrives (see is_stale).
@@ -109,10 +119,17 @@ class CatalogFilter:
         self._constellations = config_object.get_option("filter.constellations", [])
         self._selected_catalogs = config_object.get_option("filter.selected_catalogs")
         self.last_filtered_time = 0
+        self._catalog_content_dirty = False
 
     def mark_dirty(self):
         """Mark the filter as dirty, triggering a re-filter on next check"""
         self.dirty_time = time.time()
+
+    def mark_catalog_content_dirty(self) -> None:
+        self._catalog_content_dirty = True
+
+    def clear_catalog_content_dirty(self) -> None:
+        self._catalog_content_dirty = False
 
     @property
     def magnitude(self):
@@ -189,6 +206,8 @@ class CatalogFilter:
         parameter changed since the last filter (dirty), or time-sensitive
         criteria have aged out (stale — see is_stale).  False if not
         """
+        if self._catalog_content_dirty:
+            return True
         if self.last_filtered_time > self.dirty_time:
             return self.is_stale()
         else:
@@ -349,6 +368,12 @@ class Catalog(CatalogBase):
         self.last_filtered = time.time()
         return self.filtered_objects
 
+    def invalidate_filter_cache(self) -> None:
+        """Invalidate only this catalog after its runtime objects change."""
+        self.last_filtered = 0
+        for obj in self._get_objects():
+            obj.last_filtered_time = 0
+
     def get_filtered_objects(self):
         return self.filtered_objects
 
@@ -363,6 +388,10 @@ class Catalog(CatalogBase):
 
     def get_age(self) -> Optional[int]:
         """If the catalog data is time-sensitive, return age in days."""
+        return None
+
+    def get_data_label(self) -> Optional[str]:
+        """Optional compact source-edition label for object-list headers."""
         return None
 
     def get_status(self) -> CatalogStatus:
@@ -470,6 +499,10 @@ class ArrayCatalog(Catalog):
             return self.logged
         if name == "catalog_code":
             return np.full(self.get_count(), self.catalog_code)
+        if name == "earth_distance_au":
+            return np.full(self.get_count(), NO_DISTANCE)
+        if name == "opposition_ordinal":
+            return np.full(self.get_count(), NO_OPPOSITION, dtype=np.int64)
         if name == "listing_key":
             if self._listing_keys is None:
                 self._listing_keys = (
@@ -586,6 +619,8 @@ class Catalogs:
             self.catalog_filter.calc_fast_aa(self.catalog_filter.shared_state)
         for catalog in self.__catalogs if catalogs is None else catalogs:
             catalog.filter_objects()
+        if self.catalog_filter is not None:
+            self.catalog_filter.clear_catalog_content_dirty()
 
     def mark_logged(self, obj: CompositeObject) -> None:
         """
@@ -823,7 +858,6 @@ class PlanetCatalog(Catalog):
 
         if not planet_dict:
             logger.debug("No GPS lock during initialization - will retry soon")
-            self.initialised = True  # Still mark as initialized so timer starts
             return
 
         sequence = 0
@@ -869,6 +903,7 @@ class PlanetCatalog(Catalog):
             dt = self.shared_state.datetime()
             if not self.initialized:
                 self.init_planets(dt)
+                return
 
             planet_dict = sf_utils.calc_planets(dt)
 
@@ -890,6 +925,9 @@ class PlanetCatalog(Catalog):
                         obj.mag_str = obj.mag.calc_two_mag_representation()
                 except (KeyError, ValueError) as e:
                     logger.error(f"Error updating planet {name}: {e}")
+            self.invalidate_filter_cache()
+            if self.catalog_filter is not None:
+                self.catalog_filter.mark_catalog_content_dirty()
 
 
 class CatalogBuilder:
@@ -933,7 +971,25 @@ class CatalogBuilder:
             shared_state=shared_state,
         )
         all_catalogs.add(comet_catalog)
+
+        from PiFinder.asteroid_catalog import AsteroidCatalog
+
+        asteroid_catalog: Catalog = AsteroidCatalog(
+            timez.utc_now(),
+            shared_state=shared_state,
+        )
+        all_catalogs.add(asteroid_catalog)
+
+        assert self.check_catalogs_sequences(all_catalogs) is True
         return all_catalogs
+
+    def check_catalogs_sequences(self, catalogs: Catalogs):
+        for catalog in catalogs.get_catalogs(only_selected=False):
+            result = catalog.check_sequences()
+            if not result:
+                logger.error("Duplicate sequence catalog %s!", catalog.catalog_code)
+                return False
+        return True
 
     @staticmethod
     def _logged(columns: CatalogColumns, obs_db: ObservationsDatabase) -> np.ndarray:

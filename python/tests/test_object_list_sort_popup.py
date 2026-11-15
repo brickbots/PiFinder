@@ -43,7 +43,7 @@ def test_a_list_that_opens_or_refreshes_shows_no_popup():
 def test_a_sort_chosen_in_the_marking_menu_shows_the_popup():
     module = _object_list()
     marking_menu = SimpleNamespace(select_none=lambda: None)
-    menu_item = SimpleNamespace(label=_("RA"), selected=False)
+    menu_item = SimpleNamespace(value=SortOrder.RA, label=_("RA"), selected=False)
     assert module.mm_change_sort(marking_menu, menu_item)
     assert len(module.messages) == 1 and "RA" in module.messages[0]
     assert [obj.sequence for obj in module._menu_items_sorted] == [2, 1]

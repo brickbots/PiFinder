@@ -116,6 +116,12 @@ pifinder_menu = {
                             "value": "CM",
                         },
                         {
+                            "name": _("Asteroids"),
+                            "class": UIObjectList,
+                            "objects": "catalog",
+                            "value": "MP",
+                        },
+                        {
                             "name": _("NGC"),
                             "class": UIObjectList,
                             "objects": "catalog",
@@ -331,6 +337,10 @@ pifinder_menu = {
                                 {
                                     "name": _("Comets"),
                                     "value": "CM",
+                                },
+                                {
+                                    "name": _("Asteroids"),
+                                    "value": "MP",
                                 },
                                 {
                                     "name": _("NGC"),
