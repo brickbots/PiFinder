@@ -56,6 +56,10 @@ logger = logging.getLogger("SatelliteCatalog")
 CATALOG_CODE = "SA"
 OBJ_TYPE = "Sat"
 
+# The mark before the start time of the next pass in the object list. It is
+# the Nerd Font up arrow (UIModule._UP_ARROW): the device fonts have no U+2191.
+RISE_MARK = "\ueb71"
+
 # The registry of the catalog that the process uses. The object details
 # screen and the mount control find the satellite of an object through it.
 _active_catalog: Optional["SatelliteCatalog"] = None
@@ -123,6 +127,8 @@ class SatelliteCatalog(Catalog):
         self._pass_request: Optional[tuple] = None
         self._pass_running = False
         self._topos_cache: Optional[tuple[tuple, object]] = None
+        # The time zone of the location at the last position update.
+        self._zone: datetime.tzinfo = pytz.utc
         # What the lists showed after the last update. See _list_signature.
         self._list_state: Optional[tuple] = None
         self.initialized = False
@@ -383,6 +389,23 @@ class SatelliteCatalog(Catalog):
             ObjectLabel("cospar", "COSPAR", self.cospar_label),
         ]
 
+    def list_info_text(self, obj: CompositeObject) -> Optional[str]:
+        """The INFO-mode text of a satellite in the object list.
+
+        Above the horizon: the altitude and the compass direction, for
+        example "42° SE". Below the horizon: the local start time of the
+        next visible pass, for example RISE_MARK + "21:43", or "--" without
+        one. The values come from the last position update.
+        """
+        if obj.alt is None or obj.az is None:
+            return "--"
+        if obj.alt > 0:
+            return f"{obj.alt:.0f}° {satellites.compass(obj.az)}"
+        if obj.next_pass_ts is None or obj.next_pass_ts < 0:
+            return "--"
+        start = datetime.datetime.fromtimestamp(obj.next_pass_ts, self._zone)
+        return f"{RISE_MARK}{start.strftime('%H:%M')}"
+
     def cospar_label(self, obj: CompositeObject) -> str:
         """The COSPAR id of a satellite object, for example "1998-067A".
         A satellite without one gives its NORAD number."""
@@ -579,9 +602,11 @@ class SatelliteCatalog(Catalog):
         if not (math.isfinite(now.ra) and math.isfinite(now.dec)):
             # SGP4 cannot propagate this element set to the current time.
             obj.description = "No position: the elements are not usable"
+            obj.alt = obj.az = None
             return
         next_pass = self._next_visible(sat.norad_id, now.time)
         obj.ra, obj.dec = now.ra, now.dec
+        obj.alt, obj.az = now.alt, now.az
         obj.const = (
             const
             if const is not None
@@ -623,6 +648,7 @@ class SatelliteCatalog(Catalog):
         ]
         topos = self._topos(location)
         zone = _zone(location.timezone)
+        self._zone = zone
         looks = satellites.look_many([sat for _obj, sat in pairs], topos, dt)
         consts = _constellations(looks)
         for (obj, sat), now, const in zip(pairs, looks, consts):

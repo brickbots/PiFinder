@@ -47,17 +47,38 @@ logger = logging.getLogger("Catalog")
 # code. The values name members of ui.object_list.DisplayModes. These catalogs
 # open in NAME mode: their sequence is only a position in the list, and an
 # observer knows the object by its name (Algol, RX Peg, Winter Triangle). All
-# other catalogs open in LOCATE mode. The registry is in code, not in
-# objects.db, because planets, comets and satellites are built at run time.
-# A satellite ("SA") goes by its name (ISS, HST), not by its sequence.
+# other catalogs open in LOCATE mode, except the INFO_MODE_CATALOGS. The
+# registry is in code, not in objects.db, because planets, comets and
+# satellites are built at run time.
 NAME_MODE_CATALOGS = frozenset(
-    {"PL", "CM", "SA", "Str", "Nam", "SaA", "SaR", "TLK", "SaM", "RDS", "WDS"}
+    {"PL", "CM", "Str", "Nam", "SaA", "SaR", "TLK", "SaM", "RDS", "WDS"}
 )
+
+# These catalogs open in INFO mode. The left column of the satellite list
+# ("SA") shows the name, and INFO mode shows where the satellite is (see
+# Catalog.list_info_text).
+INFO_MODE_CATALOGS = frozenset({"SA"})
+
+# The sort order a list of the catalog opens in, by catalog code. The values
+# name members of ui.object_list.SortOrder. A catalog that is not here opens
+# in the first sort order. Satellites open in "Next pass" order: the
+# satellites above the horizon first, then the next passes.
+DEFAULT_SORTS = {"SA": "NEXT_PASS"}
 
 
 def default_display_mode_for(catalog_code: str) -> str:
     """The DisplayModes member name a list of this catalog opens in."""
-    return "NAME" if catalog_code in NAME_MODE_CATALOGS else "LOCATE"
+    if catalog_code in NAME_MODE_CATALOGS:
+        return "NAME"
+    if catalog_code in INFO_MODE_CATALOGS:
+        return "INFO"
+    return "LOCATE"
+
+
+def default_sort_for(catalog_code: str) -> Optional[str]:
+    """The SortOrder member name a list of this catalog opens in, or None
+    for the first sort order."""
+    return DEFAULT_SORTS.get(catalog_code)
 
 
 @dataclass(frozen=True)
@@ -346,6 +367,18 @@ class Catalog(CatalogBase):
     def default_display_mode(self) -> str:
         """The DisplayModes member name this catalog's object list opens in."""
         return default_display_mode_for(self.catalog_code)
+
+    @property
+    def default_sort(self) -> Optional[str]:
+        """The SortOrder member name this catalog's object list opens in, or
+        None for the first sort order."""
+        return default_sort_for(self.catalog_code)
+
+    def list_info_text(self, obj: CompositeObject) -> Optional[str]:
+        """The INFO-mode text of ``obj`` in the right column of the object
+        list. None means the text of the object list: the magnitude and the
+        size."""
+        return None
 
     def label_options(self) -> List[ObjectLabel]:
         """The labels that the object list of this catalog can show in its
