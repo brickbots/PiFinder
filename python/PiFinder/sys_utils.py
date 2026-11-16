@@ -537,7 +537,7 @@ def start_nixos_migration(version_info: dict) -> None:
     logger.info(f"SYS: Starting NixOS migration to {version_info.get('version', '?')}")
 
     with open(MIGRATION_PROGRESS_FILE, "w") as f:
-        json.dump({"percent": 0, "status": "Starting..."}, f)
+        json.dump({"percent": -1, "status": "Starting..."}, f)
 
     def _log_output(line):
         logger.info(f"SYS: migration: {line.strip()}")

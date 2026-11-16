@@ -280,6 +280,10 @@ class MenuManager:
         self.update_screen(marking_menu_image)
         time.sleep(0.15)
 
+    def keep_awake(self) -> bool:
+        """True while the module on top must keep the screen awake."""
+        return bool(self.stack) and self.stack[-1].keep_awake
+
     def update(self) -> None:
         if self.help_images is not None:
             # We are in help mode, just chill...
