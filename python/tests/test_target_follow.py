@@ -10,6 +10,7 @@ from typing import Optional
 from unittest.mock import Mock
 
 import pytest
+from skyfield.api import wgs84
 
 import PiFinder.satellites as satellites
 from PiFinder import target_follow
@@ -45,7 +46,7 @@ def iss_pass() -> satellites.SatPass:
     """A high pass of the ISS over Brussels after the fixture epoch."""
     element = iss_elements()
     sat = satellites.TrackedSatellite.from_elements(element)
-    topos = satellites.observer_topos(LOCATION.lat, LOCATION.lon, LOCATION.altitude)
+    topos = wgs84.latlon(LOCATION.lat, LOCATION.lon, LOCATION.altitude)
     passes = satellites.find_passes(sat, topos, element.epoch, hours=24)
     return max(passes, key=lambda item: item.max_alt)
 
@@ -627,7 +628,7 @@ def test_meet_of_the_fixture_passes():
     # A visible pass in the evening twilight.
     element = iss_elements()
     sat = satellites.TrackedSatellite.from_elements(element)
-    topos = satellites.observer_topos(LOCATION.lat, LOCATION.lon, LOCATION.altitude)
+    topos = wgs84.latlon(LOCATION.lat, LOCATION.lon, LOCATION.altitude)
     visible = [
         item
         for item in satellites.find_passes(

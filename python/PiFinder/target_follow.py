@@ -47,6 +47,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Optional, Protocol, Sequence
 
+from sgp4.io import compute_checksum
 from skyfield.api import wgs84
 
 from PiFinder import satellites
@@ -202,7 +203,7 @@ def shift_elements(
     revs_per_day = float(line2[52:63])
     mean_anomaly = (mean_anomaly + revs_per_day * 360.0 * seconds / 86400.0) % 360.0
     body = f"{line2[:43]}{mean_anomaly:8.4f}{line2[51:68]}"
-    line2 = f"{body}{satellites.tle_checksum(body)}"
+    line2 = f"{body}{compute_checksum(body)}"
     return satellites.SatElements(
         elements.name, elements.norad_id, elements.line1, line2, elements.source
     )
@@ -224,7 +225,7 @@ class SatelliteTarget:
         self.name = elements.name
         self._site = (lat, lon, altitude_m)
         self.satellite = elements.to_earth_satellite()
-        self.topos = satellites.observer_topos(lat, lon, altitude_m)
+        self.topos = wgs84.latlon(lat, lon, altitude_m)
         self._difference = self.satellite - self.topos
 
     def point(self, unix_time: float) -> FollowPoint:

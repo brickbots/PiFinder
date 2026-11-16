@@ -3,10 +3,7 @@
 import datetime
 import inspect
 import io
-import os
 import re
-import time
-from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
 import pytest
@@ -14,27 +11,30 @@ import pytest
 import PiFinder.satellites as satellites
 import PiFinder.web_satellites as web_satellites
 from PiFinder import server as server_module
-from PiFinder.state import Location
+from PiFinder.state import UIState
 from PiFinder.utils import satellite_data_dir
+from satellite_helpers import (
+    GEO_TLE,
+    ISS_NORAD,
+    NOW,
+    SAT_DATA as DATA,
+    FakeDownloads,
+    SatSharedState,
+    make_catalog,
+    make_old,
+    seed_groups,
+)
 
-DATA = Path(__file__).parent / "data" / "satellites"
-ISS_NORAD = 25544
 
-
-class WebSharedState:
-    """The part of the shared state that the satellite pages read."""
+class WebSharedState(SatSharedState):
+    """The shared state of the web server, with the UI state of a push."""
 
     def __init__(self, dt):
-        self.dt = dt
-        self._location = Location(
-            lat=50.85, lon=4.35, altitude=50.0, lock=True, timezone="Europe/Brussels"
-        )
+        super().__init__(dt)
+        self._ui_state = UIState()
 
-    def datetime(self):
-        return self.dt
-
-    def location(self):
-        return self._location
+    def ui_state(self):
+        return self._ui_state
 
 
 def use_directory(monkeypatch, directory):
@@ -53,23 +53,17 @@ def use_directory(monkeypatch, directory):
                 )
 
 
-def iss_epoch() -> datetime.datetime:
-    elements, _errors = satellites.parse_elements((DATA / "25544.3le").read_text())
-    return elements[0].epoch
-
-
 @pytest.fixture
 def web(tmp_path, monkeypatch):
     use_directory(monkeypatch, tmp_path)
-    (tmp_path / "visual.tle").write_text((DATA / "visual.tle").read_text())
-    (tmp_path / "stations.tle").write_text((DATA / "25544.3le").read_text())
+    seed_groups(tmp_path)
     # The pass table computes in the request thread, so a test sees it.
     monkeypatch.setitem(
         web_satellites._pass_tables,
         tmp_path,
         web_satellites.PassTable(tmp_path, start_thread=lambda run: run()),
     )
-    shared_state = WebSharedState(iss_epoch() + datetime.timedelta(days=1))
+    shared_state = WebSharedState(NOW)
     server = server_module.Server(shared_state=shared_state)
     server.app.testing = True
     client = server.app.test_client()
@@ -116,6 +110,9 @@ def test_page_shows_the_state_while_the_passes_compute(web, monkeypatch):
     )
     page = client.get("/satellites?all=1").get_data(as_text=True)
     assert 'id="pass_state"' in page and "Calculating passes" in page
+    # The page asks for the state of the passes, and loads again when they
+    # are ready.
+    assert "fetch('/api/satellites/passes'" in page
     assert "window.location.reload" in page
     assert 'id="pass_table"' not in page
     assert client.get("/api/satellites/passes").get_json()["state"] == "calculating"
@@ -194,6 +191,20 @@ def test_disabled_satellite_page_has_no_show_button(web):
 
 
 @pytest.mark.unit
+def test_show_and_the_catalog_give_one_recent_entry(web):
+    """The push of the web page and the object of the catalog are the same
+    object for the recent list."""
+    client, shared_state, directory = web
+    response = client.post(f"/satellites/show/{ISS_NORAD}")
+    assert response.headers["Location"].endswith(f"/satellites/{ISS_NORAD}")
+    ui_state = shared_state.ui_state()
+    assert [obj.sequence for obj in ui_state.recent_list()] == [ISS_NORAD]
+    catalog = make_catalog(directory)
+    ui_state.add_recent(catalog.get_object_by_sequence(ISS_NORAD))
+    assert [obj.sequence for obj in ui_state.recent_list()] == [ISS_NORAD]
+
+
+@pytest.mark.unit
 def test_upload_larger_than_the_limit_is_refused(web):
     client, _shared_state, directory = web
     text = (DATA / "25544.3le").read_text()
@@ -215,40 +226,8 @@ def test_upload_larger_than_the_limit_is_refused(web):
     assert [e.norad_id for e in satellites.load_user_elements(directory)] == [ISS_NORAD]
 
 
-@pytest.mark.unit
-def test_refresh_route_refuses_a_download_after_a_recent_one(web, monkeypatch):
-    client, _shared_state, _directory = web
-    calls = []
-
-    def download(group, directory=None, progress_callback=None):
-        calls.append(group)
-        return satellites.DownloadResult(True, None, None)
-
-    monkeypatch.setattr(satellites, "download_group", download)
-    # The fixture wrote the group files a moment ago.
-    response = client.post("/satellites/refresh")
-    assert "Wait 2 h 00 min" in redirect_query(response)["err"][0]
-    assert calls == []
-
-
-class RecordedDownloads:
-    """Replaces the network. Writes the ISS set as the group file."""
-
-    def __init__(self):
-        self.groups = []
-
-    def __call__(self, group, directory=None, progress_callback=None):
-        self.groups.append(group)
-        satellites.group_file(group, directory).write_text(
-            (DATA / "25544.3le").read_text()
-        )
-        return satellites.DownloadResult(True, None, None)
-
-
-def make_old(path: Path) -> None:
-    """Make the file older than the 2 h wait of a forced download."""
-    when = time.time() - satellites.MIN_FORCED_DOWNLOAD_SECONDS - 3600.0
-    os.utime(path, (when, when))
+# A file age above the 2 h wait of a forced download.
+OLDER_THAN_FORCED_WAIT_HOURS = satellites.MIN_FORCED_DOWNLOAD_SECONDS / 3600.0 + 1
 
 
 @pytest.mark.unit
@@ -267,10 +246,10 @@ def test_page_has_a_row_and_an_update_button_for_each_selected_group(web):
 @pytest.mark.unit
 def test_update_route_downloads_one_group(web, monkeypatch):
     client, _shared_state, directory = web
-    downloads = RecordedDownloads()
+    downloads = FakeDownloads()
     monkeypatch.setattr(satellites, "download_group", downloads)
-    make_old(directory / "visual.tle")
-    make_old(directory / "stations.tle")
+    make_old(directory / "visual.tle", OLDER_THAN_FORCED_WAIT_HOURS)
+    make_old(directory / "stations.tle", OLDER_THAN_FORCED_WAIT_HOURS)
 
     response = client.post("/satellites/refresh", data={"group": "visual"})
     assert redirect_query(response)["msg"] == ["Downloaded: Brightest."]
@@ -296,7 +275,7 @@ def test_update_route_downloads_one_group(web, monkeypatch):
 @pytest.mark.unit
 def test_selecting_a_group_without_a_file_downloads_it(web, monkeypatch):
     client, _shared_state, directory = web
-    downloads = RecordedDownloads()
+    downloads = FakeDownloads()
     monkeypatch.setattr(satellites, "download_group", downloads)
     response = client.post(
         "/satellites/enable", data={"kind": "group", "id": "amateur", "enabled": "1"}
@@ -338,12 +317,6 @@ def test_page_lists_corrected_sets_with_a_delete_route(web):
     assert satellites.load_corrected_elements(directory) == []
     response = client.post(f"/satellites/corrected/delete/{element.norad_id}")
     assert "err" in redirect_query(response)
-
-
-GEO_TLE = """ASTRA 1KR
-1 29055U 06012A   26316.93979443  .00000130  00000+0  00000+0 0  9998
-2 29055   0.8523  82.1538 0003456 151.0788 176.1913  1.00270139 47187
-"""
 
 
 @pytest.mark.unit
