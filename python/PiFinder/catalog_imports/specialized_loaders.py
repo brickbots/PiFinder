@@ -9,8 +9,10 @@ TLK variables, and Abell catalogs.
 import csv
 import json
 import logging
+import re
 import sqlite3
 from pathlib import Path
+from typing import List, Optional
 from tqdm import tqdm
 from collections import namedtuple, defaultdict
 
@@ -97,6 +99,110 @@ def load_egc():
     conn.commit()
 
 
+# collinder.txt abbreviates the catalogs that it cites, and collinder2.txt
+# writes them in full. Keyed on the lowercase prefix; a bare number is NGC.
+_COLLINDER_CATALOGS = {
+    "": "NGC",
+    "ic": "IC",
+    "m": "M",
+    "tr": "Trumpler",
+    "trumpler": "Trumpler",
+    "mel": "Melotte",
+    "melotte": "Melotte",
+    "harv": "Harvard",
+    "harvard": "Harvard",
+}
+
+# A designation in collinder.txt's "NGC/Other Cat." column: "581", "IC1848",
+# "M45", "Tr.9", "Mel 15", "Harvard 8", and a part of an NGC object, "2384a".
+_COLLINDER_DESIGNATION_RE = re.compile(r"([A-Za-z]*)\.?\s*(\d+)([a-z]?)")
+
+# "581 (M103)", "(Harvard 8)": a value, then a second one in parentheses.
+_COLLINDER_PARENTHESES_RE = re.compile(r"([^()]*)\(([^()]*)\)")
+
+# "4-5 Vul.", "9-12 Gem": the Flamsteed numbers of a cluster's bright stars.
+_COLLINDER_STAR_GROUP_RE = re.compile(r"\d+-\d+ [A-Z][a-z]{2}\.?")
+
+# "nl": not listed.
+_COLLINDER_PLACEHOLDERS = frozenset({"", "nl", "-"})
+
+# The mark on a cross-reference of Collinder's that is wrong.
+_COLLINDER_WRONG = "(incorrectly)"
+
+
+def collinder_designation(text: str) -> Optional[str]:
+    """A designation of collinder.txt written out, or None if text is not one.
+
+    "581" -> "NGC 581", "IC1848" -> "IC 1848", "Tr.9" -> "Trumpler 9",
+    "2384a" -> "NGC 2384a". A catalog that the file does not abbreviate
+    ("Markarian 18") is not read here: it stays a name as written.
+    """
+    match = _COLLINDER_DESIGNATION_RE.fullmatch(text.strip())
+    if match is None:
+        return None
+    prefix, number, part = match.groups()
+    catalog = _COLLINDER_CATALOGS.get(prefix.lower())
+    if catalog is None:
+        return None
+    return f"{catalog} {int(number)}{part}"
+
+
+def collinder_other_catalogs(raw: str) -> List[str]:
+    """The names that collinder.txt's "NGC/Other Cat." column gives a cluster.
+
+    The column holds a designation ("581", "IC1848", "Tr.9"), often with a
+    second one in parentheses ("581 (M103)"), or a name ("Orion Cluster").
+    Each designation is written out, so one of a PiFinder catalog joins its
+    sky object. These are not names, and give nothing:
+
+    - a placeholder ("nl");
+    - a cross-reference marked wrong ("(incorrectly) 3247"): the cluster is
+      not NGC 3247, so it must not join it;
+    - the Flamsteed numbers of a cluster's stars ("4-5 Vul.");
+    - text in parentheses that is not one designation ("(PMC)",
+      "(Mel 72 per A/H)"): a note.
+    """
+    text = " ".join(raw.split())
+    if text.lower() in _COLLINDER_PLACEHOLDERS or text.startswith(_COLLINDER_WRONG):
+        return []
+    value, note = text, ""
+    match = _COLLINDER_PARENTHESES_RE.fullmatch(text)
+    if match is not None:
+        value, note = (part.strip() for part in match.groups())
+    names = []
+    if value and not _COLLINDER_STAR_GROUP_RE.fullmatch(value):
+        designation = collinder_designation(value)
+        if designation is None:
+            # A name. A final "Cl." can only be "Cluster" ("Antares Cl.").
+            designation = re.sub(r"\bCl\.$", "Cluster", value)
+        names.append(designation)
+    noted = collinder_designation(note) if note else None
+    if noted is not None:
+        names.append(noted)
+    return names
+
+
+def collinder_other_names(raw: str) -> List[str]:
+    """The names that collinder2.txt's "Other names" column gives a cluster.
+
+    The column is a comma-separated list ("Beehive Cluster, Praesepe"). A
+    footnote mark ("[note 1]") is not a name.
+    """
+    names = (name.strip() for name in raw.split(","))
+    return [name for name in names if name and not name.startswith("[note")]
+
+
+def collinder_names(other_catalogs: str, other_names: str) -> List[str]:
+    """A Collinder listing's names from both files, in order, each one once."""
+    names: List[str] = []
+    for name in collinder_other_catalogs(other_catalogs) + collinder_other_names(
+        other_names
+    ):
+        if name not in names:
+            names.append(name)
+    return names
+
+
 def load_collinder():
     logging.info("Loading Collinder")
     catalog = "Col"
@@ -122,8 +228,6 @@ def load_collinder():
             dfs = line.split("\t")
             sequence = dfs[0].split(" ")[0]
             other_names = dfs[1]
-            if other_names.isnumeric():
-                other_names = "NGC " + other_names
 
             ra = dfs[3]
             ra_h = int(ra[0:2])
@@ -142,7 +246,7 @@ def load_collinder():
 
             collinder = Collinder(
                 sequence=sequence,
-                other_names=other_names.strip(),
+                other_names=other_names,
                 ra_deg=ra_deg,
                 dec_deg=dec_deg,
                 size=size,
@@ -169,18 +273,8 @@ def load_collinder():
                 mag = MagnitudeObject([])
             else:
                 mag = MagnitudeObject([float(mag)])
-            other_names = dfs[2].strip()
             c_tuple = c_dict[sequence]
-
-            # Collect all valid names more efficiently
-            aka_names = []
-            if c_tuple.other_names and not c_tuple.other_names.startswith(
-                ("[note", "Tr.", "Harv.", "Mel.")
-            ):
-                aka_names.append(c_tuple.other_names)
-
-            if other_names and not other_names.startswith("[note"):
-                aka_names.append(other_names)
+            aka_names = collinder_names(c_tuple.other_names, dfs[2])
 
             new_object = NewCatalogObject(
                 object_type=obj_type,

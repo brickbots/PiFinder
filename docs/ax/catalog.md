@@ -583,6 +583,24 @@ Arp 79's NGC 5490C, a galaxy of its own 4.8′ from NGC 5490, does not. A
 source can mean either by the letter, so every other loader keeps the
 strict default, where "NGC 4676A" is a plain name.
 
+**A loader writes its source's designations out before they are akas.**
+The allowlist reads "NGC 581", not the "581 (M103)" of `collinder.txt`,
+which would stay a plain name and leave Col 14 a second sky object beside
+M 103. So the Collinder loader reads its two name columns
+(`collinder_names`):
+
+- `collinder.txt`'s "NGC/Other Cat." holds a designation, often with a
+  second one in parentheses: "581 (M103)" is "NGC 581" and "M 103",
+  "IC4725 (M25)" is "IC 4725" and "M 25", "Tr.9" is "Trumpler 9". A part of
+  an NGC object ("2384a") is the name "NGC 2384a", which joins nothing.
+- A cross-reference that the source marks wrong ("(incorrectly) 3247")
+  gives no aka, so it can never join. Nor does a placeholder ("nl"), the
+  Flamsteed numbers of a cluster's stars ("4-5 Vul."), or text in
+  parentheses that is not one designation ("(Mel 72 per A/H)").
+- `collinder2.txt`'s "Other names" is a comma-separated list, and each
+  item is a name: Col 399 is "Al Sufi's Cluster", "Brocchi's Cluster" and
+  "Coathanger".
+
 **Stars are identified by Hipparcos number.** The star-identity stage
 cross-matches every sky object that carries a listing of a star catalog
 (Str, SaM, SaR, TLK, RDS, WDS) to `hip_main.dat`, and merges the sky
