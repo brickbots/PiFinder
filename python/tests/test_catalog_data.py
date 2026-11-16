@@ -489,6 +489,80 @@ def test_iau_names_keep_their_diacritics():
 
 
 @pytest.mark.unit
+def test_collinder_399_has_three_separate_names():
+    # collinder2.txt's comma list is three names. collinder.txt's "4-5 Vul.",
+    # the Flamsteed numbers of the Coathanger's stars, is not a name.
+    db = objects_db.ObjectsDatabase()
+    coathanger = listing_object(db, "Col", 399)
+    assert object_listings(db, coathanger["id"]) == {"Col 399", "Ta2 173", "Lyn 847"}
+    names = object_names(db, coathanger["id"])
+    assert names[:4] == [
+        "Col 399",
+        "Al Sufi's Cluster",
+        "Brocchi's Cluster",
+        "Coathanger",
+    ]
+    assert "4-5 Vul." not in names
+    assert not any("," in name for name in names)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "sequence, listings",
+    [
+        # collinder.txt: "581 (M103)", "2632 (M44)", "IC4725 (M25)",
+        # "Mel 15 (IC1805)", and "6374 (6383)" beside Col 335's "6383".
+        (14, {"NGC 581", "M 103", "Col 14", "Lyn 44"}),
+        (189, {"NGC 2632", "M 44", "Col 189", "Lyn 449"}),
+        (382, {"IC 4725", "M 25", "Col 382", "Lyn 803"}),
+        (26, {"IC 1805", "Col 26", "Sh2 190", "Lyn 77"}),
+        (334, {"NGC 6383", "NGC 6374", "Col 334", "Col 335", "Lyn 730"}),
+        # "(incorrectly) 3247": Collinder 220 is not NGC 3247.
+        (220, {"Col 220"}),
+        # "2384a" is a part of NGC 2384, not NGC 2384.
+        (142, {"Col 142"}),
+    ],
+)
+def test_collinder_joins_the_object_it_names(sequence, listings):
+    db = objects_db.ObjectsDatabase()
+    sky_object = listing_object(db, "Col", sequence)
+    assert object_listings(db, sky_object["id"]) == listings
+
+
+@pytest.mark.unit
+def test_collinder_joins_keep_the_first_loaders_values():
+    db = objects_db.ObjectsDatabase()
+    # The Messier name stays first on M 44, and Collinder's names follow.
+    m44 = object_names(db, listing_object(db, "Col", 189)["id"])
+    assert m44[:2] == ["Beehive Cluster", "Praesepe"]
+    assert "2632 (M44)" not in m44
+    # IC 1805 keeps its type (#676) with Collinder 26 = Melotte 15 on it.
+    ic1805 = listing_object(db, "Col", 26)
+    assert ic1805["obj_type"] == "C+N"
+    assert "Melotte 15" in object_names(db, ic1805["id"])
+    assert object_names(db, listing_object(db, "Col", 220)["id"]) == ["Col 220"]
+    assert object_names(db, listing_object(db, "Col", 142)["id"]) == [
+        "Col 142",
+        "NGC 2384a",
+    ]
+
+
+@pytest.mark.unit
+def test_collinder_names_hold_no_raw_column_text():
+    # No placeholder, parenthesised note, comma list or bare number.
+    db = objects_db.ObjectsDatabase()
+    db.cursor.execute("SELECT DISTINCT common_name FROM names WHERE origin = 'Col';")
+    names = [row["common_name"] for row in db.cursor.fetchall()]
+    assert len(names) == 939
+    raw = [
+        name
+        for name in names
+        if name == "nl" or "(" in name or "," in name or name.isdigit()
+    ]
+    assert raw == []
+
+
+@pytest.mark.unit
 def test_background_loader():
     """
     Test that CatalogBackgroundLoader correctly loads objects in background.
