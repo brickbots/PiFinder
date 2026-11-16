@@ -17,16 +17,15 @@ when a callback runs, so the menu structure stays light at import time.
 
 import functools
 import logging
-import math
 import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from PiFinder import utils
 from PiFinder.lazy_import import lazy_module
-from PiFinder.satellite_groups import AVAILABLE_GROUPS, GROUPS_BY_NAME
+from PiFinder.satellite_groups import AVAILABLE_GROUPS, GROUPS_BY_NAME, wait_minutes
 from PiFinder.ui.base import UIModule
 
 if TYPE_CHECKING:
@@ -62,21 +61,19 @@ def reason_text(error: str) -> str:
     """The short device text for the reason of a failed download.
 
     ``satellites.download_error_text`` makes the reason. The screen shows
-    about 16 characters on a line.
+    about 16 characters on a line. An HTTP error shows its own text.
     """
-    if error == "CelesTrak has no data":
-        return _("Group empty now")
-    if error == "No network":
-        return _("No network")
-    if error == "No answer from server":
-        return _("Server timeout")
-    if error == "No valid data":
-        return _("No valid data")
-    if error.startswith("Refused by CelesTrak"):
-        return _("Refused (403)")
-    if error.startswith("Server error ") or error.startswith("HTTP error "):
+    code = satellites.download_error_code(error)
+    if code == "http":
         return error
-    return _("Download failed")
+    texts = {
+        "no_data": _("Group empty now"),
+        "network": _("No network"),
+        "timeout": _("Server timeout"),
+        "bad_data": _("No valid data"),
+        "refused": _("Refused (403)"),
+    }
+    return texts.get(code, _("Download failed"))
 
 
 def wait_message(seconds: float) -> str:
@@ -84,7 +81,7 @@ def wait_message(seconds: float) -> str:
 
     The text fits a line of the 128 px screen.
     """
-    minutes = max(1, math.ceil(seconds / 60.0))
+    minutes = wait_minutes(seconds)
     if minutes < 60:
         # TRANSLATORS: A catalog download was done a short time ago
         return _("Wait {minutes} min").format(minutes=minutes)
@@ -193,28 +190,39 @@ def catalog_result_message(result: Any) -> str:
 downloads = GroupDownloads()
 
 
-# The selection file key (path, inode, change time in ns) and the groups read
-# from it. Each write replaces the file, so the inode changes on each write.
-_selection_cache: tuple[Optional[tuple[Path, int, int]], list[str]] = (None, [])
+# For each cached file: the file key (path, inode, change time in ns) and the
+# value read from it. Each write replaces the file, so the inode changes on
+# each write.
+_file_cache: dict[str, tuple[tuple[Path, int, int], Any]] = {}
+
+
+def _stat_cached(path: Path, load: Callable[[], Any]) -> Any:
+    """``load()``, read again only when the inode or the change time of
+    ``path`` is different. A missing file is a key too."""
+    try:
+        stat = path.stat()
+        key = (path, stat.st_ino, stat.st_mtime_ns)
+    except OSError:
+        key = (path, -1, -1)
+    cached = _file_cache.get(path.name)
+    if cached is None or cached[0] != key:
+        cached = (key, load())
+        _file_cache[path.name] = cached
+    return cached[1]
 
 
 def selected_groups(ui_module: UIModule) -> list[str]:
     """The ``values_callback`` of the menu: the stored selection.
 
     The menu calls it on each frame, so the file is read again only when
-    its inode or its change time is different.
+    it changes.
     """
-    global _selection_cache
     directory = utils.satellite_data_dir
-    path = satellites.selection_file(directory)
-    try:
-        stat = path.stat()
-        key: Optional[tuple[Path, int, int]] = (path, stat.st_ino, stat.st_mtime_ns)
-    except OSError:
-        key = (path, -1, -1)
-    if key != _selection_cache[0]:
-        _selection_cache = (key, list(satellites.selected_groups(directory)))
-    return list(_selection_cache[1])
+    groups = _stat_cached(
+        satellites.selection_file(directory),
+        lambda: tuple(satellites.selected_groups(directory)),
+    )
+    return list(groups)
 
 
 def update_now(ui_module: UIModule) -> None:
@@ -272,34 +280,27 @@ def toggle_group(ui_module: UIModule, group: str, selected: bool) -> None:
         )
 
 
-# The status file key (path, inode, change time in ns) and the failed groups
-# with their reasons. Each write replaces the file, so the inode changes.
-_status_cache: tuple[Optional[tuple[Path, int, int]], dict[str, str]] = (None, {})
+def _load_failed(directory: Path) -> dict[str, str]:
+    now = datetime.now(timezone.utc)
+    return {
+        group: entry.error
+        for group, entry in satellites.load_download_status(directory).items()
+        if entry.current_result(now) == satellites.RESULT_FAILED
+    }
 
 
 def failed_groups() -> dict[str, str]:
     """The groups whose last download failed, with the stored reason.
 
     The menu asks on each frame for each row, so the file is read again
-    only when its inode or its change time is different.
+    only when it changes.
     """
-    global _status_cache
     directory = utils.satellite_data_dir
-    path = satellites.download_status_file(directory)
-    try:
-        stat = path.stat()
-        key: Optional[tuple[Path, int, int]] = (path, stat.st_ino, stat.st_mtime_ns)
-    except OSError:
-        key = (path, -1, -1)
-    if key != _status_cache[0]:
-        now = datetime.now(timezone.utc)
-        failed = {
-            group: entry.error
-            for group, entry in satellites.load_download_status(directory).items()
-            if entry.current_result(now) == satellites.RESULT_FAILED
-        }
-        _status_cache = (key, failed)
-    return dict(_status_cache[1])
+    failed = _stat_cached(
+        satellites.download_status_file(directory),
+        lambda: _load_failed(directory),
+    )
+    return dict(failed)
 
 
 def failed_error(group: str) -> Optional[str]:

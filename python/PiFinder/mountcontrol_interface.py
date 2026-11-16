@@ -19,9 +19,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Generator, Iterator, Optional, Any
 
-import pytz
-
 from PiFinder import calc_utils, satellites
+from PiFinder.observing_nights import zone_for
 from PiFinder import target_follow, track_rates
 from PiFinder.target_follow import FollowStage, TargetFollow, angular_distance
 from PiFinder.state import SharedStateObj
@@ -223,18 +222,16 @@ def meet_text(seconds: float, meet: target_follow.MeetPoint) -> str:
     )
 
 
-def next_pass_text(item: Optional[satellites.SatPass], now: float, zone: str) -> str:
+def next_pass_text(
+    item: Optional[satellites.SatPass], now: float, zone: Optional[str]
+) -> str:
     """The next pass for a satellite without a meet point in the wait time,
     in three short lines: "Next pass 21:43", "in 2h05", "max 38° SE". The
     time is the meet time, in the time zone of the location."""
     if item is None:
         return _("No pass in 24 h")
     when = target_follow.meet_time(item)
-    try:
-        tzinfo: datetime.tzinfo = pytz.timezone(zone)
-    except pytz.UnknownTimeZoneError:
-        tzinfo = datetime.timezone.utc
-    clock = datetime.datetime.fromtimestamp(when, tzinfo).strftime("%H:%M")
+    clock = datetime.datetime.fromtimestamp(when, zone_for(zone)).strftime("%H:%M")
     minutes = max(0, int(round((when - now) / 60.0)))
     hours, rest = divmod(minutes, 60)
     wait = f"{hours}h{rest:02d}" if hours else f"{rest} min"
@@ -249,8 +246,9 @@ def next_pass_text(item: Optional[satellites.SatPass], now: float, zone: str) ->
 
 def _follow_correction(offset_deg: float) -> float:
     """The rate in degrees per second that removes an offset to the target."""
-    limit = target_follow.MAX_CORRECTION_DEG_S
-    return max(-limit, min(limit, offset_deg / target_follow.CORRECTION_S))
+    return target_follow.clamp(
+        offset_deg / target_follow.CORRECTION_S, target_follow.MAX_CORRECTION_DEG_S
+    )
 
 
 # Commands that do not end a follow.
@@ -263,13 +261,6 @@ FOLLOW_KEEPING_COMMANDS = (
 )
 # During a follow these commands correct the path, they do not move the mount.
 FOLLOW_NUDGE_COMMANDS = ("manual_movement", "motion_start", "motion_stop")
-# Sky direction (north, east) of the manual_movement directions.
-SKY_DIRECTIONS = {
-    "NORTH": (1.0, 0.0),
-    "SOUTH": (-1.0, 0.0),
-    "EAST": (0.0, 1.0),
-    "WEST": (0.0, -1.0),
-}
 # The follow reads the trusted time again after this many seconds.
 CLOCK_REFRESH_S = 30.0
 # A mount position report older than this has no known time.
@@ -1176,7 +1167,9 @@ class MountControlBase:
         self._follow_offset = (0.0, 0.0)
         self._follow_solve_time = time.time()
         self._follow_motion = None
-        self.track_rate = track_rates.SIDEREAL
+        # A follow starts from sidereal tracking: the mount leaves a lunar
+        # or solar track mode.
+        self._set_track_rate(track_rates.SIDEREAL)
         self._reset_drift_compensation_data()
         logger.info("Following %s", follow.name)
         self.notify(_("Follow") + " " + follow.name)
@@ -1230,8 +1223,7 @@ class MountControlBase:
 
     def _next_pass_text(self, item: Optional[satellites.SatPass], now: float) -> str:
         location = self.shared_state.location()
-        zone = getattr(location, "timezone", None) or "UTC"
-        return next_pass_text(item, now, zone)
+        return next_pass_text(item, now, getattr(location, "timezone", None))
 
     def _follow_aim(self, now: float) -> None:
         """Goto the target: ahead of it if it is fast, or to the meet point."""
@@ -1447,8 +1439,12 @@ class MountControlBase:
             return
 
         if follow.stage == FollowStage.PASS and follow.arrived(now):
-            if pointing is None and follow.aim_ra is not None:
-                pointing = (follow.aim_ra, follow.aim_dec or 0.0)
+            if (
+                pointing is None
+                and follow.aim_ra is not None
+                and follow.aim_dec is not None
+            ):
+                pointing = (follow.aim_ra, follow.aim_dec)
             if pointing is None or angular_distance(
                 point.ra, point.dec, *pointing
             ) > follow.pass_distance(point):
@@ -1498,22 +1494,26 @@ class MountControlBase:
         if command["type"] == "motion_stop":
             self._follow_motion = None
             return
-        if "offset" in command:
-            north, east = command["offset"]
-        elif "north" in command:
-            north, east = command["north"], command["east"]
-        else:
-            direction = str(command.get("direction", "")).upper()
-            if direction not in SKY_DIRECTIONS:
-                self.warn(_("Mount did not move!"))
-                return
-            north, east = SKY_DIRECTIONS[direction]
+        north, east, step_size = self._command_offset(command)
         if command["type"] == "motion_start":
             self._follow_motion = (north, east, now, now)
             return
-        step_size = command.get("step_size", self.step_size)
         follow.nudge(north * step_size, east * step_size, now)
         self._follow_nudged(follow)
+        self._notify_step(command, step_size)
+
+    def _command_offset(self, command: dict) -> tuple[float, float, float]:
+        """The sky direction (north, east) and the step size of a move
+        command: "offset" of manual_movement, or "north" and "east" of
+        motion_start."""
+        if "offset" in command:
+            north, east = command["offset"]
+        else:
+            north, east = command["north"], command["east"]
+        return north, east, command.get("step_size", self.step_size)
+
+    def _notify_step(self, command: dict, step_size: float) -> None:
+        """Show the move: the "label" of the command and the step size."""
         label = command.get("label", "")
         self.notify(f"{label} {format_step(step_size)}".strip())
 
@@ -1925,14 +1925,12 @@ class MountControlBase:
         elif command["type"] == "manual_movement" and "offset" in command:
             # A move in any sky direction: (north, east) parts of a unit
             # vector, from the eyepiece view. "label" names it on screen.
-            north, east = command["offset"]
-            step_size = command.get("step_size", self.step_size)
+            north, east, step_size = self._command_offset(command)
             if not self._move_mount_offset(north, east, step_size):
                 logger.warning("Mount: Manual movement failed")
                 self.warn(_("Mount did not move!"))
             else:
-                label = command.get("label", "")
-                self.notify(f"{label} {format_step(step_size)}".strip())
+                self._notify_step(command, step_size)
 
         elif command["type"] == "manual_movement":
             logger.debug("Mount: manual_movement command received")

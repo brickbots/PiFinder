@@ -7,8 +7,6 @@ catalog code. The satellite catalog has three labels: the name, the NORAD
 number and the COSPAR id.
 """
 
-import datetime
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -17,43 +15,19 @@ import pytest
 # ``PiFinder.ui`` import.
 import PiFinder.i18n  # noqa: F401
 
-import PiFinder.satellite_catalog as satellite_catalog
 import PiFinder.satellites as satellites
 from PiFinder.catalogs import Catalog, Catalogs, ObjectLabel
 from PiFinder.comet_catalog import CometCatalog
 from PiFinder.composite_object import CompositeObject
-from PiFinder.state import Location
 from PiFinder.ui.marking_menus import MarkingMenu
 from PiFinder.ui.object_list import LABEL_CONFIG_OPTION, UIObjectList
-
-DATA = Path(__file__).parent / "data" / "satellites"
-ISS_NORAD = 25544
-DEVICE_LINE_CHARS = 16
-
-
-def iss_elements() -> satellites.SatElements:
-    results, _errors = satellites.parse_elements((DATA / "25544.3le").read_text())
-    return results[0]
-
-
-NOW = iss_elements().epoch + datetime.timedelta(days=1)
-
-
-class FixedSharedState:
-    def __init__(self, dt):
-        self.dt = dt
-        self._location = Location(
-            lat=50.85, lon=4.35, altitude=50.0, lock=True, timezone="Europe/Brussels"
-        )
-
-    def altaz_ready(self):
-        return True
-
-    def datetime(self):
-        return self.dt
-
-    def location(self):
-        return self._location
+from satellite_helpers import (
+    DEVICE_LINE_CHARS,
+    ISS_NORAD,
+    SAT_DATA as DATA,
+    make_catalog,
+    seed_groups,
+)
 
 
 class FakeConfig:
@@ -71,13 +45,8 @@ class FakeConfig:
 
 @pytest.fixture
 def sat_catalog(tmp_path):
-    (tmp_path / "stations.tle").write_text((DATA / "25544.3le").read_text())
-    cat = satellite_catalog.SatelliteCatalog(
-        FixedSharedState(NOW), data_directory=tmp_path, start_threads=False
-    )
-    cat._spawn_pass_worker = cat._run_pass_updates
-    cat.do_timed_task()
-    return cat
+    seed_groups(tmp_path, ["stations"])
+    return make_catalog(tmp_path)
 
 
 def _object_list(catalog_code: str, catalogs: Catalogs, config=None) -> UIObjectList:
@@ -211,8 +180,9 @@ def test_details_screen_shows_the_three_ids(sat_catalog):
     lines = text.split("\n")
     assert "NORAD 25544" in lines
     assert "COSPAR 1998-067A" in lines
-    for line in ("NORAD 25544", "COSPAR 1998-067A"):
-        assert len(line) <= DEVICE_LINE_CHARS
+    id_lines = [line for line in lines if line.startswith(("NORAD ", "COSPAR "))]
+    assert len(id_lines) == 2
+    assert all(len(line) <= DEVICE_LINE_CHARS for line in id_lines)
     assert any(line.startswith("TLE ") and "d old" in line for line in lines)
 
 
@@ -236,26 +206,26 @@ def test_satellite_list_has_id_on_down(sat_catalog):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("code", ["CM", "MP"])
-def test_comet_and_asteroid_lists_keep_refresh_on_down(code):
-    module = _object_list(code, Catalogs([Catalog(code, code)]))
+@pytest.mark.parametrize(
+    "code, catalogs, label",
+    [
+        # Comets and asteroids keep "Refresh".
+        ("CM", [Catalog("CM", "CM")], "Refresh"),
+        ("MP", [Catalog("MP", "MP")], "Refresh"),
+        ("M", [Catalog("M", "M")], ""),
+        ("NGC", [Catalog("NGC", "NGC")], ""),
+        ("PL", [Catalog("PL", "PL")], ""),
+        # Before the catalog exists the satellite list has no labels. It has
+        # no "Refresh": the Sat groups menu updates the satellites.
+        ("SA", [], ""),
+    ],
+)
+def test_down_slot_without_labels(code, catalogs, label):
+    module = _object_list(code, Catalogs(catalogs))
     down = module._marking_menu_down()
-    assert down.label == "Refresh"
-    assert down.callback == module.mm_refresh_dynamic_catalog
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("code", ["M", "NGC", "PL"])
-def test_other_lists_have_an_empty_down(code):
-    module = _object_list(code, Catalogs([Catalog(code, code)]))
-    assert module._marking_menu_down().label == ""
-
-
-@pytest.mark.unit
-def test_satellite_list_before_the_catalog_exists_keeps_refresh():
-    # Without the catalog there are no labels, so the generic rule applies.
-    module = _object_list("SA", Catalogs([]))
-    assert module._marking_menu_down().label == "Refresh"
+    assert down.label == label
+    if label:
+        assert down.callback == module.mm_refresh_dynamic_catalog
 
 
 # -- choosing a label ---------------------------------------------------------

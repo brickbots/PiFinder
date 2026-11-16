@@ -21,12 +21,12 @@ goto ends on the target, then TRACK or PASS starts.
 
 A satellite that is not yet at MEET_ALT_DEG gets a meet point: the first
 time of its next pass at that altitude or higher, in sunlight against a dark
-sky if the pass has such a part (``find_meet``). The first AIM goes to the
-position of the satellite at that time and the WAIT lasts until then. The
-meet point is a fixed RA/Dec, so the sidereal tracking holds it during the
-wait. The user can say "I see it" with an arrow (``TargetFollow.see_it``):
-the satellite is at the meet point now, and the difference to the meet time
-is a time offset of the elements.
+sky if the pass has such a part (``find_pass``, ``meet_point``). The first
+AIM goes to the position of the satellite at that time and the WAIT lasts
+until then. The meet point is a fixed RA/Dec, so the sidereal tracking holds
+it during the wait. The user can say "I see it" with an arrow
+(``TargetFollow.see_it``): the satellite is at the meet point now, and the
+difference to the meet time is a time offset of the elements.
 
 Each slew measures its duration, and the next lead uses it. Positions are
 topocentric RA/Dec of date (JNow), the frame of the mount.
@@ -47,10 +47,11 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Optional, Protocol, Sequence
 
+from sgp4.io import compute_checksum
 from skyfield.api import wgs84
 
 from PiFinder import satellites
-from PiFinder.calc_utils import sf_utils
+from PiFinder.calc_utils import FastAltAz, sf_utils
 
 # Lead of the first slew to a fast target, before a slew time is measured.
 DEFAULT_LEAD_S = 20.0
@@ -96,14 +97,12 @@ MEET_REFRESH_MIN_DEG = 0.02
 # Corrections that put the path on the meet point after "I see it".
 SEE_IT_STEPS = 2
 
+# The rotation of the Earth relative to the stars, in degrees per solar day.
 SIDEREAL_DEG_PER_DAY = 360.98564736629
 # A target whose motion differs from a fixed point in alt-az by less than
 # this (degrees per second, 1.8"/s) stays in view with tracking off. A
 # geostationary satellite is such a target.
 GROUND_FIXED_DEG_S = 0.0005
-UNIX_EPOCH_JD = 2440587.5
-J2000_JD = 2451545.0
-GMST_AT_J2000_DEG = 280.46061837
 
 
 class FollowStage(Enum):
@@ -171,17 +170,6 @@ def angular_distance(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
     return math.degrees(math.acos(max(-1.0, min(1.0, cos_d))))
 
 
-def altitude(ra: float, dec: float, unix_time: float, lat: float, lon: float) -> float:
-    """Altitude in degrees of a JNow position, without refraction."""
-    days = unix_time / 86400.0 + UNIX_EPOCH_JD - J2000_JD
-    hour_angle = GMST_AT_J2000_DEG + SIDEREAL_DEG_PER_DAY * days + lon - ra
-    lat_r, dec_r, ha_r = map(math.radians, (lat, dec, hour_angle))
-    sin_alt = math.sin(lat_r) * math.sin(dec_r) + math.cos(lat_r) * math.cos(
-        dec_r
-    ) * math.cos(ha_r)
-    return math.degrees(math.asin(max(-1.0, min(1.0, sin_alt))))
-
-
 def _skyfield_point(apparent_at, unix_time: float, step_s: float) -> FollowPoint:
     """The point of a skyfield target: position now, rates from the position
     ``step_s`` later. ``apparent_at(times)`` gives the topocentric position."""
@@ -215,7 +203,7 @@ def shift_elements(
     revs_per_day = float(line2[52:63])
     mean_anomaly = (mean_anomaly + revs_per_day * 360.0 * seconds / 86400.0) % 360.0
     body = f"{line2[:43]}{mean_anomaly:8.4f}{line2[51:68]}"
-    line2 = f"{body}{satellites.tle_checksum(body)}"
+    line2 = f"{body}{compute_checksum(body)}"
     return satellites.SatElements(
         elements.name, elements.norad_id, elements.line1, line2, elements.source
     )
@@ -236,20 +224,15 @@ class SatelliteTarget:
         self.elements = elements
         self.name = elements.name
         self._site = (lat, lon, altitude_m)
-        self._difference = elements.to_earth_satellite() - satellites.observer_topos(
-            lat, lon, altitude_m
-        )
+        self.satellite = elements.to_earth_satellite()
+        self.topos = wgs84.latlon(lat, lon, altitude_m)
+        self._difference = self.satellite - self.topos
 
     def point(self, unix_time: float) -> FollowPoint:
         return _skyfield_point(self._difference.at, unix_time, self.RATE_STEP_S)
 
     def shifted(self, seconds: float) -> "SatelliteTarget":
         return SatelliteTarget(shift_elements(self.elements, seconds), *self._site)
-
-    @property
-    def site(self) -> tuple[float, float, float]:
-        """Latitude, longitude (degrees) and altitude (m) of the observer."""
-        return self._site
 
     def alt_az(self, unix_time: float) -> tuple[float, float]:
         """Altitude and azimuth in degrees, without refraction."""
@@ -263,15 +246,12 @@ def find_pass(
 ) -> Optional[satellites.SatPass]:
     """The next pass in ``minutes`` that reaches MEET_ALT_DEG and has its
     meet time (``meet_time``) after ``now``, or None."""
-    lat, lon, altitude_m = target.site
     tracked = satellites.TrackedSatellite(
-        target.elements,
-        satellites.DEFAULT_STD_MAG,
-        target.elements.to_earth_satellite(),
+        target.elements, satellites.DEFAULT_STD_MAG, target.satellite
     )
     passes = satellites.find_passes(
         tracked,
-        satellites.observer_topos(lat, lon, altitude_m),
+        target.topos,
         datetime.fromtimestamp(now, tz=timezone.utc),
         hours=minutes / 60.0,
         min_alt=MEET_ALT_DEG,
@@ -294,15 +274,6 @@ def meet_point(target: SatelliteTarget, item: satellites.SatPass) -> MeetPoint:
     when = meet_time(item)
     alt, az = target.alt_az(when)
     return MeetPoint(when, alt, az)
-
-
-def find_meet(
-    target: SatelliteTarget, now: float, minutes: float = MEET_SEARCH_MINUTES
-) -> Optional[MeetPoint]:
-    """The meet point of the next pass in ``minutes`` that reaches
-    MEET_ALT_DEG (see ``meet_time``), or None."""
-    item = find_pass(target, now, minutes)
-    return None if item is None else meet_point(target, item)
 
 
 class BodyTarget:
@@ -360,21 +331,18 @@ class SampledTarget:
         dec_rate = (dec1 - dec0) / (t1 - t0)
         ra = (ra0 + ra_rate * (unix_time - t0)) % 360.0
         dec = max(-90.0, min(90.0, dec0 + dec_rate * (unix_time - t0)))
-        return FollowPoint(
-            ra,
-            dec,
-            ra_rate,
-            dec_rate,
-            altitude(ra, dec, unix_time, self._lat, self._lon),
+        dt = datetime.fromtimestamp(unix_time, tz=timezone.utc)
+        alt, _az = FastAltAz(self._lat, self._lon, dt).radec_to_altaz(
+            ra, dec, alt_only=True
         )
+        return FollowPoint(ra, dec, ra_rate, dec_rate, alt)
 
 
 def target_from_command(command: dict, location) -> MovingTarget:
     """The target of a ``follow_target`` command.
 
-    ``kind`` is "satellite" (with name, norad_id, line1, line2), "body"
-    (with body: "moon", "sun", "jupiter", ...) or "samples" (with name and
-    samples). Raises KeyError or ValueError for a bad command.
+    ``kind`` is "satellite" (with name, norad_id, line1, line2) or "samples"
+    (with name and samples). Raises KeyError or ValueError for a bad command.
     """
     kind = command["kind"]
     lat, lon, altitude_m = location.lat, location.lon, location.altitude
@@ -386,8 +354,6 @@ def target_from_command(command: dict, location) -> MovingTarget:
             command["line2"],
         )
         return SatelliteTarget(elements, lat, lon, altitude_m)
-    if kind == "body":
-        return BodyTarget(command["body"], lat, lon, altitude_m)
     if kind == "samples":
         return SampledTarget(
             command.get("name", "Target"), command["samples"], lat, lon
@@ -441,37 +407,28 @@ class TargetFollow:
         ra = (point.ra + east / math.cos(math.radians(dec))) % 360.0
         return FollowPoint(ra, dec, point.ra_rate, point.dec_rate, point.alt)
 
-    @property
-    def corrected(self) -> bool:
-        return bool(
-            self.time_offset_s
-            or self.cross_deg
-            or self.offset_north
-            or self.offset_east
-        )
-
     def nudge(self, north_deg: float, east_deg: float, now: float) -> None:
         """Move the path by this angle on the sky: the target is north_deg
         north and east_deg east of the prediction."""
         point = self.target.point(now)
         shifted = getattr(self._base, "shifted", None)
         if shifted is None or point.speed <= FAST_DEG_S:
-            self.offset_north = _clamp(self.offset_north + north_deg, MAX_OFFSET_DEG)
-            self.offset_east = _clamp(self.offset_east + east_deg, MAX_OFFSET_DEG)
+            self.offset_north = clamp(self.offset_north + north_deg, MAX_OFFSET_DEG)
+            self.offset_east = clamp(self.offset_east + east_deg, MAX_OFFSET_DEG)
             return
         cos_dec = math.cos(math.radians(point.dec))
         along_north = point.dec_rate / point.speed
         along_east = point.ra_rate * cos_dec / point.speed
         along = north_deg * along_north + east_deg * along_east
         cross = north_deg * along_east - east_deg * along_north
-        seconds = _clamp(self.time_offset_s + along / point.speed, MAX_TIME_OFFSET_S)
+        seconds = clamp(self.time_offset_s + along / point.speed, MAX_TIME_OFFSET_S)
         # A satellite that is ahead of the prediction arrives earlier.
         if self.aim_time is not None:
             self.aim_time -= seconds - self.time_offset_s
         if self.meet_time is not None:
             self.meet_time -= seconds - self.time_offset_s
         self.time_offset_s = seconds
-        self.cross_deg = _clamp(self.cross_deg + cross, MAX_OFFSET_DEG)
+        self.cross_deg = clamp(self.cross_deg + cross, MAX_OFFSET_DEG)
         self.target = shifted(seconds)
 
     def set_meet(self, meet: MeetPoint) -> None:
@@ -567,5 +524,6 @@ class TargetFollow:
         )
 
 
-def _clamp(value: float, limit: float) -> float:
+def clamp(value: float, limit: float) -> float:
+    """The value, limited to the range -limit to limit."""
     return max(-limit, min(limit, value))

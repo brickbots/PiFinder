@@ -22,22 +22,25 @@ import os
 import re
 import tempfile
 import threading
-from contextlib import contextmanager
-from dataclasses import dataclass, field, replace
+from contextlib import AbstractContextManager, contextmanager
+from dataclasses import asdict, dataclass, field, fields, replace
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
 from pathlib import Path
-from typing import Callable, Iterable, Iterator, Optional
+from typing import Any, Callable, Iterable, Iterator, Optional
 
 import numpy as np
 import requests
 from sgp4 import exporter, omm
 from sgp4.api import Satrec, SatrecArray
-from skyfield.api import EarthSatellite, wgs84
+from sgp4.conveniences import sat_epoch_datetime
+from sgp4.io import compute_checksum
+from skyfield.api import EarthSatellite
 from skyfield.framelib import itrs
 from skyfield.sgp4lib import TEME, theta_GMST1982
 
 from PiFinder.calc_utils import sf_utils
+from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 from PiFinder.download_utils import (
     ERROR_DATA,
     ERROR_HTTP,
@@ -58,6 +61,14 @@ from PiFinder.utils import astro_data_dir, satellite_data_dir
 
 logger = logging.getLogger("Satellites")
 
+CATALOG_CODE = "SA"
+OBJ_TYPE = "Sat"
+# The object id of a satellite is this base minus its NORAD number. It is the
+# same in each process and after each build of the catalog, so the recent list
+# holds one entry for each satellite. It is far below the virtual ids that
+# VirtualIDManager mints, so the two never meet.
+OBJECT_ID_BASE = -(1 << 40)
+
 CELESTRAK_GROUP_URL = (
     "https://celestrak.org/NORAD/elements/gp.php?GROUP={group}&FORMAT=tle"
 )
@@ -68,6 +79,13 @@ CELESTRAK_CATNR_URL = (
 
 USER_FILE_NAME = "user.tle"
 CORRECTED_FILE_NAME = "corrected.tle"
+# The element sets that the user owns: the pasted sets ("user") and the
+# corrected sets of a mount follow ("corrected"). Each kind has its file, the
+# Selection field of its disabled sets, and the source of its sets.
+OWN_KINDS = {
+    "user": (USER_FILE_NAME, "disabled_user", "user"),
+    "corrected": (CORRECTED_FILE_NAME, "disabled_corrected", "corrected"),
+}
 # The text between the name and the time in the name of a corrected set.
 CORRECTED_MARK = " corr "
 USER_MAG_FILE_NAME = "user_mags.json"
@@ -97,6 +115,15 @@ MIN_FORCED_DOWNLOAD_SECONDS = 2 * 3600.0
 FAILED_RETRY_SECONDS = (5 * 60.0, 15 * 60.0, 60 * 60.0)
 # A "downloading" state older than this is from a process that stopped.
 DOWNLOAD_STALE_SECONDS = 15 * 60.0
+# The pass predictions of the catalog and of the web page: the time window,
+# which starts PASS_START_BEFORE_SECONDS before now, and the minimum altitude.
+PASS_HOURS = 24.0
+PASS_START_BEFORE_SECONDS = 15 * 60.0
+MIN_PASS_ALT_DEG = 10.0
+# A pass prediction is good for this long, and for a location change up to
+# PASS_MOVE_DEG in latitude and in longitude.
+PASS_GOOD_SECONDS = 30 * 60.0
+PASS_MOVE_DEG = 0.5
 # The observer is in darkness when the Sun is below this altitude.
 DARK_SUN_ALT_DEG = -6.0
 PASS_STEP_SECONDS = 10.0
@@ -149,21 +176,28 @@ def cospar_from_tle_field(field: str) -> str:
 
 @dataclass(frozen=True)
 class SatElements:
-    """One element set, normalized to TLE lines."""
+    """One element set, normalized to TLE lines.
+
+    ``parsed`` is the SGP4 record of the lines when the parser has it, so
+    each set is parsed once. Without it, ``satrec`` parses the lines.
+    """
 
     name: str
     norad_id: int
     line1: str
     line2: str
     source: str = "user"
+    parsed: Optional[Satrec] = field(default=None, compare=False, repr=False)
+
+    @cached_property
+    def satrec(self) -> Satrec:
+        if self.parsed is not None:
+            return self.parsed
+        return Satrec.twoline2rv(self.line1, self.line2)
 
     @cached_property
     def epoch(self) -> datetime:
-        satrec = Satrec.twoline2rv(self.line1, self.line2)
-        jd = satrec.jdsatepoch + satrec.jdsatepochF
-        return datetime(2000, 1, 1, 12, tzinfo=timezone.utc) + timedelta(
-            days=jd - 2451545.0
-        )
+        return sat_epoch_datetime(self.satrec)
 
     def age_days(self, now: datetime) -> float:
         return (now - self.epoch).total_seconds() / 86400.0
@@ -171,7 +205,7 @@ class SatElements:
     def to_tle(self) -> str:
         return f"{self.name}\n{self.line1}\n{self.line2}\n"
 
-    @property
+    @cached_property
     def cospar_id(self) -> str:
         """The international designator, for example "1998-067A".
 
@@ -188,7 +222,7 @@ class SatElements:
     def eccentricity(self) -> float:
         return float("0." + self.line2[26:33].strip())
 
-    @property
+    @cached_property
     def geostationary(self) -> bool:
         """True for a satellite that stays at one place in the sky."""
         return (
@@ -197,7 +231,9 @@ class SatElements:
         )
 
     def to_earth_satellite(self) -> EarthSatellite:
-        return EarthSatellite(self.line1, self.line2, self.name, sf_utils.ts)
+        satellite = EarthSatellite.from_satrec(self.satrec, sf_utils.ts)
+        satellite.name = self.name
+        return satellite
 
 
 @dataclass
@@ -241,21 +277,16 @@ class SatPass:
         return self.visible_start is not None
 
     def to_dict(self) -> dict:
-        return {
-            "rise": self.rise.isoformat(),
-            "culmination": self.culmination.isoformat(),
-            "set": self.set.isoformat(),
-            "rise_az": round(self.rise_az, 1),
-            "max_alt": round(self.max_alt, 1),
-            "max_alt_az": round(self.max_alt_az, 1),
-            "set_az": round(self.set_az, 1),
-            "visible": self.visible,
-            "visible_start": (
-                self.visible_start.isoformat() if self.visible_start else None
-            ),
-            "visible_end": self.visible_end.isoformat() if self.visible_end else None,
-            "min_mag": None if self.min_mag is None else round(self.min_mag, 1),
-        }
+        """The times in ISO format, the angles and the magnitude to 0.1."""
+        result: dict = {"visible": self.visible}
+        for item in fields(self):
+            value = getattr(self, item.name)
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            elif isinstance(value, float):
+                value = round(value, 1)
+            result[item.name] = value
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -263,37 +294,23 @@ class SatPass:
 # ---------------------------------------------------------------------------
 
 
-def tle_checksum(line: str) -> int:
-    total = 0
-    for char in line[:68]:
-        if char.isdigit():
-            total += int(char)
-        elif char == "-":
-            total += 1
-    return total % 10
+def _check_tle_lines(line1: str, line2: str) -> Satrec:
+    """The SGP4 record of two valid TLE lines.
 
-
-def _check_tle_lines(line1: str, line2: str) -> None:
+    The record reads the catalog number, also in the Alpha-5 form
+    (A0001 = 100001).
+    """
     if len(line1) < 69 or len(line2) < 69:
         raise ElementParseError("a TLE line is shorter than 69 characters")
     for line in (line1, line2):
-        if line[68].isdigit() and int(line[68]) != tle_checksum(line):
+        if line[68].isdigit() and int(line[68]) != compute_checksum(line):
             raise ElementParseError(f"bad checksum in line {line[:1]}")
     if line1[2:7] != line2[2:7]:
         raise ElementParseError("line 1 and line 2 have different catalog numbers")
     try:
-        Satrec.twoline2rv(line1, line2)
+        return Satrec.twoline2rv(line1, line2)
     except (ValueError, IndexError) as exc:
         raise ElementParseError(f"SGP4 rejects the lines: {exc}") from exc
-
-
-def _alpha5_to_int(text: str) -> int:
-    """Read a catalog number, also in the Alpha-5 form (A0001 = 100001)."""
-    text = text.strip()
-    if text and text[0].isalpha():
-        letters = "ABCDEFGHJKLMNPQRSTUVWXYZ"
-        return (letters.index(text[0].upper()) + 10) * 10000 + int(text[1:])
-    return int(text)
 
 
 def _parse_tle_text(text: str, source: str) -> tuple[list[SatElements], list[str]]:
@@ -313,10 +330,11 @@ def _parse_tle_text(text: str, source: str) -> tuple[list[SatElements], list[str
                 continue
             line1, line2 = line[:69], lines[index + 1][:69]
             try:
-                _check_tle_lines(line1, line2)
-                norad = _alpha5_to_int(line1[2:7])
-                name = pending_name or f"NORAD {norad}"
-                results.append(SatElements(name, norad, line1, line2, source))
+                satrec = _check_tle_lines(line1, line2)
+                name = pending_name or f"NORAD {satrec.satnum}"
+                results.append(
+                    SatElements(name, satrec.satnum, line1, line2, source, satrec)
+                )
             except ElementParseError as exc:
                 errors.append(f"{pending_name or line1[2:7]}: {exc}")
             pending_name = None
@@ -334,31 +352,35 @@ def _parse_tle_text(text: str, source: str) -> tuple[list[SatElements], list[str
     return results, errors
 
 
-def _omm_to_elements(fields: dict, source: str) -> SatElements:
-    fields = {str(k).upper(): v for k, v in fields.items()}
-    for key in list(fields):
-        value = fields[key]
-        if value is None:
-            fields.pop(key)
-        elif not isinstance(value, str):
-            fields[key] = str(value)
-    fields.setdefault("CLASSIFICATION_TYPE", "U")
-    fields.setdefault("ELEMENT_SET_NO", "999")
-    fields.setdefault("REV_AT_EPOCH", "0")
-    fields.setdefault("EPHEMERIS_TYPE", "0")
-    fields.setdefault("OBJECT_ID", "")
-    fields.setdefault("MEAN_MOTION_DOT", "0")
-    fields.setdefault("MEAN_MOTION_DDOT", "0")
-    fields.setdefault("BSTAR", "0")
+# The values of the OMM fields that a record can leave out.
+_OMM_DEFAULTS = {
+    "CLASSIFICATION_TYPE": "U",
+    "ELEMENT_SET_NO": "999",
+    "REV_AT_EPOCH": "0",
+    "EPHEMERIS_TYPE": "0",
+    "OBJECT_ID": "",
+    "MEAN_MOTION_DOT": "0",
+    "MEAN_MOTION_DDOT": "0",
+    "BSTAR": "0",
+}
+
+
+def _omm_to_elements(record: dict, source: str) -> SatElements:
+    values = {
+        str(key).upper(): value if isinstance(value, str) else str(value)
+        for key, value in record.items()
+        if value is not None
+    }
+    values = {**_OMM_DEFAULTS, **values}
     try:
         satrec = Satrec()
-        omm.initialize(satrec, fields)
+        omm.initialize(satrec, values)
         line1, line2 = exporter.export_tle(satrec)
     except (KeyError, ValueError) as exc:
         raise ElementParseError(f"OMM record is incomplete: {exc}") from exc
-    name = fields.get("OBJECT_NAME", "").strip() or f"NORAD {satrec.satnum}"
-    _check_tle_lines(line1, line2)
-    return SatElements(name[:40], int(satrec.satnum), line1, line2, source)
+    name = values.get("OBJECT_NAME", "").strip() or f"NORAD {satrec.satnum}"
+    parsed = _check_tle_lines(line1, line2)
+    return SatElements(name[:40], parsed.satnum, line1, line2, source, parsed)
 
 
 def _parse_omm_records(
@@ -405,6 +427,7 @@ def parse_elements(
     stripped = text.strip().lstrip("﻿")
     if not stripped:
         raise ElementParseError("the text is empty")
+    first_line = stripped.split("\n", 1)[0].upper()
     try:
         if stripped[0] in "[{":
             data = json.loads(stripped)
@@ -418,19 +441,18 @@ def parse_elements(
             r"^\s*MEAN_MOTION\s*=", stripped, re.M
         ):
             results, errors = _parse_omm_records(_parse_kvn(stripped), source)
-        elif stripped.split("\n", 1)[0].upper().startswith("OBJECT_NAME,") or (
-            "NORAD_CAT_ID" in stripped.split("\n", 1)[0].upper()
-            and "," in stripped.split("\n", 1)[0]
+        elif first_line.startswith("OBJECT_NAME,") or (
+            "NORAD_CAT_ID" in first_line and "," in first_line
         ):
             reader = csv.DictReader(io.StringIO(stripped))
             results, errors = _parse_omm_records(reader, source)
         else:
             results, errors = _parse_tle_text(stripped, source)
+    except ElementParseError:
+        raise
     except (json.JSONDecodeError, SyntaxError) as exc:
         raise ElementParseError(f"the text is not valid JSON or XML: {exc}") from exc
     except Exception as exc:  # the sgp4 XML reader raises many types
-        if isinstance(exc, ElementParseError):
-            raise
         raise ElementParseError(f"cannot read the text: {exc}") from exc
     if not results and not errors:
         raise ElementParseError("no element set found in the text")
@@ -446,12 +468,30 @@ def group_file(group: str, directory: Path = satellite_data_dir) -> Path:
     return directory / f"{group}.tle"
 
 
+def own_file(kind: str, directory: Path = satellite_data_dir) -> Path:
+    """The file of the user element sets of ``kind`` (see OWN_KINDS)."""
+    return directory / OWN_KINDS[kind][0]
+
+
 def user_file(directory: Path = satellite_data_dir) -> Path:
-    return directory / USER_FILE_NAME
+    return own_file("user", directory)
 
 
 def corrected_file(directory: Path = satellite_data_dir) -> Path:
-    return directory / CORRECTED_FILE_NAME
+    return own_file("corrected", directory)
+
+
+def element_files(directory: Path = satellite_data_dir) -> list[Path]:
+    """The files that decide the satellites and their passes: the selected
+    groups, the user sets, the magnitudes and the selection. A file in the
+    list can be absent."""
+    return [
+        *(group_file(group, directory) for group in selected_groups(directory)),
+        user_file(directory),
+        corrected_file(directory),
+        user_mag_file(directory),
+        selection_file(directory),
+    ]
 
 
 def _validate_tle_file(path: Path) -> None:
@@ -669,18 +709,6 @@ class GroupStatus:
             return RESULT_FAILED
         return self.result
 
-    def to_dict(self) -> dict:
-        return {
-            "result": self.result,
-            "last_attempt": self.last_attempt,
-            "last_success": self.last_success,
-            "error": self.error,
-            "sets": self.sets,
-            "failures": self.failures,
-            "next_retry": self.next_retry,
-            "last_request": self.last_request,
-        }
-
     @classmethod
     def from_dict(cls, data: dict) -> "GroupStatus":
         def number(key: str) -> Optional[float]:
@@ -730,16 +758,27 @@ def retry_wait_seconds(failures: int, server_answered: bool = False) -> float:
     return wait
 
 
+@contextmanager
+def _file_lock(path: Path, thread_lock: threading.Lock) -> Iterator[None]:
+    """Keep the threads of this process apart with ``thread_lock``, and the
+    processes (the device and the web server) with the lock file ``path``."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with thread_lock, open(path, "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
 def _update_status(directory: Path, group: str, change: Callable) -> None:
     """Replace the entry of ``group`` with ``change(old entry or None)``.
 
-    The lock file keeps the read and the write of the two processes apart.
+    A write that fails is logged: the download result stays good.
     """
     path = download_status_file(directory)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with _status_lock, open(path.with_suffix(".lock"), "a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        try:
+    try:
+        with _file_lock(path.with_suffix(".lock"), _status_lock):
             entries = load_download_status(directory)
             entries[group] = change(entries.get(group))
             _write_json(
@@ -747,12 +786,12 @@ def _update_status(directory: Path, group: str, change: Callable) -> None:
                 {
                     "version": 1,
                     "groups": {
-                        name: entry.to_dict() for name, entry in sorted(entries.items())
+                        name: asdict(entry) for name, entry in sorted(entries.items())
                     },
                 },
             )
-        finally:
-            fcntl.flock(lock, fcntl.LOCK_UN)
+    except OSError:
+        logger.exception("Could not write the download status of %s", group)
 
 
 def record_download_start(
@@ -765,10 +804,7 @@ def record_download_start(
             last_attempt=now.timestamp(),
         )
 
-    try:
-        _update_status(directory, group, change)
-    except OSError:
-        logger.exception("Could not write the download status of %s", group)
+    _update_status(directory, group, change)
 
 
 def record_download_end(
@@ -805,10 +841,7 @@ def record_download_end(
             last_request=attempt if answered else old.last_request,
         )
 
-    try:
-        _update_status(directory, group, change)
-    except OSError:
-        logger.exception("Could not write the download status of %s", group)
+    _update_status(directory, group, change)
 
 
 def catalog_empty_reason(directory: Path = satellite_data_dir) -> dict:
@@ -820,7 +853,7 @@ def catalog_empty_reason(directory: Path = satellite_data_dir) -> dict:
     """
     now = datetime.now(timezone.utc)
     groups = selected_groups(directory)
-    has_own = bool(load_user_elements(directory) or load_corrected_elements(directory))
+    has_own = any(load_own_elements(kind, directory) for kind in OWN_KINDS)
     if not groups and not has_own:
         return {"reason": "no_groups"}
     status = load_download_status(directory)
@@ -847,26 +880,49 @@ def count_sets(path: Path) -> int:
         return sum(1 for line in handle if line.startswith("1 "))
 
 
+# The reasons of a failed download: a code and the text of the web page. The
+# status file stores the text. An HTTP error without its own code has the
+# text "Server error N" or "HTTP error N", with code "http".
+DOWNLOAD_ERRORS = {
+    "no_data": "CelesTrak has no data",
+    "refused": "Refused by CelesTrak (403)",
+    "network": "No network",
+    "timeout": "No answer from server",
+    "bad_data": "No valid data",
+    "failed": "Download failed",
+}
+_ERROR_KIND_CODES = {
+    ERROR_NETWORK: "network",
+    ERROR_TIMEOUT: "timeout",
+    ERROR_DATA: "bad_data",
+}
+_HTTP_ERROR_PREFIXES = ("Server error ", "HTTP error ")
+
+
 def download_error_text(result: DownloadResult) -> str:
     """A short reason for a failed download, for the device and the web page."""
     if result.kind == ERROR_HTTP:
         code = result.status_code
         if code == 404 and "No GP data found" in result.body:
-            return "CelesTrak has no data"
+            return DOWNLOAD_ERRORS["no_data"]
         if code is not None and code >= 500:
             return f"Server error {code}"
         if code == 403:
-            return "Refused by CelesTrak (403)"
+            return DOWNLOAD_ERRORS["refused"]
         if code is not None:
             return f"HTTP error {code}"
         return "HTTP error"
-    if result.kind == ERROR_NETWORK:
-        return "No network"
-    if result.kind == ERROR_TIMEOUT:
-        return "No answer from server"
-    if result.kind == ERROR_DATA:
-        return "No valid data"
-    return "Download failed"
+    return DOWNLOAD_ERRORS[_ERROR_KIND_CODES.get(result.kind or "", "failed")]
+
+
+def download_error_code(text: str) -> str:
+    """The code of a reason that ``download_error_text`` made."""
+    for code, known in DOWNLOAD_ERRORS.items():
+        if text == known:
+            return code
+    if text.startswith(_HTTP_ERROR_PREFIXES):
+        return "http"
+    return "failed"
 
 
 def fetch_by_norad(norad: int) -> list[SatElements]:
@@ -885,17 +941,9 @@ _user_file_lock = threading.Lock()
 USER_DATA_LOCK_NAME = "user_data.lock"
 
 
-@contextmanager
-def _user_data_lock(directory: Path) -> Iterator[None]:
-    """Keep a read and a write of the user files of this process and of the
-    other process (the web server or the device) apart."""
-    directory.mkdir(parents=True, exist_ok=True)
-    with _user_file_lock, open(directory / USER_DATA_LOCK_NAME, "a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(lock, fcntl.LOCK_UN)
+def _user_data_lock(directory: Path) -> AbstractContextManager[None]:
+    """Keep a read and a write of the user files apart."""
+    return _file_lock(directory / USER_DATA_LOCK_NAME, _user_file_lock)
 
 
 def read_tle_file(path: Path, source: str) -> list[SatElements]:
@@ -910,8 +958,32 @@ def read_tle_file(path: Path, source: str) -> list[SatElements]:
     return results
 
 
+def load_own_elements(
+    kind: str, directory: Path = satellite_data_dir
+) -> list[SatElements]:
+    """The user element sets of ``kind`` (see OWN_KINDS)."""
+    return read_tle_file(own_file(kind, directory), OWN_KINDS[kind][2])
+
+
 def load_user_elements(directory: Path = satellite_data_dir) -> list[SatElements]:
-    return read_tle_file(user_file(directory), "user")
+    return load_own_elements("user", directory)
+
+
+def load_corrected_elements(directory: Path = satellite_data_dir) -> list[SatElements]:
+    return load_own_elements("corrected", directory)
+
+
+def _save_own_elements(
+    kind: str, new: Iterable[SatElements], directory: Path
+) -> list[SatElements]:
+    """Add or replace sets of ``kind``, keyed by NORAD id. The caller holds
+    the user data lock."""
+    by_id = {e.norad_id: e for e in load_own_elements(kind, directory)}
+    for element in new:
+        by_id[element.norad_id] = replace(element, source=OWN_KINDS[kind][2])
+    elements = list(by_id.values())
+    _write_text(own_file(kind, directory), "".join(e.to_tle() for e in elements))
+    return elements
 
 
 def save_user_elements(
@@ -919,37 +991,26 @@ def save_user_elements(
 ) -> list[SatElements]:
     """Add or replace user element sets, keyed by NORAD id."""
     with _user_data_lock(directory):
-        by_id = {e.norad_id: e for e in load_user_elements(directory)}
-        for element in new:
-            by_id[element.norad_id] = SatElements(
-                element.name, element.norad_id, element.line1, element.line2, "user"
-            )
-        _write_user_file(list(by_id.values()), directory)
-        return list(by_id.values())
+        return _save_own_elements("user", new, directory)
 
 
-def delete_user_element(norad_id: int, directory: Path = satellite_data_dir) -> bool:
-    """Remove a user element set, its magnitude and its selection entry."""
+def delete_element(
+    kind: str, norad_id: int, directory: Path = satellite_data_dir
+) -> bool:
+    """Remove a user set of ``kind`` and its selection entry. A pasted set
+    ("user") also loses its magnitude."""
     with _user_data_lock(directory):
-        current = load_user_elements(directory)
+        current = load_own_elements(kind, directory)
         kept = [e for e in current if e.norad_id != norad_id]
         if len(kept) == len(current):
             return False
-        _write_user_file(kept, directory)
-        mags = load_user_mags(directory)
-        if mags.pop(norad_id, None) is not None:
-            _write_json(user_mag_file(directory), {str(k): v for k, v in mags.items()})
-        selection = load_selection(directory)
-        if norad_id in selection.disabled_user:
-            _write_selection(
-                replace(selection, disabled_user=selection.disabled_user - {norad_id}),
-                directory,
-            )
+        _write_text(own_file(kind, directory), "".join(e.to_tle() for e in kept))
+        if kind == "user":
+            mags = load_user_mags(directory)
+            if mags.pop(norad_id, None) is not None:
+                _write_mags(mags, directory)
+        _change_disabled(kind, norad_id, False, directory)
         return True
-
-
-def load_corrected_elements(directory: Path = satellite_data_dir) -> list[SatElements]:
-    return read_tle_file(corrected_file(directory), "corrected")
 
 
 def corrected_name(name: str, when: datetime) -> str:
@@ -966,42 +1027,12 @@ def save_corrected_element(
 ) -> SatElements:
     """Store the corrected set of one satellite. It replaces an earlier
     corrected set of the same NORAD id."""
-    corrected = SatElements(
-        corrected_name(element.name, when),
-        element.norad_id,
-        element.line1,
-        element.line2,
-        "corrected",
+    corrected = replace(
+        element, name=corrected_name(element.name, when), source="corrected"
     )
     with _user_data_lock(directory):
-        by_id = {e.norad_id: e for e in load_corrected_elements(directory)}
-        by_id[corrected.norad_id] = corrected
-        _write_text(
-            corrected_file(directory), "".join(e.to_tle() for e in by_id.values())
-        )
+        _save_own_elements("corrected", [corrected], directory)
     return corrected
-
-
-def delete_corrected_element(
-    norad_id: int, directory: Path = satellite_data_dir
-) -> bool:
-    """Remove a corrected set and its selection entry."""
-    with _user_data_lock(directory):
-        current = load_corrected_elements(directory)
-        kept = [e for e in current if e.norad_id != norad_id]
-        if len(kept) == len(current):
-            return False
-        _write_text(corrected_file(directory), "".join(e.to_tle() for e in kept))
-        selection = load_selection(directory)
-        if norad_id in selection.disabled_corrected:
-            _write_selection(
-                replace(
-                    selection,
-                    disabled_corrected=selection.disabled_corrected - {norad_id},
-                ),
-                directory,
-            )
-        return True
 
 
 def _write_text(path: Path, text: str) -> None:
@@ -1022,10 +1053,6 @@ def _write_json(path: Path, data: dict) -> None:
     _write_text(path, json.dumps(data))
 
 
-def _write_user_file(elements: list[SatElements], directory: Path) -> None:
-    _write_text(user_file(directory), "".join(e.to_tle() for e in elements))
-
-
 @dataclass(frozen=True)
 class Selection:
     """The selected groups, and the user satellites and corrected sets that
@@ -1044,11 +1071,10 @@ class Selection:
     def group_enabled(self, group: str) -> bool:
         return group in self.groups
 
-    def user_enabled(self, norad_id: int) -> bool:
-        return norad_id not in self.disabled_user
-
-    def corrected_enabled(self, norad_id: int) -> bool:
-        return norad_id not in self.disabled_corrected
+    def enabled(self, kind: str, norad_id: int) -> bool:
+        """True when the user set ``norad_id`` of ``kind`` is not disabled."""
+        disabled: frozenset[int] = getattr(self, OWN_KINDS[kind][1])
+        return norad_id not in disabled
 
 
 def selection_file(directory: Path = satellite_data_dir) -> Path:
@@ -1104,64 +1130,109 @@ def set_group_enabled(
         _write_selection(replace(selection, groups=groups), directory)
 
 
-def set_user_enabled(
-    norad_id: int, enabled: bool, directory: Path = satellite_data_dir
-) -> None:
-    with _user_data_lock(directory):
-        selection = load_selection(directory)
-        user = selection.disabled_user - {norad_id}
-        if not enabled:
-            user = user | {norad_id}
-        _write_selection(replace(selection, disabled_user=user), directory)
+def _change_disabled(kind: str, norad_id: int, disabled: bool, directory: Path) -> None:
+    """Add ``norad_id`` to the disabled sets of ``kind``, or remove it. The
+    caller holds the user data lock."""
+    selection = load_selection(directory)
+    name = OWN_KINDS[kind][1]
+    current: frozenset[int] = getattr(selection, name)
+    changed = current | {norad_id} if disabled else current - {norad_id}
+    if changed != current:
+        fields_to_change: dict[str, Any] = {name: changed}
+        _write_selection(replace(selection, **fields_to_change), directory)
 
 
-def set_corrected_enabled(
-    norad_id: int, enabled: bool, directory: Path = satellite_data_dir
+def set_enabled(
+    kind: str, norad_id: int, enabled: bool, directory: Path = satellite_data_dir
 ) -> None:
+    """Enable or disable the user set ``norad_id`` of ``kind``."""
+    if kind not in OWN_KINDS:
+        raise ValueError(f"not a kind of user set: {kind}")
     with _user_data_lock(directory):
-        selection = load_selection(directory)
-        corrected = selection.disabled_corrected - {norad_id}
-        if not enabled:
-            corrected = corrected | {norad_id}
-        _write_selection(replace(selection, disabled_corrected=corrected), directory)
+        _change_disabled(kind, norad_id, not enabled, directory)
+
+
+@dataclass(frozen=True)
+class _StoredSets:
+    """The element sets of the files, before the merge."""
+
+    groups: dict[str, list[SatElements]]
+    own: dict[str, list[SatElements]]
+
+    @classmethod
+    def read(cls, directory: Path, groups: Iterable[str]) -> "_StoredSets":
+        return cls(
+            {
+                group: read_tle_file(group_file(group, directory), "celestrak")
+                for group in groups
+            },
+            {kind: load_own_elements(kind, directory) for kind in OWN_KINDS},
+        )
+
+    def merge(
+        self, now: datetime, selection: Optional[Selection] = None
+    ) -> list[SatElements]:
+        """One set per NORAD id, without sets that are too old. With a
+        ``selection``, the groups that are not selected and the disabled
+        sets are left out."""
+        by_id: dict[int, SatElements] = {}
+        for group, elements in self.groups.items():
+            if selection is not None and not selection.group_enabled(group):
+                continue
+            for element in elements:
+                by_id.setdefault(element.norad_id, element)
+        for kind, elements in self.own.items():
+            for element in elements:
+                if selection is not None and not selection.enabled(
+                    kind, element.norad_id
+                ):
+                    continue
+                existing = by_id.get(element.norad_id)
+                if existing is None or _replaces(kind, element, existing):
+                    by_id[element.norad_id] = element
+        return [
+            e for e in by_id.values() if abs(e.age_days(now)) <= MAX_ELEMENT_AGE_DAYS
+        ]
+
+
+def _replaces(kind: str, element: SatElements, existing: SatElements) -> bool:
+    """A user set replaces a set of the same object only if it is newer, so
+    a pasted TLE does not stay in use after CelesTrak has a fresh one. A
+    corrected set keeps the epoch of the set it corrects. It replaces a set
+    of the same epoch or older, so a newer download replaces the correction."""
+    if kind == "corrected":
+        return element.epoch >= existing.epoch
+    return element.epoch > existing.epoch
 
 
 def load_all_elements(
     now: datetime,
     directory: Path = satellite_data_dir,
-    groups: Iterable[str] = CELESTRAK_GROUPS,
     include_disabled: bool = False,
 ) -> list[SatElements]:
     """All element sets, one per NORAD id, without sets that are too old.
 
-    A user set replaces a downloaded set of the same object only if it is
-    newer, so a pasted TLE does not stay in use after CelesTrak has a fresh one.
-    A corrected set keeps the epoch of the set it corrects. It replaces a set
-    of the same epoch or older, so a newer download replaces the correction.
     Groups that are not selected and sets that the user disabled are left
     out, unless ``include_disabled`` is set. Then each group file on disk
     is read.
     """
-    selection = Selection() if include_disabled else load_selection(directory)
-    by_id: dict[int, SatElements] = {}
-    for group in groups:
-        if not selection.group_enabled(group):
-            continue
-        for element in read_tle_file(group_file(group, directory), "celestrak"):
-            by_id.setdefault(element.norad_id, element)
-    for element in load_user_elements(directory):
-        if not selection.user_enabled(element.norad_id):
-            continue
-        existing = by_id.get(element.norad_id)
-        if existing is None or element.epoch > existing.epoch:
-            by_id[element.norad_id] = element
-    for element in load_corrected_elements(directory):
-        if not selection.corrected_enabled(element.norad_id):
-            continue
-        existing = by_id.get(element.norad_id)
-        if existing is None or element.epoch >= existing.epoch:
-            by_id[element.norad_id] = element
-    return [e for e in by_id.values() if abs(e.age_days(now)) <= MAX_ELEMENT_AGE_DAYS]
+    if include_disabled:
+        return _StoredSets.read(directory, CELESTRAK_GROUPS).merge(now)
+    selection = load_selection(directory)
+    groups = [group for group in CELESTRAK_GROUPS if selection.group_enabled(group)]
+    return _StoredSets.read(directory, groups).merge(now, selection)
+
+
+def find_elements(
+    norad_id: int, now: datetime, directory: Path = satellite_data_dir
+) -> tuple[Optional[SatElements], bool]:
+    """The set of one satellite, as ``load_all_elements`` with
+    ``include_disabled`` gives it, and True when the catalog uses the
+    satellite. Each file is read once."""
+    stored = _StoredSets.read(directory, CELESTRAK_GROUPS)
+    every = {e.norad_id: e for e in stored.merge(now)}
+    in_use = stored.merge(now, load_selection(directory))
+    return every.get(norad_id), any(e.norad_id == norad_id for e in in_use)
 
 
 _std_mags: Optional[dict[int, float]] = None
@@ -1189,7 +1260,11 @@ def save_user_mag(
             mags.pop(norad_id, None)
         else:
             mags[norad_id] = float(std_mag)
-        _write_json(user_mag_file(directory), {str(k): v for k, v in mags.items()})
+        _write_mags(mags, directory)
+
+
+def _write_mags(mags: dict[int, float], directory: Path) -> None:
+    _write_json(user_mag_file(directory), {str(k): v for k, v in mags.items()})
 
 
 def std_magnitude(norad_id: int, user_mags: Optional[dict[int, float]] = None) -> float:
@@ -1217,19 +1292,22 @@ def std_magnitude(norad_id: int, user_mags: Optional[dict[int, float]] = None) -
 # ---------------------------------------------------------------------------
 
 
+def _phase_functions(phase_deg) -> np.ndarray:
+    """Diffuse sphere brightness relative to full phase (1.0 at 0 degrees)."""
+    phi = np.radians(phase_deg)
+    return ((np.pi - phi) * np.cos(phi) + np.sin(phi)) / np.pi
+
+
 def phase_function(phase_angle_deg: float) -> float:
     """Diffuse sphere brightness relative to full phase (1.0 at 0 degrees)."""
-    phi = math.radians(phase_angle_deg)
-    return ((math.pi - phi) * math.cos(phi) + math.sin(phi)) / math.pi
+    return float(_phase_functions(phase_angle_deg))
 
 
 def apparent_magnitude(
     std_mag: float, range_km: float, phase_angle_deg: float
 ) -> float:
     """Magnitude from the standard magnitude at 1000 km and 90 degrees phase."""
-    relative = phase_function(phase_angle_deg) / phase_function(90.0)
-    relative = max(relative, 1e-4)
-    return std_mag + 5.0 * math.log10(range_km / 1000.0) - 2.5 * math.log10(relative)
+    return float(_magnitudes(std_mag, range_km, phase_angle_deg))
 
 
 @dataclass
@@ -1259,8 +1337,42 @@ class TrackedSatellite:
         return self.elements.norad_id
 
 
-def observer_topos(lat: float, lon: float, altitude_m: float):
-    return wgs84.latlon(lat, lon, altitude_m)
+def load_tracked(
+    now: datetime, directory: Path = satellite_data_dir
+) -> list[TrackedSatellite]:
+    """The satellites of ``load_all_elements``, ready for positions. A set
+    that Skyfield cannot use is left out."""
+    user_mags = load_user_mags(directory)
+    tracked = []
+    for element in load_all_elements(now, directory):
+        try:
+            tracked.append(TrackedSatellite.from_elements(element, user_mags))
+        except ValueError as exc:
+            logger.warning("Skipping %s: %s", element.name, exc)
+    return tracked
+
+
+def make_object(
+    norad_id: int, name: str, ra: float = 0.0, dec: float = 0.0
+) -> CompositeObject:
+    """The object of a satellite for the object lists and the recent list."""
+    return CompositeObject.from_dict(
+        {
+            "id": -1,
+            "object_id": OBJECT_ID_BASE - norad_id,
+            "obj_type": OBJ_TYPE,
+            "ra": ra,
+            "dec": dec,
+            "const": "",
+            "size": SizeObject([]),
+            "mag": MagnitudeObject([]),
+            "mag_str": "-",
+            "names": [name],
+            "catalog_code": CATALOG_CODE,
+            "sequence": norad_id,
+            "description": "",
+        }
+    )
 
 
 def _as_utc(dt: datetime) -> datetime:
@@ -1365,10 +1477,7 @@ def look(
 
 def _magnitudes(std_mag, range_km, phase_deg) -> np.ndarray:
     """``apparent_magnitude`` for arrays."""
-    phi = np.radians(phase_deg)
-    relative = (
-        ((np.pi - phi) * np.cos(phi) + np.sin(phi)) / np.pi / phase_function(90.0)
-    )
+    relative = _phase_functions(phase_deg) / _phase_functions(90.0)
     return (
         std_mag
         + 5.0 * np.log10(np.asarray(range_km) / 1000.0)
@@ -1599,6 +1708,29 @@ def find_passes(
     See ``find_passes_many``, which does the work.
     """
     return find_passes_many([sat], topos, start, hours, min_alt)[0]
+
+
+def predict_passes(
+    tracked: Iterable[TrackedSatellite], topos, now: datetime
+) -> list[tuple[TrackedSatellite, list[SatPass]]]:
+    """The passes of the catalog and of the web page: PASS_HOURS from
+    PASS_START_BEFORE_SECONDS before ``now``. A geostationary satellite has
+    no passes, so it is left out."""
+    sats = [sat for sat in tracked if not sat.elements.geostationary]
+    start = now - timedelta(seconds=PASS_START_BEFORE_SECONDS)
+    found = find_passes_many(sats, topos, start, PASS_HOURS, MIN_PASS_ALT_DEG)
+    return list(zip(sats, found))
+
+
+def passes_stale(
+    computed: datetime, lat: float, lon: float, now: datetime, location
+) -> bool:
+    """True when passes for ``computed`` at ``lat`` and ``lon`` are not good
+    for ``now`` at ``location``: too old, or for another place."""
+    moved = abs(lat - location.lat) > PASS_MOVE_DEG or (
+        abs(lon - location.lon) > PASS_MOVE_DEG
+    )
+    return moved or abs((now - computed).total_seconds()) > PASS_GOOD_SECONDS
 
 
 def find_passes_many(

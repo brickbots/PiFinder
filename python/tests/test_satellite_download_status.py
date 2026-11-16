@@ -23,43 +23,21 @@ import PiFinder.download_utils as download_utils
 import PiFinder.satellite_catalog as satellite_catalog
 import PiFinder.satellites as satellites
 import PiFinder.web_satellites as web_satellites
-from PiFinder import utils
 from PiFinder.catalog_base import CatalogState, CatalogStatus
-from PiFinder.state import Location
 from PiFinder.ui import sat_groups
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.object_list import UIObjectList
+from satellite_helpers import (
+    DEVICE_LINE_CHARS,
+    SAT_DATA as DATA,
+    SatSharedState,
+    make_catalog,
+    seed_groups,
+    system_now,
+)
 
-DATA = Path(__file__).parent / "data" / "satellites"
 PYTHON_DIR = Path(__file__).resolve().parent.parent
 NO_GP_DATA = "No GP data found"
-# The longest device text line: about 16 characters fit the 128 px screen.
-DEVICE_LINE_CHARS = 16
-
-
-def system_now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.timezone.utc)
-
-
-def iss_epoch() -> datetime.datetime:
-    results, _errors = satellites.parse_elements((DATA / "25544.3le").read_text())
-    return results[0].epoch
-
-
-class SharedState:
-    def __init__(self, dt):
-        self.dt = dt
-
-    def altaz_ready(self):
-        return True
-
-    def datetime(self):
-        return self.dt
-
-    def location(self):
-        return Location(
-            lat=50.85, lon=4.35, altitude=50.0, lock=True, timezone="Europe/Brussels"
-        )
 
 
 def http_response(status: int, text: str) -> requests.Response:
@@ -90,25 +68,10 @@ def failed_like_no_network(group, directory=None, progress_callback=None):
     )
 
 
-def write_groups(directory: Path, selected: list[str], with_files: list[str]) -> None:
-    directory.mkdir(parents=True, exist_ok=True)
-    for group in with_files:
-        source = "visual.tle" if group == "visual" else "25544.3le"
-        satellites.group_file(group, directory).write_text((DATA / source).read_text())
-    (directory / satellites.SELECTION_FILE_NAME).write_text(
-        json.dumps({"groups": selected})
-    )
-
-
 def built_catalog(directory: Path) -> satellite_catalog.SatelliteCatalog:
     """A catalog after its first use: the boot download ran, then the
     update thread built the objects."""
-    cat = satellite_catalog.SatelliteCatalog(
-        SharedState(iss_epoch() + datetime.timedelta(days=1)),
-        data_directory=directory,
-        start_threads=False,
-    )
-    cat._spawn_pass_worker = lambda: None
+    cat = make_catalog(directory, sync_passes=False, build=False)
     cat._download_missing()
     cat.touch()
     cat._update_step()
@@ -123,10 +86,10 @@ def built_catalog(directory: Path) -> satellite_catalog.SatelliteCatalog:
 @pytest.mark.unit
 def test_failed_group_does_not_block_the_groups_with_files(tmp_path, monkeypatch):
     monkeypatch.setattr(satellites, "download_group", failed_like_404)
-    write_groups(
+    seed_groups(
         tmp_path,
-        ["amateur", "last-30-days", "stations", "visual"],
         ["amateur", "stations", "visual"],
+        ["amateur", "last-30-days", "stations", "visual"],
     )
     cat = built_catalog(tmp_path)
     assert cat.get_count() > 0
@@ -140,7 +103,7 @@ def test_catalog_of_failed_groups_only_says_download_failed(tmp_path, monkeypatc
     # The bench: only the failed group is selected. The catalog has no
     # objects. It must not report READY, which shows "No objects match filter".
     monkeypatch.setattr(satellites, "download_group", failed_like_404)
-    write_groups(tmp_path, ["last-30-days"], ["amateur", "stations", "visual"])
+    seed_groups(tmp_path, ["amateur", "stations", "visual"], ["last-30-days"])
     cat = built_catalog(tmp_path)
     assert cat.get_count() == 0
     status = cat.get_status()
@@ -170,7 +133,7 @@ def test_catalog_without_any_file_says_download_failed(tmp_path, monkeypatch):
     ],
 )
 def test_empty_catalog_reason(tmp_path, selected, files, status_entry, reason):
-    write_groups(tmp_path, selected, files)
+    seed_groups(tmp_path, files, selected)
     if status_entry is not None:
         now = system_now().timestamp()
         (tmp_path / satellites.DOWNLOAD_STATUS_FILE_NAME).write_text(
@@ -195,24 +158,29 @@ def test_old_downloading_state_counts_as_failed(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit
-def test_retry_waits_grow_then_follow_the_age_rule():
-    waits = [satellites.retry_wait_seconds(failures) for failures in range(1, 6)]
-    twelve_hours = satellites.DOWNLOAD_INTERVAL_HOURS * 3600.0
-    assert waits == [5 * 60.0, 15 * 60.0, 60 * 60.0, twelve_hours, twelve_hours]
+TWO_HOURS = 2 * 3600.0
+TWELVE_HOURS = 12 * 3600.0
 
 
 @pytest.mark.unit
-def test_retry_waits_after_an_http_answer_are_two_hours_or_more():
+@pytest.mark.parametrize(
+    "server_answered, expected",
+    [
+        # The waits grow, then follow the age rule.
+        (False, [5 * 60.0, 15 * 60.0, 60 * 60.0, TWELVE_HOURS, TWELVE_HOURS]),
+        # After an HTTP answer each wait is two hours or more.
+        (True, [TWO_HOURS, TWO_HOURS, TWO_HOURS, TWELVE_HOURS, TWELVE_HOURS]),
+    ],
+)
+def test_retry_waits(server_answered, expected):
+    assert satellites.MIN_FORCED_DOWNLOAD_SECONDS == TWO_HOURS
+    assert satellites.DOWNLOAD_INTERVAL_HOURS * 3600.0 == TWELVE_HOURS
     waits = [
-        satellites.retry_wait_seconds(failures, server_answered=True)
+        satellites.retry_wait_seconds(failures, server_answered)
         for failures in range(1, 6)
     ]
-    two_hours = 2 * 3600.0
-    twelve_hours = satellites.DOWNLOAD_INTERVAL_HOURS * 3600.0
-    assert satellites.MIN_FORCED_DOWNLOAD_SECONDS == two_hours
-    assert waits == [two_hours, two_hours, two_hours, twelve_hours, twelve_hours]
-    assert satellites.retry_wait_seconds(0, server_answered=True) == twelve_hours
+    assert waits == expected
+    assert satellites.retry_wait_seconds(0, server_answered) == TWELVE_HOURS
 
 
 @pytest.mark.unit
@@ -220,9 +188,9 @@ def test_retry_waits_after_an_http_answer_are_two_hours_or_more():
     "failed_download, expected",
     [
         # CelesTrak answered: each wait is at least 2 h.
-        (failed_like_404, [2 * 3600.0, 2 * 3600.0, 2 * 3600.0, 12 * 3600.0]),
+        (failed_like_404, [TWO_HOURS, TWO_HOURS, TWO_HOURS, TWELVE_HOURS]),
         # The request did not reach CelesTrak: the short waits.
-        (failed_like_no_network, [5 * 60.0, 15 * 60.0, 60 * 60.0, 12 * 3600.0]),
+        (failed_like_no_network, [5 * 60.0, 15 * 60.0, 60 * 60.0, TWELVE_HOURS]),
     ],
 )
 def test_failed_group_waits_for_its_retry_time(
@@ -235,7 +203,7 @@ def test_failed_group_waits_for_its_retry_time(
         return failed_download(group)
 
     monkeypatch.setattr(satellites, "download_group", download)
-    write_groups(tmp_path, ["last-30-days"], [])
+    seed_groups(tmp_path, [], ["last-30-days"])
     start = system_now()
     now = start
     for number, wait in enumerate(expected, start=1):
@@ -266,7 +234,7 @@ def test_user_update_tries_a_failed_group_at_once(tmp_path, monkeypatch):
         return download_utils.DownloadResult(True, None, None)
 
     monkeypatch.setattr(satellites, "download_group", download)
-    write_groups(tmp_path, ["last-30-days"], [])
+    seed_groups(tmp_path, [], ["last-30-days"])
     now = system_now()
     assert satellites.refresh_groups(now, False, tmp_path).status == "failed"
     assert satellites.refresh_groups(now, False, tmp_path).status == "current"
@@ -345,7 +313,7 @@ def test_forced_download_without_a_file_waits_2_h_after_an_http_error(
         return failed_like_404(group)
 
     monkeypatch.setattr(satellites, "download_group", download)
-    write_groups(tmp_path, ["last-30-days"], [])
+    seed_groups(tmp_path, [], ["last-30-days"])
     start = system_now()
     assert satellites.refresh_groups(start, True, tmp_path).status == "failed"
     assert not satellites.group_file("last-30-days", tmp_path).exists()
@@ -377,7 +345,7 @@ def test_forced_download_without_a_file_is_not_refused_after_a_network_fault(
         return failed_like_no_network(group)
 
     monkeypatch.setattr(satellites, "download_group", download)
-    write_groups(tmp_path, ["last-30-days"], [])
+    seed_groups(tmp_path, [], ["last-30-days"])
     now = system_now()
     assert satellites.refresh_groups(now, True, tmp_path).status == "failed"
     assert satellites.forced_download_wait(now, tmp_path) == {"last-30-days": 0.0}
@@ -390,10 +358,8 @@ def test_catalog_download_thread_wakes_at_the_retry_time(tmp_path, monkeypatch):
     # A network fault gives the first short retry wait, below the check
     # interval of the thread.
     monkeypatch.setattr(satellites, "download_group", failed_like_no_network)
-    write_groups(tmp_path, ["last-30-days", "visual"], ["visual"])
-    cat = satellite_catalog.SatelliteCatalog(
-        SharedState(system_now()), data_directory=tmp_path, start_threads=False
-    )
+    seed_groups(tmp_path, ["visual"], ["last-30-days", "visual"])
+    cat = make_catalog(tmp_path, SatSharedState(system_now()), build=False)
     cat.touch()
     wait = cat._download_step()
     assert wait == pytest.approx(satellites.FAILED_RETRY_SECONDS[0], abs=5)
@@ -408,7 +374,7 @@ def test_download_exception_is_a_failed_group(tmp_path, monkeypatch):
         raise RuntimeError("broken")
 
     monkeypatch.setattr(satellites, "download_group", broken)
-    write_groups(tmp_path, ["amateur", "visual"], [])
+    seed_groups(tmp_path, [], ["amateur", "visual"])
     result = satellites.refresh_groups(system_now(), True, tmp_path)
     assert result.failed == ("visual", "amateur")
     status = satellites.load_download_status(tmp_path)
@@ -429,7 +395,7 @@ def test_status_file_is_written_on_start_and_end(tmp_path, monkeypatch):
         return failed_like_404(group)
 
     monkeypatch.setattr(satellites, "download_group", download)
-    write_groups(tmp_path, ["last-30-days"], [])
+    seed_groups(tmp_path, [], ["last-30-days"])
     now = system_now()
     satellites.refresh_groups(now, True, tmp_path)
     assert seen == [satellites.RESULT_DOWNLOADING]
@@ -542,7 +508,7 @@ def test_network_error_text(tmp_path, monkeypatch, error, text):
 @pytest.mark.unit
 def test_web_message_names_each_group_with_its_reason(tmp_path, monkeypatch):
     monkeypatch.setattr(satellites, "download_group", failed_like_404)
-    write_groups(tmp_path, ["last-30-days"], [])
+    seed_groups(tmp_path, [], ["last-30-days"])
     result = satellites.refresh_groups(system_now(), True, tmp_path)
     message, error = web_satellites.refresh_message(result)
     assert message == ""
@@ -603,15 +569,6 @@ def test_filtered_list_says_how_many_satellites_the_catalog_has():
     ]
 
 
-@pytest.fixture
-def sat_dir(tmp_path, monkeypatch):
-    directory = tmp_path / "satellites"
-    monkeypatch.setattr(utils, "satellite_data_dir", directory)
-    monkeypatch.setattr(sat_groups, "downloads", sat_groups.GroupDownloads())
-    monkeypatch.setattr(UIModule, "message_until", 0.0)
-    return directory
-
-
 def fail_group(directory: Path, group: str) -> None:
     now = system_now()
     satellites.record_download_start(group, now, directory)
@@ -620,7 +577,7 @@ def fail_group(directory: Path, group: str) -> None:
 
 @pytest.mark.unit
 def test_menu_marks_a_selected_group_whose_download_failed(sat_dir):
-    write_groups(sat_dir, ["last-30-days", "visual"], ["visual"])
+    seed_groups(sat_dir, ["visual"], ["last-30-days", "visual"])
     menu = SimpleNamespace()
     assert sat_groups.failed_mark("last-30-days", menu) == ""
     fail_group(sat_dir, "last-30-days")
@@ -635,7 +592,7 @@ def test_menu_marks_a_selected_group_whose_download_failed(sat_dir):
 
 @pytest.mark.unit
 def test_select_of_a_failed_group_with_a_file_shows_the_reason(sat_dir):
-    write_groups(sat_dir, ["visual"], ["visual", "stations"])
+    seed_groups(sat_dir, ["visual", "stations"], ["visual"])
     fail_group(sat_dir, "stations")
     sat_groups.toggle_group(None, "stations", True)
     text = sat_groups.downloads.next_message()
@@ -645,7 +602,7 @@ def test_select_of_a_failed_group_with_a_file_shows_the_reason(sat_dir):
 
 @pytest.mark.unit
 def test_failed_group_download_message_has_the_reason(sat_dir):
-    write_groups(sat_dir, ["visual"], ["visual"])
+    seed_groups(sat_dir, ["visual"], ["visual"])
     with mock.patch.object(satellites, "download_group", failed_like_404):
         text = sat_groups.downloads._download("last-30-days", sat_dir)
     assert text == "Download failed\nLast 30 days\nGroup empty now"
@@ -676,10 +633,8 @@ def test_download_message_shows_on_any_screen(sat_dir):
 @pytest.mark.unit
 def test_catalog_update_result_goes_to_the_listener(tmp_path, monkeypatch):
     monkeypatch.setattr(satellites, "download_group", failed_like_404)
-    write_groups(tmp_path, ["last-30-days"], [])
-    cat = satellite_catalog.SatelliteCatalog(
-        SharedState(system_now()), data_directory=tmp_path, start_threads=False
-    )
+    seed_groups(tmp_path, [], ["last-30-days"])
+    cat = make_catalog(tmp_path, SatSharedState(system_now()), build=False)
     results = []
     cat.on_refresh_done = results.append
     cat._user_refresh()

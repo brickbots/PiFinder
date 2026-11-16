@@ -9,13 +9,12 @@ from PiFinder.mount_rate_signs import AxisSign, RateSigns, RateSignStore
 pytestmark = pytest.mark.unit
 
 MODEL = "Telescope Simulator"
-WITH = (True, False)
-AGAINST = (False, True)
-NONE = (False, False)
+# The motion of an axis relative to the request (AxisSign.measure).
+WITH, AGAINST, NONE = 1, -1, 0
 
 
-def measure(signs: RateSigns, ra=NONE, dec=NONE) -> None:
-    signs.measure(*ra, *dec)
+def measure(signs: RateSigns, ra: int = NONE, dec: int = NONE) -> None:
+    signs.measure(ra, dec)
 
 
 def test_store_writes_and_reads_the_signs_of_each_model(tmp_path):
@@ -49,21 +48,21 @@ def test_store_skips_bad_content(tmp_path):
 def test_axis_sign_confirms_after_two_and_turns():
     axis = AxisSign(1.0)
     # Not confirmed: one measurement against turns it.
-    assert not axis.measure(*AGAINST)
+    assert not axis.measure(AGAINST)
     assert axis.sign == -1.0 and not axis.confirmed
     # Two with the request in a row confirm it.
-    assert not axis.measure(*WITH)
-    assert not axis.measure(*NONE)
-    assert not axis.measure(*WITH)
-    assert axis.measure(*WITH)
+    assert not axis.measure(WITH)
+    assert not axis.measure(NONE)
+    assert not axis.measure(WITH)
+    assert axis.measure(WITH)
     assert axis.confirmed
     # Confirmed: one against is not enough, two in a row turn it, and the
     # turned sign is confirmed.
-    assert not axis.measure(*AGAINST)
-    assert not axis.measure(*WITH)
-    assert not axis.measure(*AGAINST)
+    assert not axis.measure(AGAINST)
+    assert not axis.measure(WITH)
+    assert not axis.measure(AGAINST)
     assert axis.sign == -1.0
-    assert axis.measure(*AGAINST)
+    assert axis.measure(AGAINST)
     assert axis.sign == 1.0 and axis.confirmed
 
 
@@ -143,6 +142,33 @@ def test_drift_turn_is_not_confirmed():
     signs = RateSigns()
     signs.load(MODEL)
     signs.set_pier("PIER_EAST")
-    signs.dec.turn()
+    signs.turn(signs.dec)
     assert (signs.dec.sign, signs.dec.confirmed) == (-1.0, False)
     assert signs.store.load(MODEL) == {}
+
+
+def test_drift_turn_clears_the_stored_sign_of_the_axis():
+    """A stored sign that the drift compensation turns is wrong. After a
+    pier flip or a new connection it is not loaded as confirmed."""
+    store = RateSignStore()
+    store.save(MODEL, "PIER_EAST", [-1.0, 1.0])
+    store.save(MODEL, "PIER_WEST", [-1.0, -1.0])
+    signs = RateSigns(store)
+    signs.load(MODEL)
+    signs.set_pier("PIER_EAST")
+    signs.turn(signs.dec)
+    assert (signs.dec.sign, signs.dec.confirmed) == (-1.0, False)
+    assert store.load(MODEL) == {
+        "PIER_EAST": [-1.0, None],
+        "PIER_WEST": [-1.0, -1.0],
+    }
+    # A pier flip and back: the east side has no confirmed Dec sign.
+    signs.set_pier("PIER_WEST")
+    signs.set_pier("PIER_EAST")
+    assert not signs.dec.confirmed
+    assert signs.ra.confirmed
+    # A new connection does not load the old sign as confirmed.
+    again = RateSigns(store)
+    again.load(MODEL)
+    again.set_pier("PIER_EAST")
+    assert not again.dec.confirmed

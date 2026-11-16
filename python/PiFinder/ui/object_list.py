@@ -40,7 +40,6 @@ from PiFinder.catalogs import (
 )
 from PiFinder.designations import parse_designation
 from PiFinder.satellite_groups import GROUPS_BY_NAME
-from PiFinder.ui.sat_groups import wait_message
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     draw_text_cached,
@@ -60,8 +59,9 @@ if TYPE_CHECKING:
 # for example {"SA": "norad"}.
 LABEL_CONFIG_OPTION = "object_list_label"
 
-# The catalogs whose downloaded data the user can refresh from the list.
-REFRESH_CATALOGS = ("CM", "MP", "SA")
+# The catalogs whose downloaded data the user can refresh from the list. The
+# satellites update with "Update now" of the Sat groups menu.
+REFRESH_CATALOGS = ("CM", "MP")
 
 # The marking menu slots of the "ID" submenu, in the order of the labels.
 LABEL_SLOTS = ("left", "up", "right", "down")
@@ -1439,14 +1439,10 @@ class UIObjectList(UITextMenu):
         """Refresh downloaded elements while retaining the active objects."""
         catalog = self.catalogs.get_catalog_by_code(self.item_definition.get("value"))
         if catalog and hasattr(catalog, "refresh"):
-            # A catalog that refuses the refresh returns the seconds to wait.
-            wait_seconds = catalog.refresh()
-            if wait_seconds:
-                self.message(wait_message(wait_seconds), 2)
-            else:
-                self.message(
-                    _("Refreshing..."), 1
-                )  # TRANSLATORS: Status message when refreshing comet catalog
+            catalog.refresh()
+            self.message(
+                _("Refreshing..."), 1
+            )  # TRANSLATORS: Status message when refreshing comet catalog
             # Keep the current objects visible and refresh the status header.
             self.refresh_object_list(force_update=True)
         return True
