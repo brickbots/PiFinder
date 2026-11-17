@@ -1185,6 +1185,10 @@ class MountControlBase:
         the lead, gets the follow without one. A lower satellite without a
         meet point gets no follow: the PiFinder tells the next pass in
         NEXT_PASS_HOURS.
+
+        The first search covers only the wait. The search of NEXT_PASS_HOURS
+        comes only for the text of the next pass, or for a pass that is not
+        over at the end of the wait: its visible part can come later.
         """
         alt = follow.point(now).alt
         target = follow.target
@@ -1193,15 +1197,24 @@ class MountControlBase:
             isinstance(target, target_follow.SatelliteTarget)
             and alt < target_follow.MEET_ALT_DEG
         ):
-            # One search for the wait and for the text of the next pass.
-            item = target_follow.find_pass(
-                target, now, target_follow.NEXT_PASS_HOURS * 60.0
-            )
+            long_min = target_follow.NEXT_PASS_HOURS * 60.0
+            wait_min = min(self.max_wait_min, long_min)
+            item = target_follow.find_pass(target, now, wait_min)
+            searched_min = wait_min
+            if (
+                item is not None
+                and wait_min < long_min
+                and item.set.timestamp() >= now + wait_min * 60.0 - 1.0
+            ):
+                item = target_follow.find_pass(target, now, long_min)
+                searched_min = long_min
             if item is not None and (
                 target_follow.meet_time(item) - now <= self.max_wait_min * 60.0
             ):
                 meet = target_follow.meet_point(target, item)
             elif alt < target_follow.MIN_ALT_DEG:
+                if searched_min < long_min:
+                    item = target_follow.find_pass(target, now, long_min)
                 self.warn(self._next_pass_text(item, now))
                 return False
         if meet is not None and (
@@ -1377,12 +1390,17 @@ class MountControlBase:
             self._end_follow()
             return
         self._follow_held_arrow(follow, now)
-        point = follow.point(now)
-        if point.alt < target_follow.MIN_ALT_DEG and not follow.meet_pending(now):
-            self.notify(follow.name + " " + _("set"))
-            self._end_follow()
-            self._stop_mount()
-            return
+        follow.settle(now)
+        # The point of the target now, computed at most once in a pass. AIM
+        # and WAIT need it only for the altitude check, once per
+        # RATE_UPDATE_S. TRACK checks the altitude at its rate update.
+        point: Optional[target_follow.FollowPoint] = None
+        if follow.stage == FollowStage.PASS or (
+            follow.stage != FollowStage.TRACK and follow.alt_check_due(now)
+        ):
+            point = follow.point(now)
+            if self._follow_set(follow, point, now):
+                return
         self._learn_follow_offset()
 
         if follow.stage == FollowStage.AIM:
@@ -1394,20 +1412,26 @@ class MountControlBase:
                     follow.late(now)
                     and follow.aim_ra is not None
                     and follow.aim_dec is not None
-                    and angular_distance(
-                        point.ra, point.dec, follow.aim_ra, follow.aim_dec
-                    )
-                    > target_follow.TRACK_MAX_ERROR_DEG
                 ):
-                    # The slew took longer than the lead and the target is
-                    # far past: aim again with the measured slew time.
-                    self._follow_aim(now)
+                    if point is None:
+                        point = follow.point(now)
+                    if (
+                        angular_distance(
+                            point.ra, point.dec, follow.aim_ra, follow.aim_dec
+                        )
+                        > target_follow.TRACK_MAX_ERROR_DEG
+                    ):
+                        # The slew took longer than the lead and the target
+                        # is far past: aim again with the measured slew time.
+                        self._follow_aim(now)
             return
 
         if follow.stage == FollowStage.WAIT:
             if not follow.arrived(now):
                 self._follow_meet_refresh(follow, now)
                 return
+            if point is None:
+                point = follow.point(now)
             if self._follow_set_rates(point.ra_rate, point.dec_rate):
                 follow.stage = FollowStage.TRACK
                 follow.last_rate_update = now
@@ -1415,16 +1439,23 @@ class MountControlBase:
                 self._follow_pass(point)
             return
 
-        self.target_ra, self.target_dec = point.ra, point.dec
         pointing = self._follow_pointing()
         if follow.stage == FollowStage.TRACK:
             if not follow.rate_update_due(now):
                 return
-            ra_rate, dec_rate = point.ra_rate, point.dec_rate
+            # One point: the target at the time of the mount position
+            # report, so the delay of the report causes no error. Its rates
+            # are the track rates and its position, moved on to now, is the
+            # target of the status.
+            when = now if pointing is None else self._position_time(now)
+            at = follow.point(when)
+            if self._follow_set(follow, at, now):
+                return
+            ahead = now - when
+            self.target_ra = (at.ra + at.ra_rate * ahead) % 360.0
+            self.target_dec = at.dec + at.dec_rate * ahead
+            ra_rate, dec_rate = at.ra_rate, at.dec_rate
             if pointing is not None:
-                # The target at the time of the mount position report, so
-                # the delay of the report causes no error.
-                at = follow.point(self._position_time(now))
                 d_ra = target_follow.wrap_degrees(at.ra - pointing[0])
                 d_dec = at.dec - pointing[1]
                 error = angular_distance(at.ra, at.dec, *pointing)
@@ -1435,9 +1466,12 @@ class MountControlBase:
                 ra_rate += _follow_correction(d_ra)
                 dec_rate += _follow_correction(d_dec)
             if not self._follow_set_rates(ra_rate, dec_rate):
-                self._follow_pass(point)
+                self._follow_pass(at)
             return
 
+        if point is None:
+            return
+        self.target_ra, self.target_dec = point.ra, point.dec
         if follow.stage == FollowStage.PASS and follow.arrived(now):
             if (
                 pointing is None
@@ -1449,6 +1483,18 @@ class MountControlBase:
                 point.ra, point.dec, *pointing
             ) > follow.pass_distance(point):
                 self._follow_aim(now)
+
+    def _follow_set(
+        self, follow: TargetFollow, point: target_follow.FollowPoint, now: float
+    ) -> bool:
+        """End the follow when the target is below MIN_ALT_DEG and no meet
+        point waits for it. True when the follow ended."""
+        if point.alt >= target_follow.MIN_ALT_DEG or follow.meet_pending(now):
+            return False
+        self.notify(follow.name + " " + _("set"))
+        self._end_follow()
+        self._stop_mount()
+        return True
 
     def _follow_meet_refresh(self, follow: TargetFollow, now: float) -> None:
         """Shortly before the meet time, goto the meet point again if a plate
@@ -1492,6 +1538,8 @@ class MountControlBase:
             self._follow_seen(follow, now)
             return
         if command["type"] == "motion_stop":
+            if self._follow_motion is not None:
+                follow.shift_now(now)
             self._follow_motion = None
             return
         north, east, step_size = self._command_offset(command)
@@ -1524,6 +1572,7 @@ class MountControlBase:
         north, east, last, started = self._follow_motion
         if now - started > MAX_MOTION_S:
             self._follow_motion = None
+            follow.shift_now(now)
             return
         angle = self.step_size * (now - last)
         follow.nudge(north * angle, east * angle, now)

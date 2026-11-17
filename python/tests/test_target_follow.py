@@ -1,6 +1,7 @@
 """Follow of a moving target: the plan and the mount control phase, with a
 fake mount."""
 
+import dataclasses
 import datetime
 import math
 import time
@@ -162,6 +163,57 @@ def test_follow_with_custom_rates_aims_waits_and_tracks():
     mount.phase()
     assert mount.move_mount_to_target.call_count == gotos + 1
     assert follow.stage == FollowStage.AIM
+
+
+def count_points(follow: TargetFollow) -> list:
+    """Count the computed points of the target of ``follow``."""
+    calls: list = []
+    target = follow.target
+    real = target.point
+
+    def point(unix_time: float):
+        calls.append(unix_time)
+        return real(unix_time)
+
+    target.point = point
+    return calls
+
+
+def test_follow_computes_one_point_a_second_in_wait_and_track(monkeypatch):
+    mount = start_follow(iss_pass().culmination.timestamp() - 90.0)
+    follow = mount._follow
+    mount.now += 8.0
+    mount.target_reached = True
+    mount.phase()
+    assert follow.stage == FollowStage.WAIT
+    # WAIT: only the altitude check, once a second.
+    calls = count_points(follow)
+    for _step in range(20):
+        mount.now += 0.1
+        mount.phase()
+    assert 1 <= len(calls) <= 2
+
+    # TRACK: one point a second, at the time of the position report.
+    mount.now = follow.aim_time + 0.1
+    point = follow.point(mount.now)
+    mount.current_ra, mount.current_dec = point.ra, point.dec
+    mount.phase()
+    assert follow.stage == FollowStage.TRACK
+    reported = time.time()
+    monkeypatch.setattr(time, "time", lambda: reported + 0.4)
+    mount.current_time = reported
+    calls.clear()
+    for _step in range(10):
+        mount.now += 0.11
+        mount.phase()
+    assert calls == [pytest.approx(mount.now - 0.4)]
+    assert follow.stage == FollowStage.TRACK
+    # The status target is that point, moved on to now.
+    now_point = follow.point(mount.now)
+    assert (
+        angular_distance(mount.target_ra, mount.target_dec, now_point.ra, now_point.dec)
+        < 0.01
+    )
 
 
 def test_follow_without_custom_rates_repeats_gotos_ahead():
@@ -343,6 +395,80 @@ def test_arrow_during_a_follow_corrects_the_path_and_keeps_the_follow():
     mount.phase()
     still = follow.point(at)
     assert angular_distance(still.ra, still.dec, moved.ra, moved.dec) < 1e-6
+
+
+def start_tracking(now: float) -> FakeMount:
+    """A mount that tracks the ISS from ``now``, on the target."""
+    mount = start_follow(now)
+    follow = mount._follow
+    mount.now += 8.0
+    mount.target_reached = True
+    mount.phase()
+    mount.now = follow.aim_time + 0.1
+    point = follow.point(mount.now)
+    mount.current_ra, mount.current_dec = point.ra, point.dec
+    mount.phase()
+    assert follow.stage == FollowStage.TRACK
+    return mount
+
+
+def count_shifts(monkeypatch) -> list:
+    """Count the new targets of a time offset."""
+    calls: list = []
+    real = SatelliteTarget.shifted
+
+    def shifted(self, seconds):
+        calls.append(seconds)
+        return real(self, seconds)
+
+    monkeypatch.setattr(SatelliteTarget, "shifted", shifted)
+    return calls
+
+
+def test_a_press_changes_the_track_rates_in_the_same_loop_pass():
+    mount = start_tracking(iss_pass().culmination.timestamp() - 90.0)
+    follow = mount._follow
+    mount.now += 0.2
+    point = follow.point(mount.now)
+    mount.current_ra, mount.current_dec = point.ra, point.dec
+    calls = mount.set_track_rates.call_count
+    # A press 0.05 degrees north, then the phase of the same loop pass.
+    mount.command({"type": "manual_movement", "offset": (1.0, 0.0), "step_size": 0.05})
+    mount.phase()
+    assert mount.set_track_rates.call_count == calls + 1
+    _ra_rate, dec_rate = mount.set_track_rates.call_args.args
+    assert dec_rate - point.dec_rate == pytest.approx(
+        0.05 / target_follow.CORRECTION_S, abs=2e-3
+    )
+
+
+def test_held_arrow_makes_new_elements_once_a_second(monkeypatch):
+    mount = start_tracking(iss_pass().culmination.timestamp() - 90.0)
+    follow = mount._follow
+    shifts = count_shifts(monkeypatch)
+    mount.step_size = 0.5
+    point = follow.point(mount.now)
+    cos_dec = math.cos(math.radians(point.dec))
+    along = (point.dec_rate / point.speed, point.ra_rate * cos_dec / point.speed)
+    mount.command({"type": "motion_start", "north": along[0], "east": along[1]})
+    mount.now += 0.1
+    mount.phase()
+    # The status shows the correction at once.
+    assert mount.status_text().startswith("Following +")
+    first = mount.status_text()
+    for _step in range(19):
+        mount.now += 0.1
+        mount.phase()
+    assert mount.status_text() != first
+    assert len(shifts) <= 2
+    held = follow.time_offset_s
+    mount.command({"type": "motion_stop"})
+    # The release makes the elements of the full correction.
+    assert shifts[-1] == pytest.approx(held)
+    assert len(shifts) <= 3
+    ahead = iss_target().point(mount.now + held)
+    corrected = follow.point(mount.now)
+    assert angular_distance(corrected.ra, corrected.dec, ahead.ra, ahead.dec) < 0.15
 
 
 def test_a_corrected_follow_stores_its_elements(tmp_path):
@@ -904,7 +1030,51 @@ def test_no_pass_in_24_hours(monkeypatch):
     assert mount._follow is None
     mount.move_mount_to_target.assert_not_called()
     assert mount.console_queue.get_nowait() == ["WARNING", "No pass in 24 h"]
-    assert calls == [target_follow.NEXT_PASS_HOURS]
+    # The wait first, then the hours of the next pass text.
+    assert calls == [
+        target_follow.MEET_SEARCH_MINUTES / 60.0,
+        target_follow.NEXT_PASS_HOURS,
+    ]
+
+
+def test_a_meet_in_the_wait_needs_one_short_search(monkeypatch):
+    start = meet_start()
+    calls = []
+
+    def passes(sat, topos, start_dt, hours, min_alt):
+        calls.append(hours)
+        return [fake_pass(start + 300.0)]
+
+    monkeypatch.setattr(satellites, "find_passes", passes)
+    mount = start_follow(start)
+    assert mount._follow is not None
+    assert mount._follow.meet.time == pytest.approx(start + 300.0)
+    assert calls == [target_follow.MEET_SEARCH_MINUTES / 60.0]
+
+
+def test_a_pass_at_the_end_of_the_wait_gets_the_long_search(monkeypatch):
+    start = meet_start()
+    wait_end = start + target_follow.MEET_SEARCH_MINUTES * 60.0
+    calls = []
+
+    def passes(sat, topos, start_dt, hours, min_alt):
+        calls.append(hours)
+        if hours < target_follow.NEXT_PASS_HOURS:
+            # The pass is cut at the end of the window.
+            item = fake_pass(wait_end - 60.0)
+            return [dataclasses.replace(item, set=utc(wait_end))]
+        # Its visible part starts after the wait.
+        return [fake_pass(wait_end - 60.0, visible_start=wait_end + 30.0)]
+
+    monkeypatch.setattr(satellites, "find_passes", passes)
+    mount = start_follow(start)
+    assert calls == [
+        target_follow.MEET_SEARCH_MINUTES / 60.0,
+        target_follow.NEXT_PASS_HOURS,
+    ]
+    assert mount._follow is None
+    kind, text = mount.console_queue.get_nowait()
+    assert kind == "WARNING" and text.startswith("Next pass")
 
 
 def test_max_wait_setting_decides_on_the_meet(monkeypatch):

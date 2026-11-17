@@ -35,7 +35,10 @@ The user can correct the path during the follow (``TargetFollow.nudge``).
 The prediction of a satellite is mostly wrong along its track, because old
 elements give a wrong time. So the part of a correction along the track
 becomes a time offset of the elements, and only the rest is a position
-offset. The corrected elements are a new TLE (``shift_elements``).
+offset. The corrected elements are a new TLE (``shift_elements``). A correction
+changes the time offset at once. The new TLE comes at most once per
+RATE_UPDATE_S: until then the path is the old elements at the new time
+offset.
 """
 
 from __future__ import annotations
@@ -81,6 +84,9 @@ MAX_TIME_OFFSET_S = 120.0
 # A smaller time offset is no correction of the elements.
 MIN_TIME_OFFSET_S = 0.05
 MAX_OFFSET_DEG = 5.0
+# A correction takes the direction of the track from a point of the target
+# at most this many seconds of track time away (time plus time offset).
+DIRECTION_REUSE_S = 1.0
 
 # The meet point of a satellite: the first time of the next pass at this
 # altitude or higher. The mount waits at most the time of the setting
@@ -365,9 +371,16 @@ class TargetFollow:
     """The plan of a follow. The mount control calls it and moves the mount."""
 
     def __init__(self, target: MovingTarget, now: float):
-        self.target = target
         self.name = target.name
         self._base = target
+        # The target with the time offset ``_target_offset_s``. It follows
+        # ``time_offset_s`` at most once per RATE_UPDATE_S (``settle``).
+        self._target = target
+        self._target_offset_s = 0.0
+        self._target_time = -math.inf
+        # The last point of the target without the user correction, and its
+        # track time (time plus time offset).
+        self._track_point: Optional[tuple[float, FollowPoint]] = None
         # The user correction: seconds along the track of a fast target that
         # can shift, degrees across the track, and degrees north and east
         # for every other target.
@@ -375,7 +388,7 @@ class TargetFollow:
         self.cross_deg = 0.0
         self.offset_north = 0.0
         self.offset_east = 0.0
-        self.fast = target.point(now).speed > FAST_DEG_S
+        self.fast = self._raw_point(now).speed > FAST_DEG_S
         self.lead_s = DEFAULT_LEAD_S if self.fast else 0.0
         self.stage = FollowStage.AIM
         self.aim_time: Optional[float] = None
@@ -383,6 +396,7 @@ class TargetFollow:
         self.aim_dec: Optional[float] = None
         self.slew_started: Optional[float] = None
         self.last_rate_update = 0.0
+        self.last_alt_check = 0.0
         self.aim_count = 0
         # The meet point of a satellite, and the meet time. A correction
         # along the track moves the meet time.
@@ -392,9 +406,56 @@ class TargetFollow:
 
     # -- the corrected path -------------------------------------------------
 
+    @property
+    def target(self) -> MovingTarget:
+        """The target with the time offset of the user."""
+        self._shift(None)
+        return self._target
+
+    def settle(self, now: float) -> None:
+        """Make the target of the time offset, if the last one is
+        RATE_UPDATE_S old or older."""
+        if now - self._target_time >= RATE_UPDATE_S:
+            self._shift(now)
+
+    def shift_now(self, now: float) -> None:
+        """Make the target of the time offset now, as at the end of a held
+        arrow."""
+        self._shift(now)
+
+    def _shift(self, now: Optional[float]) -> None:
+        """Make the target of the time offset now. It is the most expensive
+        part of a correction: new elements and a new satellite."""
+        if self._target_offset_s == self.time_offset_s:
+            return
+        shifted = getattr(self._base, "shifted", None)
+        if shifted is None:
+            return
+        self._target = shifted(self.time_offset_s)
+        self._target_offset_s = self.time_offset_s
+        if now is not None:
+            self._target_time = now
+
+    def _raw_point(self, unix_time: float) -> FollowPoint:
+        """The target with the time offset, without the other corrections.
+        Before ``settle`` the old target gives it at a shifted time."""
+        lag = self.time_offset_s - self._target_offset_s
+        point = self._target.point(unix_time + lag)
+        self._track_point = (unix_time + self.time_offset_s, point)
+        return point
+
+    def _direction(self, now: float) -> FollowPoint:
+        """A point of the target near ``now`` for the direction of the
+        track: the last point if it is near enough on the track."""
+        if self._track_point is not None:
+            track_time, point = self._track_point
+            if abs(track_time - now - self.time_offset_s) < DIRECTION_REUSE_S:
+                return point
+        return self._raw_point(now)
+
     def point(self, unix_time: float) -> FollowPoint:
         """The target with the user correction."""
-        point = self.target.point(unix_time)
+        point = self._raw_point(unix_time)
         north, east = self.offset_north, self.offset_east
         if self.cross_deg and point.speed > 0.0:
             # Unit vector across the track: the motion turned 90 degrees.
@@ -409,8 +470,11 @@ class TargetFollow:
 
     def nudge(self, north_deg: float, east_deg: float, now: float) -> None:
         """Move the path by this angle on the sky: the target is north_deg
-        north and east_deg east of the prediction."""
-        point = self.target.point(now)
+        north and east_deg east of the prediction.
+
+        The offsets change at once. The new target of a satellite comes at
+        most once per RATE_UPDATE_S (``settle``)."""
+        point = self._direction(now)
         shifted = getattr(self._base, "shifted", None)
         if shifted is None or point.speed <= FAST_DEG_S:
             self.offset_north = clamp(self.offset_north + north_deg, MAX_OFFSET_DEG)
@@ -429,7 +493,7 @@ class TargetFollow:
             self.meet_time -= seconds - self.time_offset_s
         self.time_offset_s = seconds
         self.cross_deg = clamp(self.cross_deg + cross, MAX_OFFSET_DEG)
-        self.target = shifted(seconds)
+        self.settle(now)
 
     def set_meet(self, meet: MeetPoint) -> None:
         """Wait for the target at this meet point."""
@@ -457,7 +521,7 @@ class TargetFollow:
         if abs(seconds) > MAX_TIME_OFFSET_S:
             return False
         self.time_offset_s = seconds
-        self.target = shifted(seconds)
+        self._shift(now)
         if self.aim_ra is not None and self.aim_dec is not None:
             for _step in range(SEE_IT_STEPS):
                 point = self.point(now)
@@ -466,6 +530,7 @@ class TargetFollow:
                     math.radians(point.dec)
                 )
                 self.nudge(north, east, now)
+                self._shift(now)
         self.aim_time = now
         self.meet = None
         self.meet_time = None
@@ -513,6 +578,13 @@ class TargetFollow:
     def rate_update_due(self, now: float) -> bool:
         if now - self.last_rate_update >= RATE_UPDATE_S:
             self.last_rate_update = now
+            return True
+        return False
+
+    def alt_check_due(self, now: float) -> bool:
+        """True once per RATE_UPDATE_S: the time to check the altitude."""
+        if now - self.last_alt_check >= RATE_UPDATE_S:
+            self.last_alt_check = now
             return True
         return False
 

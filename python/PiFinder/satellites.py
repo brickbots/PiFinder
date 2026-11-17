@@ -147,7 +147,6 @@ SUN_GRID_SECONDS = 300.0
 RATE_STEP_SECONDS = 1.0
 # The search for the time a satellite sets looks this far ahead.
 SET_SEARCH_SECONDS = 2 * 3600.0
-SET_STEP_SECONDS = 20.0
 UNIX_EPOCH_JD = 2440587.5
 
 _TLE_LINE1 = re.compile(r"^1 [ 0-9A-Z]{5}[A-Z ] ")
@@ -1424,55 +1423,19 @@ def phase_angle_deg(
     return np.degrees(np.arccos(np.clip(cos_phase, -1.0, 1.0)))
 
 
-def look(
-    sat: TrackedSatellite,
-    topos,
-    dt: datetime,
-    with_rates: bool = True,
-    sun: Optional[SunContext] = None,
-) -> SatLook:
+def look(sat: TrackedSatellite, topos, dt: datetime) -> SatLook:
     """Position, brightness and motion of a satellite at ``dt``.
 
-    Give ``sun`` from ``sun_context`` when many satellites share one time.
+    The position and the brightness come from ``look_many``. The RA/Dec
+    rates come from a second position RATE_STEP_SECONDS later.
     """
-    dt = _as_utc(dt)
-    if sun is None:
-        sun = sun_context(topos, dt)
-    t = sun.t
-    difference = sat.satellite - topos
-    topocentric = difference.at(t)
-    alt, az, distance = topocentric.altaz()
-    ra, dec, _ = topocentric.radec()
-    sat_km = sat.satellite.at(t).position.km
-    sunlit = bool(in_sunlight(sat_km, sun.sun_geocentric_km))
-    range_km = float(distance.km)
-    mag: Optional[float] = None
-    if sunlit:
-        phase = float(
-            phase_angle_deg(sat_km, sun.sun_geocentric_km, topos.at(t).position.km)
-        )
-        mag = apparent_magnitude(sat.std_mag, range_km, phase)
-
-    ra_rate = dec_rate = 0.0
-    if with_rates:
-        later = sf_utils.ts.from_datetime(dt + timedelta(seconds=RATE_STEP_SECONDS))
-        ra2, dec2, _ = difference.at(later).radec()
-        ra_step = (ra2._degrees - ra._degrees + 540.0) % 360.0 - 180.0
-        ra_rate = float(ra_step / RATE_STEP_SECONDS)
-        dec_rate = float((dec2.degrees - dec.degrees) / RATE_STEP_SECONDS)
-    return SatLook(
-        time=dt,
-        ra=float(ra._degrees),
-        dec=float(dec.degrees),
-        alt=float(alt.degrees),
-        az=float(az.degrees),
-        range_km=range_km,
-        sunlit=sunlit,
-        sun_alt=sun.sun_alt,
-        mag=mag,
-        ra_rate=ra_rate,
-        dec_rate=dec_rate,
-    )
+    (now,) = look_many([sat], topos, dt)
+    later = now.time + timedelta(seconds=RATE_STEP_SECONDS)
+    ra, dec, _alt = sky_tracks([sat], topos, [later])
+    ra_step = (float(ra[0, 0]) - now.ra + 540.0) % 360.0 - 180.0
+    now.ra_rate = ra_step / RATE_STEP_SECONDS
+    now.dec_rate = (float(dec[0, 0]) - now.dec) / RATE_STEP_SECONDS
+    return now
 
 
 def _magnitudes(std_mag, range_km, phase_deg) -> np.ndarray:
@@ -1532,34 +1495,7 @@ def look_many(
 
     One vectorized SGP4 call replaces a Skyfield call per satellite.
     """
-    if not sats:
-        return []
-    dt = _as_utc(dt)
-    if sun is None:
-        sun = sun_context(topos, dt)
-    t, sat_km, relative_km, alt, az = _geometry_many(sats, topos, [dt])
-    sat_km, relative_km = sat_km[:, :, 0], relative_km[:, :, 0]
-    range_km = np.linalg.norm(relative_km, axis=0)
-    ra = np.degrees(np.arctan2(relative_km[1], relative_km[0])) % 360.0
-    dec = np.degrees(np.arcsin(relative_km[2] / range_km))
-    sun_km = sun.sun_geocentric_km[:, np.newaxis]
-    sunlit = in_sunlight(sat_km, sun_km)
-    phase = phase_angle_deg(sat_km, sun_km, topos.at(t).position.km)
-    mags = _magnitudes(np.array([sat.std_mag for sat in sats]), range_km, phase)
-    return [
-        SatLook(
-            time=dt,
-            ra=float(ra[i]),
-            dec=float(dec[i]),
-            alt=float(alt[i, 0]),
-            az=float(az[i, 0]),
-            range_km=float(range_km[i]),
-            sunlit=bool(sunlit[i]),
-            sun_alt=sun.sun_alt,
-            mag=float(mags[i]) if sunlit[i] else None,
-        )
-        for i in range(len(sats))
-    ]
+    return sky_state_many(sats, topos, dt, sun=sun).looks()
 
 
 @dataclass
@@ -1569,7 +1505,7 @@ class SkyState:
     Element i of each array belongs to ``norad_ids[i]``. Angles are in
     degrees, RA/Dec in J2000. ``mag`` is NaN for a satellite in Earth's
     shadow, and each value is NaN for a satellite that SGP4 cannot
-    propagate.
+    propagate. ``sun_alt`` is the altitude of the Sun for the observer.
     """
 
     time: datetime
@@ -1577,31 +1513,43 @@ class SkyState:
     ra: np.ndarray
     dec: np.ndarray
     alt: np.ndarray
+    az: np.ndarray
+    range_km: np.ndarray
     mag: np.ndarray
+    sun_alt: float
 
     @classmethod
     def empty(cls, dt: datetime) -> "SkyState":
         nothing = np.zeros(0)
-        return cls(dt, np.zeros(0, dtype=np.int64), nothing, nothing, nothing, nothing)
-
-    @classmethod
-    def from_looks(
-        cls, dt: datetime, norad_ids: list[int], looks: list[SatLook]
-    ) -> "SkyState":
-        """The state of ``look_many`` results at ``dt``, without a second
-        SGP4 call."""
-        if not looks:
-            return cls.empty(_as_utc(dt))
         return cls(
-            _as_utc(dt),
-            np.array(norad_ids, dtype=np.int64),
-            np.array([now.ra for now in looks], dtype=float),
-            np.array([now.dec for now in looks], dtype=float),
-            np.array([now.alt for now in looks], dtype=float),
-            np.array(
-                [np.nan if now.mag is None else now.mag for now in looks], dtype=float
-            ),
+            time=dt,
+            norad_ids=np.zeros(0, dtype=np.int64),
+            ra=nothing,
+            dec=nothing,
+            alt=nothing,
+            az=nothing,
+            range_km=nothing,
+            mag=nothing,
+            sun_alt=math.nan,
         )
+
+    def looks(self) -> list[SatLook]:
+        """One ``SatLook`` per satellite, in the order of ``norad_ids``."""
+        sunlit = np.isfinite(self.mag)
+        return [
+            SatLook(
+                time=self.time,
+                ra=float(self.ra[i]),
+                dec=float(self.dec[i]),
+                alt=float(self.alt[i]),
+                az=float(self.az[i]),
+                range_km=float(self.range_km[i]),
+                sunlit=bool(sunlit[i]),
+                sun_alt=self.sun_alt,
+                mag=float(self.mag[i]) if sunlit[i] else None,
+            )
+            for i in range(len(self.norad_ids))
+        ]
 
 
 def _radec_of(relative_km: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -1619,14 +1567,15 @@ def sky_state_many(
     array: Optional[SatrecArray] = None,
     sun: Optional[SunContext] = None,
 ) -> SkyState:
-    """``look_many`` as arrays: positions and magnitudes of many satellites
-    at one time, with one SGP4 call and no object per satellite."""
+    """Positions and magnitudes of many satellites at one time, with one
+    SGP4 call. ``array`` is ``satrec_array(sats)``, when the caller keeps
+    one. Give ``sun`` from ``sun_context`` when the caller has it."""
     dt = _as_utc(dt)
     if not sats:
         return SkyState.empty(dt)
     if sun is None:
         sun = sun_context(topos, dt)
-    t, sat_km, relative_km, alt, _az = _geometry_many(sats, topos, [dt], array)
+    t, sat_km, relative_km, alt, az = _geometry_many(sats, topos, [dt], array)
     sat_km, relative_km = sat_km[:, :, 0], relative_km[:, :, 0]
     ra, dec = _radec_of(relative_km)
     sun_km = sun.sun_geocentric_km[:, np.newaxis]
@@ -1635,12 +1584,15 @@ def sky_state_many(
     range_km = np.linalg.norm(relative_km, axis=0)
     mags = _magnitudes(np.array([sat.std_mag for sat in sats]), range_km, phase)
     return SkyState(
-        dt,
-        np.array([sat.norad_id for sat in sats], dtype=np.int64),
-        ra,
-        dec,
-        alt[:, 0],
-        np.where(sunlit, mags, np.nan),
+        time=dt,
+        norad_ids=np.array([sat.norad_id for sat in sats], dtype=np.int64),
+        ra=ra,
+        dec=dec,
+        alt=alt[:, 0],
+        az=az[:, 0],
+        range_km=range_km,
+        mag=np.where(sunlit, mags, np.nan),
+        sun_alt=sun.sun_alt,
     )
 
 
@@ -1662,30 +1614,24 @@ def seconds_until_set(
     topos,
     dt: datetime,
     search_seconds: float = SET_SEARCH_SECONDS,
-    step_seconds: float = SET_STEP_SECONDS,
 ) -> list[Optional[float]]:
     """For each satellite: the seconds until it goes below the horizon.
 
     None when the satellite is below the horizon at ``dt``, or stays up for
-    the full search time (a geostationary satellite, for example).
+    the full search time (a geostationary satellite, for example). The pass
+    search gives the set: a satellite above the horizon at ``dt`` has a
+    pass that starts at ``dt``.
     """
-    if not sats:
-        return []
     dt = _as_utc(dt)
-    offsets = np.arange(0.0, search_seconds + step_seconds, step_seconds)
-    times = [dt + timedelta(seconds=float(offset)) for offset in offsets]
-    alt = _geometry_many(sats, topos, times)[3]
+    found = find_passes_many(sats, topos, dt, search_seconds / 3600.0, 0.0)
     result: list[Optional[float]] = []
-    for row in alt:
-        down = np.flatnonzero(~(row > 0))
-        if len(down) == 0 or down[0] == 0:
-            result.append(None)
-            continue
-        after = int(down[0])
-        above, below = row[after - 1], row[after]
-        # The altitude is close to linear over one step near the horizon.
-        part = above / (above - below) if np.isfinite(below) else 0.0
-        result.append(float(offsets[after - 1] + part * step_seconds))
+    for passes in found:
+        wait = None
+        if passes and passes[0].rise <= dt:
+            seconds = (passes[0].set - dt).total_seconds()
+            if seconds < search_seconds:
+                wait = seconds
+        result.append(wait)
     return result
 
 

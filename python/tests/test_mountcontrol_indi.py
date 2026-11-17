@@ -17,7 +17,13 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from PiFinder import calc_utils, indi_drivers, satellites, track_rates
+from PiFinder import (
+    calc_utils,
+    indi_drivers,
+    mountcontrol_indi,
+    satellites,
+    track_rates,
+)
 from PiFinder.calc_utils import FastAltAz
 from PiFinder.mount_rate_signs import RateSignStore
 from PiFinder.polar_alignment import get_platform_adjustments
@@ -67,45 +73,101 @@ def _indi_data_dir() -> Path:
     return indiserver.parent.parent / "share" / "indi"
 
 
-@pytest.fixture
-def indi(tmp_path: Path, monkeypatch) -> Iterator[int]:
+# The drivers that the tests start. The reset between tests stops them.
+TEST_DRIVERS = ("indi_simulator_telescope", "indi_lx200_OnStep")
+
+
+def _child_pids(pid: int) -> list[int]:
+    """The processes whose parent is pid: the drivers of an indiserver."""
+    children = []
+    for stat in Path("/proc").glob("[0-9]*/stat"):
+        try:
+            fields = stat.read_text().rpartition(")")[2].split()
+        except OSError:
+            continue
+        if int(fields[1]) == pid:
+            children.append(int(stat.parent.name))
+    return children
+
+
+def _fifo_write(fifo: Path, text: str) -> None:
+    """Write to the indiserver FIFO. indiserver opens the FIFO again after
+    each writer closes it, so for a moment it can have no reader."""
+    deadline = time.time() + 5
+    while True:
+        try:
+            fd = os.open(fifo, os.O_WRONLY | os.O_NONBLOCK)
+            try:
+                os.write(fd, text.encode())
+            finally:
+                os.close(fd)
+            return
+        except OSError:
+            if time.time() > deadline:
+                raise
+            time.sleep(0.02)
+
+
+@pytest.fixture(scope="module")
+def indi_server(tmp_path_factory) -> Iterator[tuple[int, subprocess.Popen, Path]]:
+    """One indiserver for the module, with no driver. The ``indi`` fixture
+    resets it before each test."""
+    base = tmp_path_factory.mktemp("indi")
     port = _free_port()
-    fifo = tmp_path / "run" / "fifo"
+    fifo = base / "run" / "fifo"
     fifo.parent.mkdir()
     os.mkfifo(fifo)
-    home = tmp_path / "home"
+    home = base / "home"
     home.mkdir()
-    monkeypatch.setenv("INDI_FIFO", str(fifo))
-    monkeypatch.setenv("INDI_DATA_DIR", str(_indi_data_dir()))
-    proc = subprocess.Popen(
-        # A private local socket (-u): the default one allows one indiserver
-        # per machine.
-        [
-            "indiserver",
-            "-p",
-            str(port),
-            "-u",
-            f"/tmp/indiserver-test-{port}",
-            "-f",
-            str(fifo),
-        ],
-        env={**os.environ, "HOME": str(home)},
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    deadline = time.time() + 10
-    while time.time() < deadline:
+    with pytest.MonkeyPatch.context() as env:
+        env.setenv("INDI_FIFO", str(fifo))
+        env.setenv("INDI_DATA_DIR", str(_indi_data_dir()))
+        proc = subprocess.Popen(
+            # A private local socket (-u): the default one allows one
+            # indiserver per machine.
+            [
+                "indiserver",
+                "-p",
+                str(port),
+                "-u",
+                f"/tmp/indiserver-test-{port}",
+                "-f",
+                str(fifo),
+            ],
+            env={**os.environ, "HOME": str(home)},
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            try:
+                socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
+                break
+            except OSError:
+                time.sleep(0.05)
+        yield port, proc, home
+        proc.terminate()
         try:
-            socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
-            break
-        except OSError:
-            time.sleep(0.1)
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
+@pytest.fixture
+def indi(indi_server: tuple[int, subprocess.Popen, Path]) -> Iterator[int]:
+    """The port of an indiserver that runs no driver, with no driver
+    config and no running-driver record: as a fresh indiserver."""
+    port, proc, home = indi_server
+    fifo = indi_drivers.fifo_path()
+    _fifo_write(fifo, "".join(f"stop {driver}\n" for driver in TEST_DRIVERS))
+    deadline = time.time() + 10
+    while _child_pids(proc.pid) and time.time() < deadline:
+        time.sleep(0.02)
+    assert not _child_pids(proc.pid), "a driver did not stop"
+    # The drivers save their config (the location, for example) in HOME.
+    shutil.rmtree(home / ".indi", ignore_errors=True)
+    (fifo.parent / indi_drivers.RUNNING_DRIVER_FILE).unlink(missing_ok=True)
     yield port
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
 
 
 # The tests run at this date, so that the hour angles do not depend on the
@@ -138,7 +200,7 @@ def _wait(predicate, timeout: float) -> bool:
     while time.time() < deadline:
         if predicate():
             return True
-        time.sleep(0.1)
+        time.sleep(0.05)
     return False
 
 
@@ -442,6 +504,38 @@ def test_follow_rates_reverse_the_dec_axis_and_tracking_turns_off(indi: int) -> 
         indi_drivers.stop_driver()
 
 
+def test_drift_rates_start_from_sidereal_after_a_goto(indi: int) -> None:
+    """The custom rates of a drift compensation cancel the drift at one
+    target. After a goto, the first correction starts from the sidereal
+    rate, not from the rates of the old target."""
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        device = mount.device
+
+        def rates() -> tuple:
+            return (
+                mount.client.get_value(device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_RA"),
+                mount.client.get_value(device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_DE"),
+            )
+
+        sidereal = mountcontrol_indi.SIDEREAL_DEG_PER_S * 3600.0
+        assert mount.adjust_mount_drift_rates(0.001, 0.001)
+        assert _wait(
+            lambda: rates() == pytest.approx((sidereal + 3.6, -3.6), abs=0.01), 5
+        )
+        assert _wait(lambda: mount.current_dec == pytest.approx(90.0), 10)
+        assert mount.move_mount_to_target(mount.current_ra, 80.0)
+        assert _wait(lambda: mount.target_reached, 60)
+        assert mount.adjust_mount_drift_rates(0.0002, 0.0)
+        assert _wait(
+            lambda: rates() == pytest.approx((sidereal + 0.72, 0.0), abs=0.01), 5
+        ), rates()
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
 def test_sync_reply_does_not_end_the_next_goto(indi: int) -> None:
     """The driver confirms a sync with state Ok. When that reply comes after
     the next goto was sent, the goto must still run to its end."""
@@ -452,20 +546,23 @@ def test_sync_reply_does_not_end_the_next_goto(indi: int) -> None:
         assert _wait(lambda: mount.target_reached, 60)
         mount.target_reached = False
         assert mount.sync_mount(30.5, 20.5)
-        assert mount.move_mount_to_target(120.0, -10.0)
+        # A slew of about 15°: it runs for some seconds.
+        assert mount.move_mount_to_target(45.0, 10.0)
         time.sleep(1.0)
         assert not mount.target_reached
         assert mount.is_mount_moving()
         assert _wait(lambda: mount.target_reached, 90)
-        assert mount.current_dec == pytest.approx(-10.0, abs=0.1)
+        assert mount.current_dec == pytest.approx(10.0, abs=0.1)
     finally:
         mount.disconnect_mount()
         indi_drivers.stop_driver()
 
 
-def test_stale_running_driver_record_is_restarted(indi: int) -> None:
+def test_stale_running_driver_record_is_restarted(indi: int, monkeypatch) -> None:
     """A record that names the driver while indiserver does not run it must
     not stop the init."""
+    # The init waits this long for the device before it restarts the driver.
+    monkeypatch.setattr(mountcontrol_indi, "DEVICE_TIMEOUT_S", 2.0)
     running = Path(os.environ["INDI_FIFO"]).parent / indi_drivers.RUNNING_DRIVER_FILE
     model = indi_drivers.find_model(indi_drivers.SIMULATOR)
     assert model is not None
@@ -750,11 +847,18 @@ def test_continuous_move_north_until_stop(indi: int) -> None:
     mount = _simulator_mount(indi)
     try:
         assert mount.init_mount()
-        assert mount.move_mount_to_target(60.0, 10.0)
+        # The simulator starts at the pole. A short goto leaves room to the
+        # north.
+        assert _wait(lambda: mount.current_dec == pytest.approx(90.0), 10)
+        assert mount.move_mount_to_target(mount.current_ra, 80.0)
         assert _wait(lambda: mount.target_reached, 60)
         dec_start = mount.client.get_value(mount.device, POSITION, "DEC")
         assert mount.start_motion(1.0, 0.0)
-        time.sleep(2.0)
+        assert _wait(
+            lambda: mount.client.get_value(mount.device, POSITION, "DEC")
+            > dec_start + 0.05,
+            10,
+        )
         assert mount.stop_motion()
         time.sleep(1.0)
         dec_stopped = mount.client.get_value(mount.device, POSITION, "DEC")
@@ -1086,7 +1190,7 @@ def _solve_drift(solves: list, seconds: float) -> tuple[float, float]:
 
 
 # A drift case: the axis with a wrong rate sign, the RA and Dec drift
-# ("/s), the seconds of drift before the compensation starts, the seconds
+# ("/s), the seconds of drift before the compensation starts, the most seconds
 # of compensation, the seconds at the end that give the residual drift, and
 # the limit of the residual drift ("/s).
 DRIFT_CASES = {
@@ -1129,7 +1233,15 @@ def test_drift_compensation_removes_a_drift(indi: int, case: str) -> None:
     )
     mount.drift_compensation_window = 4.0
     sim = SkySimulator(
-        SkySimSettings(rate_hz=4.0, noise_arcsec=2, seed=5, indi_port=indi),
+        # No pointing error: the goto is on target without a refine round.
+        SkySimSettings(
+            rate_hz=4.0,
+            offset_ra_deg=0.0,
+            offset_dec_deg=0.0,
+            noise_arcsec=2,
+            seed=5,
+            indi_port=indi,
+        ),
         shared_state.datetime,
     )
     sim.next_message()
@@ -1171,8 +1283,16 @@ def test_drift_compensation_removes_a_drift(indi: int, case: str) -> None:
         before = _solve_drift(latest, measure_s - 2.0)
         assert abs(before[0]) > ra_drift / 2 and abs(before[1]) > dec_drift / 2, before
         mount.drift_compensation_window = 4.0
-        feed(run_s)
+        # The compensation runs until the drift of the last residual_s is
+        # below the limit, for at most run_s.
+        end = time.time() + run_s
+        feed(residual_s)
         after = _solve_drift(latest, residual_s)
+        while time.time() < end and not (
+            abs(after[0]) < limit and abs(after[1]) < limit
+        ):
+            feed(1.0)
+            after = _solve_drift(latest, residual_s)
         assert mount.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION
         assert abs(after[0]) < limit and abs(after[1]) < limit, (before, after)
     finally:

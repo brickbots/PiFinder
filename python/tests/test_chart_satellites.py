@@ -22,7 +22,6 @@ from PiFinder import utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 from PiFinder.nearby import ClosestObjectsFinder
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
-from PiFinder.state import Location
 from PiFinder.ui import chart_satellites
 from PiFinder.ui.chart import NEARBY_RADIUS_FACTOR, SATELLITE_SYMBOL, UIChart
 from PiFinder.ui.chart_satellites import (
@@ -33,8 +32,8 @@ from PiFinder.ui.chart_satellites import (
     SatelliteLayer,
     track_segment,
 )
+from satellite_helpers import NOW, make_catalog, seed_groups
 
-DATA = Path(__file__).parent / "data" / "satellites"
 DT = datetime.datetime(2026, 11, 14, 23, 0, 0, tzinfo=datetime.timezone.utc)
 # Each fake satellite moves this much in Dec per second.
 RATE = 0.5
@@ -83,8 +82,17 @@ class FakeSatCatalog:
 
     def sky_state(self, dt):
         t = (dt - DT).total_seconds()
+        zeros = np.zeros(len(self.ids))
         return satellites.SkyState(
-            dt, self.ids, self.ra, self.dec + RATE * t, self.alt, self.mag
+            time=dt,
+            norad_ids=self.ids,
+            ra=self.ra,
+            dec=self.dec + RATE * t,
+            alt=self.alt,
+            az=zeros,
+            range_km=zeros,
+            mag=self.mag,
+            sun_alt=-20.0,
         )
 
     def live_tracks(self, norad_ids, times):
@@ -105,12 +113,22 @@ class FakeClock:
         return self.now
 
 
-def _field(catalog, layer=None, center=(10.0, 20.0), radius=5.0, dt=DT, mag=9.0):
+def _field(
+    catalog,
+    layer=None,
+    center=(10.0, 20.0),
+    radius=5.0,
+    dt=DT,
+    mag=9.0,
+    filtered=None,
+    exclude=frozenset(),
+):
+    """The field of ``layer``, or of a new layer. ``filtered`` is the list of
+    the catalog filter, all objects of ``catalog`` by default."""
     layer = layer or SatelliteLayer(clock=FakeClock())
-    accepted = {obj.sequence: obj for obj in catalog.get_filtered_objects()}
-    return layer.field(
-        catalog, accepted, catalog.objects, center, radius, dt, mag, frozenset()
-    )
+    if filtered is None:
+        filtered = catalog.get_filtered_objects()
+    return layer.field(catalog, filtered, center, radius, dt, mag, exclude)
 
 
 @pytest.mark.unit
@@ -152,9 +170,7 @@ class TestSatelliteLayer:
         cat = FakeSatCatalog(
             ra=[10.0, 10.0], dec=[20.0, 21.0], alt=[40, 40], mag=[3, 3]
         )
-        layer = SatelliteLayer(clock=FakeClock())
-        accepted = {2: cat.objects[1]}
-        field = layer.field(cat, accepted, object(), (10.0, 20.0), 5.0, DT, 9.0)
+        field = _field(cat, filtered=[cat.objects[1]])
         assert [sat.obj.sequence for sat in field] == [2]
 
     def test_cap_keeps_the_brightest(self):
@@ -171,11 +187,7 @@ class TestSatelliteLayer:
         cat = FakeSatCatalog(
             ra=[10.0, 10.0], dec=[20.0, 21.0], alt=[40, 40], mag=[3, 3]
         )
-        layer = SatelliteLayer(clock=FakeClock())
-        accepted = {obj.sequence: obj for obj in cat.objects}
-        field = layer.field(
-            cat, accepted, cat.objects, (10.0, 20.0), 5.0, DT, 9.0, frozenset([1])
-        )
+        field = _field(cat, exclude=frozenset([1]))
         assert [sat.obj.sequence for sat in field] == [2]
 
     def test_many_satellites_cost_is_bounded(self):
@@ -285,8 +297,6 @@ def _chart(sat_catalog, target=None, center=(10.0, 20.0), fov=10.0, dso=128):
     chart._nearby_finder = ClosestObjectsFinder()
     chart._nearby_filter_dirty_time = None
     chart._satellite_layer = SatelliteLayer(clock=FakeClock())
-    chart._satellite_filtered = None
-    chart._satellite_accepted = {}
     chart._live_radec = {}
     chart._satellites_shown = False
     chart._markers_time = 0.0
@@ -432,36 +442,11 @@ class TestChartSatellites:
 # -- the catalog ---------------------------------------------------------------
 
 
-class FixedSharedState:
-    def __init__(self, dt):
-        self.dt = dt
-        self._location = Location(
-            lat=50.85, lon=4.35, altitude=50.0, lock=True, timezone="Europe/Brussels"
-        )
-
-    def altaz_ready(self):
-        return True
-
-    def datetime(self):
-        return self.dt
-
-    def location(self):
-        return self._location
-
-
 @pytest.fixture
 def iss_catalog(tmp_path, monkeypatch):
     monkeypatch.setattr(satellite_catalog, "_active_catalog", None)
-    text = (DATA / "25544.3le").read_text()
-    elements, _errors = satellites.parse_elements(text)
-    (tmp_path / "stations.tle").write_text(text)
-    now = elements[0].epoch + datetime.timedelta(days=1)
-    cat = satellite_catalog.SatelliteCatalog(
-        FixedSharedState(now), data_directory=tmp_path, start_threads=False
-    )
-    cat._spawn_pass_worker = lambda: None
-    cat.do_timed_task()
-    return cat, now
+    seed_groups(tmp_path, files=("stations",))
+    return make_catalog(tmp_path, sync_passes=False), NOW
 
 
 @pytest.mark.unit
@@ -501,15 +486,15 @@ class TestCatalogSkyState:
             assert dec[0, column] == pytest.approx(expected[1], abs=1e-6)
         assert np.isnan(ra[1]).all() and np.isnan(alt[1]).all()
 
-    def test_sky_state_many_agrees_with_look_many(self, iss_catalog):
+    def test_looks_are_the_rows_of_the_state(self, iss_catalog):
         cat, now = iss_catalog
-        sats = list(cat._tracked.values())
-        topos = cat._topos_cache[1]
-        state = satellites.sky_state_many(sats, topos, now)
-        (look,) = satellites.look_many(sats, topos, now)
-        assert state.ra[0] == pytest.approx(look.ra)
-        assert state.alt[0] == pytest.approx(look.alt)
-        if look.mag is None:
-            assert np.isnan(state.mag[0])
-        else:
-            assert state.mag[0] == pytest.approx(look.mag)
+        state = cat.sky_state(now)
+        state.mag[0] = np.nan
+        (look,) = state.looks()
+        assert (look.ra, look.dec, look.alt) == (
+            state.ra[0],
+            state.dec[0],
+            state.alt[0],
+        )
+        assert (look.az, look.range_km) == (state.az[0], state.range_km[0])
+        assert look.mag is None and not look.sunlit

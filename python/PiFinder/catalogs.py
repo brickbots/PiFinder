@@ -378,6 +378,12 @@ class Catalog(CatalogBase):
         None for the first sort order."""
         return default_sort_for(self.catalog_code)
 
+    # The length of the longest list_info_text, in characters, for a
+    # catalog that gives list_info_text for each object. In INFO mode the
+    # right column of the object list is then that wide, and the label gets
+    # the rest of the row. None gives the right column its usual width.
+    list_info_chars: Optional[int] = None
+
     def list_info_text(self, obj: CompositeObject) -> Optional[str]:
         """The INFO-mode text of ``obj`` in the right column of the object
         list. None means the text of the object list: the magnitude and the

@@ -642,11 +642,6 @@ class MountControlIndi(MountControlBase):
         dec_rate = rates.elements.get("TRACK_RATE_DE")
         if not isinstance(ra_rate, float) or not isinstance(dec_rate, float):
             return False
-        if not self._custom_tracking and self.track_rate != track_rates.SIDEREAL:
-            # TRACK_LUNAR or TRACK_SOLAR: the drift is on top of that rate.
-            body = self._body_rate_values(self.track_rate)
-            if body is not None:
-                ra_rate, dec_rate = body["TRACK_RATE_RA"], body["TRACK_RATE_DE"]
         # The measured drift replaces the minute updates of a body rate.
         self._body_custom_rate = None
         # The signs of the current pier side. The last correction on the
@@ -657,6 +652,18 @@ class MountControlIndi(MountControlBase):
         self._check_drift_directions(
             drift_rate_adjustment_ra, ra_se, drift_rate_adjustment_dec, dec_se
         )
+        if not self._custom_tracking:
+            # The first correction after a goto, a new connection or a reload
+            # starts from the sidereal rate. The custom rates that the driver
+            # keeps cancel the drift at an earlier target, or come from its
+            # saved config. With TRACK_LUNAR or TRACK_SOLAR, the drift is on
+            # top of that rate.
+            base = None
+            if self.track_rate != track_rates.SIDEREAL:
+                base = self._body_rate_values(self.track_rate)
+            if base is None:
+                base = self._rate_values(0.0, 0.0)
+            ra_rate, dec_rate = base["TRACK_RATE_RA"], base["TRACK_RATE_DE"]
         if not self._enter_custom_tracking():
             return False
         # TELESCOPE_TRACK_RATE is in arcseconds per second. The pointing

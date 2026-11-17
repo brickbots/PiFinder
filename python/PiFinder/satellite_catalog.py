@@ -384,6 +384,9 @@ class SatelliteCatalog(Catalog):
             ObjectLabel("cospar", "COSPAR", self.cospar_label),
         ]
 
+    # The longest list_info_text: "90° NW", or RISE_MARK and "21:43".
+    list_info_chars = 6
+
     def list_info_text(self, obj: CompositeObject) -> Optional[str]:
         """The INFO-mode text of a satellite in the object list.
 
@@ -466,6 +469,11 @@ class SatelliteCatalog(Catalog):
             self._topos_cache = cache
         return cache[1]
 
+    def _last_topos(self):
+        """The Skyfield observer of the last update, or None before it."""
+        cache = self._topos_cache
+        return None if cache is None else cache[1]
+
     def prepare_search(self) -> None:
         """A name search uses the catalog: a catalog that nobody used since
         the start has no objects yet, so it builds them now. The search runs
@@ -499,10 +507,10 @@ class SatelliteCatalog(Catalog):
         """
         self.touch()
         sat = self._tracked.get(norad_id)
-        cache = self._topos_cache
-        if sat is None or cache is None:
+        topos = self._last_topos()
+        if sat is None or topos is None:
             return None
-        return satellites.radec_at(sat, cache[1], dt)
+        return satellites.radec_at(sat, topos, dt)
 
     def sky_state(self, dt: datetime.datetime) -> Optional[satellites.SkyState]:
         """The positions and magnitudes of all satellites, as arrays, at a
@@ -520,15 +528,15 @@ class SatelliteCatalog(Catalog):
         ):
             return state
         tracked = self._tracked
-        cache = self._topos_cache
-        if not tracked or cache is None:
+        topos = self._last_topos()
+        if not tracked or topos is None:
             return None
         models = self._sky_models
         if models is None or models[0] is not tracked:
             sats = list(tracked.values())
             models = (tracked, sats, satellites.satrec_array(sats))
             self._sky_models = models
-        state = satellites.sky_state_many(models[1], cache[1], dt, models[2])
+        state = satellites.sky_state_many(models[1], topos, dt, models[2])
         self._sky = state
         return state
 
@@ -540,16 +548,16 @@ class SatelliteCatalog(Catalog):
         that the catalog does not track gets NaN. Not a use of the catalog.
         """
         tracked = self._tracked
-        cache = self._topos_cache
+        topos = self._last_topos()
         shape = (len(norad_ids), len(times))
         ra = np.full(shape, np.nan)
         dec = np.full(shape, np.nan)
         alt = np.full(shape, np.nan)
         rows = [i for i, norad in enumerate(norad_ids) if norad in tracked]
-        if not rows or cache is None:
+        if not rows or topos is None:
             return ra, dec, alt
         sats = [tracked[norad_ids[i]] for i in rows]
-        ra[rows], dec[rows], alt[rows] = satellites.sky_tracks(sats, cache[1], times)
+        ra[rows], dec[rows], alt[rows] = satellites.sky_tracks(sats, topos, times)
         return ra, dec, alt
 
     def _next_visible(
@@ -682,11 +690,10 @@ class SatelliteCatalog(Catalog):
         topos = self._topos(location)
         zone = zone_for(location.timezone)
         self._zone = zone
-        looks = satellites.look_many([sat for _obj, sat in pairs], topos, dt)
-        self._sky = satellites.SkyState.from_looks(
-            dt, [sat.norad_id for _obj, sat in pairs], looks
-        )
-        consts = _constellations(looks)
+        state = satellites.sky_state_many([sat for _obj, sat in pairs], topos, dt)
+        self._sky = state
+        looks = state.looks()
+        consts = _constellations(state.ra, state.dec)
         for (obj, sat), now, const in zip(pairs, looks, consts):
             self._update_object(obj, sat, now, zone, const)
         return frozenset(
@@ -808,15 +815,13 @@ def norad_label(obj: CompositeObject) -> str:
     return str(obj.sequence)
 
 
-def _constellations(looks: list[satellites.SatLook]) -> list[Optional[str]]:
+def _constellations(ra: np.ndarray, dec: np.ndarray) -> list[Optional[str]]:
     """The constellation of each position, with one lookup for all.
 
     A position that is not finite gets None.
     """
-    ra = np.array([now.ra for now in looks], dtype=float)
-    dec = np.array([now.dec for now in looks], dtype=float)
     finite = np.isfinite(ra) & np.isfinite(dec)
-    result: list[Optional[str]] = [None] * len(looks)
+    result: list[Optional[str]] = [None] * len(ra)
     if finite.any():
         names = sf_utils.radec_to_constellations(ra[finite], dec[finite])
         for index, name in zip(np.flatnonzero(finite).tolist(), names.tolist()):

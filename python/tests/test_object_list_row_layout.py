@@ -7,9 +7,7 @@ the full row width. On the focus row a cut label scrolls, and the right text
 stays still. On the other rows a cut label ends with "…".
 """
 
-import datetime
 import functools
-from pathlib import Path
 from typing import Optional
 
 import pytest
@@ -19,12 +17,10 @@ from PIL import Image, ImageDraw
 # ``PiFinder.ui`` import.
 import PiFinder.i18n  # noqa: F401
 
-import PiFinder.satellite_catalog as satellite_catalog
-import PiFinder.satellites as satellites
 from PiFinder.catalogs import Catalog, CatalogFilter, Catalogs
 from PiFinder.composite_object import CompositeObject
 from PiFinder.displays import get_display
-from PiFinder.state import Location, SharedStateObj, UIState
+from PiFinder.state import SharedStateObj, UIState
 from PiFinder.ui import object_list
 from PiFinder.ui.layout import list_layout
 from PiFinder.ui.object_list import (
@@ -34,9 +30,8 @@ from PiFinder.ui.object_list import (
     right_column_text,
 )
 from PiFinder.ui.ui_utils import TextLayouterScroll
+from satellite_helpers import make_catalog, seed_groups
 
-DATA = Path(__file__).parent / "data" / "satellites"
-ISS_NORAD = 25544
 DISPLAYS = {128: "headless", 176: "headless_176", 320: "headless_320"}
 
 
@@ -53,35 +48,11 @@ class FakeConfig:
         self.options[option] = value
 
 
-class FixedSharedState:
-    def __init__(self, dt):
-        self.dt = dt
-        self._location = Location(
-            lat=50.85, lon=4.35, altitude=50.0, lock=True, timezone="Europe/Brussels"
-        )
-
-    def altaz_ready(self):
-        return True
-
-    def datetime(self):
-        return self.dt
-
-    def location(self):
-        return self._location
-
-
 @pytest.fixture
 def sat_catalog(tmp_path):
-    text = (DATA / "25544.3le").read_text()
-    elements, _errors = satellites.parse_elements(text)
-    (tmp_path / "stations.tle").write_text(text)
-    now = elements[0].epoch + datetime.timedelta(days=1)
-    cat = satellite_catalog.SatelliteCatalog(
-        FixedSharedState(now), data_directory=tmp_path, start_threads=False
-    )
-    cat._spawn_pass_worker = cat._run_pass_updates
-    cat.do_timed_task()
-    return cat
+    """A catalog of the ISS only."""
+    seed_groups(tmp_path, files=("stations",))
+    return make_catalog(tmp_path)
 
 
 @functools.cache
@@ -110,9 +81,17 @@ def row_list(width: int, scroll_speed: str = "Med") -> UIObjectList:
     return module
 
 
-def row(module: UIObjectList, label: str, text: str, focus: bool):
+def row(
+    module: UIObjectList,
+    label: str,
+    text: str,
+    focus: bool,
+    info_chars: Optional[int] = None,
+):
     font = module.fonts.bold if focus else module.fonts.base
-    return module.row_text(label, text, font, list_layout(module.display_class).text_x)
+    return module.row_text(
+        label, text, font, list_layout(module.display_class).text_x, info_chars
+    )
 
 
 # -- the right column text ----------------------------------------------------
@@ -221,6 +200,26 @@ def test_long_label_with_a_right_column_is_cut_on_other_rows(width):
     # The right column starts one character after the label space.
     font = module.fonts.base
     assert result.text_x == result.label_x + (result.label_chars + 1) * font.width
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "width, focus_chars, row_chars", [(128, 9, 12), (176, 13, 15), (320, 19, 22)]
+)
+def test_satellite_info_column_leaves_the_rest_of_the_row_to_the_name(
+    width, focus_chars, row_chars
+):
+    """The INFO text of a satellite has at most six characters. The label
+    gets the row minus that text and a gap of one character."""
+    module = row_list(width)
+    for focus, chars in ((True, focus_chars), (False, row_chars)):
+        result = row(module, "ATLAS CENTAUR 2", "42° SE", focus, info_chars=6)
+        assert result.label_chars == chars
+        font = module.fonts.bold if focus else module.fonts.base
+        assert result.text_x + 6 * font.width <= width
+        # Without the width of the catalog the reserve is nine characters.
+        usual = row(module, "ATLAS CENTAUR 2", "42° SE", focus)
+        assert usual.label_chars < chars
 
 
 # -- the focus row scroll -----------------------------------------------------
@@ -360,6 +359,25 @@ def test_satellite_list_draws_the_full_name(width, sat_catalog, monkeypatch):
     assert not any("…" in text for text in texts)
     assert module.item_label_scroll is None
     assert module.item_text_scroll is None
+
+
+@pytest.mark.unit
+def test_satellite_info_list_at_128_cuts_names_at_12_characters(tmp_path, monkeypatch):
+    seed_groups(tmp_path)
+    cat = make_catalog(tmp_path)
+    texts = record_texts(monkeypatch)
+    module = render_list(128, {"objects": "catalog", "value": "SA"}, Catalogs([cat]))
+    assert module.current_mode is DisplayModes.INFO
+    names = {obj.names[0] for obj in cat.get_objects()}
+    cut = [text for text in texts if text.endswith("…")]
+    # The focus row has the wider bold font and 9 characters. With
+    # scrolling off its label is cut too.
+    assert sorted(len(text) for text in cut)[1:] == [12] * (len(cut) - 1)
+    assert len(cut) > 1 and len(min(cut, key=len)) in (9, 12)
+    for text in cut:
+        assert any(name.startswith(text[:-1]) for name in names)
+    # A name of 12 characters or fewer is drawn in full on the other rows.
+    assert any(name in texts and 10 < len(name) <= 12 for name in names)
 
 
 @pytest.mark.unit

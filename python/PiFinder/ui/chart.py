@@ -28,6 +28,7 @@ from PiFinder.nearby import ClosestObjectsFinder
 from PiFinder.ui.chart_satellites import (
     REFRESH_SECONDS as SATELLITE_REFRESH_SECONDS,
     SatelliteLayer,
+    angular_sep_deg,
     track_segment,
 )
 from PiFinder.ui.center_object import (
@@ -54,15 +55,6 @@ SATELLITE_SYMBOL = OBJ_TYPE_MARKERS[satellite_catalog.OBJ_TYPE]
 _TRACK_GAP_PX = 6
 _TRACK_MIN_PX = 4
 _TRACK_MAX_PX = 14
-
-
-def _angular_sep_deg(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
-    """Great-circle separation between two RA/Dec points, all in degrees."""
-    d1 = math.radians(dec1)
-    d2 = math.radians(dec2)
-    dra = math.radians(ra2 - ra1)
-    cos_sep = math.sin(d1) * math.sin(d2) + math.cos(d1) * math.cos(d2) * math.cos(dra)
-    return math.degrees(math.acos(max(-1.0, min(1.0, cos_sep))))
 
 
 def size_perimeter_radec(
@@ -173,10 +165,6 @@ class UIChart(UIModule):
 
         # --- Satellites at their live positions
         self._satellite_layer = SatelliteLayer()
-        # The filtered satellite list that _satellite_accepted was built
-        # from, and the map of NORAD id to object.
-        self._satellite_filtered = None
-        self._satellite_accepted = {}
         # The live RA/Dec of each drawn satellite, by id() of its object.
         # The center object uses these instead of the 5 s catalog positions.
         self._live_radec = {}
@@ -244,12 +232,13 @@ class UIChart(UIModule):
 
         W, H = self.display_class.resolution
         center = self._chart_center()
+        dt = self.snapshot.datetime()
 
         # --- Target cross: always drawn, full brightness, chart_dso-independent
         target = self.ui_state.target()
         exclude_ids = set()
         exclude_satellites = frozenset()
-        target_radec = self._target_radec(target)
+        target_radec = self._target_radec(target, dt)
         if target_radec is not None:
             exclude_ids.add(target.object_id)
             if satellite_catalog.is_satellite(target):
@@ -269,7 +258,7 @@ class UIChart(UIModule):
         self._drawn_objects.extend(marker_objects)
 
         # --- Satellites in the field, at their live positions
-        field = self._field_satellites(exclude_satellites)
+        field = self._field_satellites(center, dt, exclude_satellites)
         for sat in field:
             marker_list.append(
                 (plot.Angle(degrees=sat.ra)._hours, sat.dec, SATELLITE_SYMBOL)
@@ -297,19 +286,18 @@ class UIChart(UIModule):
             self._draw_object_outline(obj, line_color, center)
         self._draw_satellite_tracks(field, line_color)
 
-    def _target_radec(self, target):
+    def _target_radec(self, target, dt):
         """The RA/Dec of the target cross, or None without a target.
 
-        A satellite target is at its live position at the time of the frame,
-        not at the position of the last catalog update. The chart then
-        counts as a use of the satellite catalog.
+        A satellite target is at its live position at ``dt``, the time of
+        the frame, not at the position of the last catalog update. The chart
+        then counts as a use of the satellite catalog.
         """
         if target is None or target.ra is None or target.dec is None:
             return None
         if not satellite_catalog.is_satellite(target):
             return target.ra, target.dec
         self._satellites_shown = True
-        dt = self.snapshot.datetime()
         radec = None
         if dt is not None:
             radec = satellite_catalog.live_radec(target, dt)
@@ -318,10 +306,11 @@ class UIChart(UIModule):
         self._live_radec[id(target)] = radec
         return radec
 
-    def _field_satellites(self, exclude):
-        """The satellites to draw in the field: see ``SatelliteLayer.field``.
+    def _field_satellites(self, center, dt, exclude):
+        """The satellites to draw in the field around ``center`` at ``dt``:
+        see ``SatelliteLayer.field``.
 
-        None when the satellite catalog is not a selected catalog. The
+        Empty when the satellite catalog is not a selected catalog. The
         catalog filter decides which satellites can show. The open chart counts
         as a use of a selected satellite catalog, so the catalog builds its
         objects and keeps its positions current while the chart is open.
@@ -329,20 +318,13 @@ class UIChart(UIModule):
         if self.catalogs is None:
             return []
         catalog = self.catalogs.get_catalog_by_code(satellite_catalog.CATALOG_CODE)
-        center = self._chart_center()
-        dt = self.snapshot.datetime()
         if catalog is None or not catalog.is_selected() or center is None or dt is None:
             self._satellite_layer.reset()
             return []
         catalog.touch()
-        filtered = catalog.get_filtered_objects()
-        if filtered is not self._satellite_filtered:
-            self._satellite_filtered = filtered
-            self._satellite_accepted = {obj.sequence: obj for obj in filtered}
         field = self._satellite_layer.field(
             catalog,
-            self._satellite_accepted,
-            self._satellite_filtered,
+            catalog.get_filtered_objects(),
             center,
             self.fov * NEARBY_RADIUS_FACTOR,
             dt,
@@ -403,7 +385,7 @@ class UIChart(UIModule):
         # Cheap RA/Dec cull before any projection: skip anything comfortably
         # off the current field of view.
         if center is not None:
-            if _angular_sep_deg(obj.ra, obj.dec, center[0], center[1]) > self.fov:
+            if angular_sep_deg(obj.ra, obj.dec, center[0], center[1]) > self.fov:
                 return
 
         if size.is_segments:
@@ -433,16 +415,14 @@ class UIChart(UIModule):
             return
         self.draw.line(pts, fill=line_color, width=1)
 
-    def _draw_target(self, target, W, H, ra=None, dec=None):
+    def _draw_target(self, target, W, H, ra, dec):
         """
         Draw the target cross (+ off-screen pointer) at full brightness, and
         its designator label when the target is on-screen. Rendered separately
         from the ``chart_dso``-scaled DSO layers so it stays fully bright and
         visible even when ``chart_dso`` is 0. ``ra``/``dec`` give the position
-        of the cross; without them it is at ``target.ra``/``target.dec``.
+        of the cross.
         """
-        if ra is None or dec is None:
-            ra, dec = target.ra, target.dec
         target_image = self.starfield.plot_markers(
             [(plot.Angle(degrees=ra)._hours, dec, "target")]
         )
