@@ -1424,55 +1424,19 @@ def phase_angle_deg(
     return np.degrees(np.arccos(np.clip(cos_phase, -1.0, 1.0)))
 
 
-def look(
-    sat: TrackedSatellite,
-    topos,
-    dt: datetime,
-    with_rates: bool = True,
-    sun: Optional[SunContext] = None,
-) -> SatLook:
+def look(sat: TrackedSatellite, topos, dt: datetime) -> SatLook:
     """Position, brightness and motion of a satellite at ``dt``.
 
-    Give ``sun`` from ``sun_context`` when many satellites share one time.
+    The position and the brightness come from ``look_many``. The RA/Dec
+    rates come from a second position RATE_STEP_SECONDS later.
     """
-    dt = _as_utc(dt)
-    if sun is None:
-        sun = sun_context(topos, dt)
-    t = sun.t
-    difference = sat.satellite - topos
-    topocentric = difference.at(t)
-    alt, az, distance = topocentric.altaz()
-    ra, dec, _ = topocentric.radec()
-    sat_km = sat.satellite.at(t).position.km
-    sunlit = bool(in_sunlight(sat_km, sun.sun_geocentric_km))
-    range_km = float(distance.km)
-    mag: Optional[float] = None
-    if sunlit:
-        phase = float(
-            phase_angle_deg(sat_km, sun.sun_geocentric_km, topos.at(t).position.km)
-        )
-        mag = apparent_magnitude(sat.std_mag, range_km, phase)
-
-    ra_rate = dec_rate = 0.0
-    if with_rates:
-        later = sf_utils.ts.from_datetime(dt + timedelta(seconds=RATE_STEP_SECONDS))
-        ra2, dec2, _ = difference.at(later).radec()
-        ra_step = (ra2._degrees - ra._degrees + 540.0) % 360.0 - 180.0
-        ra_rate = float(ra_step / RATE_STEP_SECONDS)
-        dec_rate = float((dec2.degrees - dec.degrees) / RATE_STEP_SECONDS)
-    return SatLook(
-        time=dt,
-        ra=float(ra._degrees),
-        dec=float(dec.degrees),
-        alt=float(alt.degrees),
-        az=float(az.degrees),
-        range_km=range_km,
-        sunlit=sunlit,
-        sun_alt=sun.sun_alt,
-        mag=mag,
-        ra_rate=ra_rate,
-        dec_rate=dec_rate,
-    )
+    (now,) = look_many([sat], topos, dt)
+    later = now.time + timedelta(seconds=RATE_STEP_SECONDS)
+    ra, dec, _alt = sky_tracks([sat], topos, [later])
+    ra_step = (float(ra[0, 0]) - now.ra + 540.0) % 360.0 - 180.0
+    now.ra_rate = ra_step / RATE_STEP_SECONDS
+    now.dec_rate = (float(dec[0, 0]) - now.dec) / RATE_STEP_SECONDS
+    return now
 
 
 def _magnitudes(std_mag, range_km, phase_deg) -> np.ndarray:

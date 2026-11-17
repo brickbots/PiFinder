@@ -136,6 +136,13 @@ def test_look_gives_consistent_geometry_and_rates():
     sat = satellites.TrackedSatellite.from_elements(iss_elements())
     now = satellites.look(sat, BRUSSELS, NOW)
     later = satellites.look(sat, BRUSSELS, NOW + datetime.timedelta(seconds=1))
+    (many,) = satellites.look_many([sat], BRUSSELS, NOW)
+    assert (now.ra, now.dec, now.alt, now.mag) == (
+        many.ra,
+        many.dec,
+        many.alt,
+        many.mag,
+    )
     assert -90 <= now.alt <= 90 and 0 <= now.az < 360
     # The ISS orbits about 420 km up: its range is never below that.
     assert now.range_km > 380
@@ -251,7 +258,7 @@ def test_pass_visibility_follows_the_sun_and_the_shadow():
         if not item.visible:
             continue
         for moment in (item.visible_start, item.visible_end):
-            look = satellites.look(sat, BRUSSELS, moment, with_rates=False)
+            (look,) = satellites.look_many([sat], BRUSSELS, moment)
             # The samples are 10 s apart; the look is at a sample time.
             assert look.visible
             # min_mag is the brightest magnitude of the visible part.
@@ -581,13 +588,41 @@ def renumbered_tle(norad_id, name: str = "HAND MADE") -> str:
     return f"{name}\n{lines[0]}\n{lines[1]}\n"
 
 
+def skyfield_look(sat, topos, dt) -> SimpleNamespace:
+    """The position and the brightness of a satellite from Skyfield, one
+    satellite at a time: the reference of look_many."""
+    sun = satellites.sun_context(topos, dt)
+    topocentric = (sat.satellite - topos).at(sun.t)
+    alt, az, distance = topocentric.altaz()
+    ra, dec, _ = topocentric.radec()
+    sat_km = sat.satellite.at(sun.t).position.km
+    sunlit = bool(satellites.in_sunlight(sat_km, sun.sun_geocentric_km))
+    mag = None
+    if sunlit:
+        phase = satellites.phase_angle_deg(
+            sat_km, sun.sun_geocentric_km, topos.at(sun.t).position.km
+        )
+        mag = satellites.apparent_magnitude(sat.std_mag, distance.km, float(phase))
+    return SimpleNamespace(
+        alt=alt.degrees,
+        az=az.degrees,
+        ra=ra._degrees,
+        dec=dec.degrees,
+        range_km=distance.km,
+        sunlit=sunlit,
+        mag=mag,
+    )
+
+
 @pytest.mark.unit
-def test_look_many_agrees_with_look():
+def test_look_many_agrees_with_skyfield():
+    """look_many gives RA/Dec in GCRS and Skyfield in ICRS, without light
+    time. The two agree to a few arcseconds."""
     sats = visual_satellites()
     assert len(sats) > 10
     many = satellites.look_many(sats, BRUSSELS, NOW)
     for sat, fast in zip(sats, many):
-        slow = satellites.look(sat, BRUSSELS, NOW)
+        slow = skyfield_look(sat, BRUSSELS, NOW)
         assert fast.alt == pytest.approx(slow.alt, abs=1e-3)
         assert (fast.az - slow.az + 180) % 360 - 180 == pytest.approx(0, abs=1e-2)
         assert (fast.ra - slow.ra + 180) % 360 - 180 == pytest.approx(0, abs=1e-2)
