@@ -417,6 +417,38 @@ def test_drift_correction_reverses_an_axis_rate(indi: int) -> None:
         indi_drivers.stop_driver()
 
 
+def test_drift_rates_start_from_sidereal_after_a_goto(indi: int) -> None:
+    """The custom rates of a drift compensation cancel the drift at one
+    target. After a goto, the first correction starts from the sidereal
+    rate, not from the rates of the old target."""
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        device = mount.device
+
+        def rates() -> tuple:
+            return (
+                mount.client.get_value(device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_RA"),
+                mount.client.get_value(device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_DE"),
+            )
+
+        sidereal = mountcontrol_indi.SIDEREAL_DEG_PER_S * 3600.0
+        assert mount.adjust_mount_drift_rates(0.001, 0.001)
+        assert _wait(
+            lambda: rates() == pytest.approx((sidereal + 3.6, -3.6), abs=0.01), 5
+        )
+        assert _wait(lambda: mount.current_dec == pytest.approx(90.0), 10)
+        assert mount.move_mount_to_target(mount.current_ra, 80.0)
+        assert _wait(lambda: mount.target_reached, 60)
+        assert mount.adjust_mount_drift_rates(0.0002, 0.0)
+        assert _wait(
+            lambda: rates() == pytest.approx((sidereal + 0.72, 0.0), abs=0.01), 5
+        ), rates()
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
 def test_sync_reply_does_not_end_the_next_goto(indi: int) -> None:
     """The driver confirms a sync with state Ok. When that reply comes after
     the next goto was sent, the goto must still run to its end."""

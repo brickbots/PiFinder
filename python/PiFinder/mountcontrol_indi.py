@@ -590,14 +590,20 @@ class MountControlIndi(MountControlBase):
         self._check_drift_directions(
             drift_rate_adjustment_ra, ra_se, drift_rate_adjustment_dec, dec_se
         )
+        # The first correction after a goto, a new connection or a reload
+        # starts from the sidereal rate. The custom rates that the driver
+        # keeps cancel the drift at an earlier target, or come from its
+        # saved config.
+        base_ra, base_dec = ra_rate, dec_rate
         if not self._custom_tracking:
+            base_ra, base_dec = SIDEREAL_DEG_PER_S * 3600.0, 0.0
             if not self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"):
                 return False
             self._custom_tracking = True
         # TELESCOPE_TRACK_RATE is in arcseconds per second. The pointing
         # must move against the drift.
-        new_ra = ra_rate - self._ra_rate_sign * drift_rate_adjustment_ra * 3600.0
-        new_dec = dec_rate - self._dec_rate_sign * drift_rate_adjustment_dec * 3600.0
+        new_ra = base_ra - self._ra_rate_sign * drift_rate_adjustment_ra * 3600.0
+        new_dec = base_dec - self._dec_rate_sign * drift_rate_adjustment_dec * 3600.0
         # While tracking, an INDI driver ignores a rate that has the opposite
         # sign of its current rate ("Cannot reverse tracking"), and it sends
         # no reply. A rate of zero is always accepted, so an axis whose sign
