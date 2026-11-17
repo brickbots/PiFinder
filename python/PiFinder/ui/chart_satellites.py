@@ -67,7 +67,7 @@ class _Batch:
     radius: float  # the chart radius of the batch
     search_radius: float
     mag_limit: float
-    accept_key: object
+    filtered: list
     objects: list
     mag: np.ndarray
     ra: np.ndarray  # (n, 2): now and TRACK_SECONDS later
@@ -91,6 +91,10 @@ class SatelliteLayer:
     def __init__(self, clock: Callable[[], float] = time.monotonic):
         self._clock = clock
         self._batch: Optional[_Batch] = None
+        # The filtered object list that _accepted was made from, and the
+        # map of NORAD id to object of that list.
+        self._filtered: Optional[list] = None
+        self._accepted: dict = {}
         # The SGP4 calls of the batches, for the tests.
         self.batch_count = 0
 
@@ -100,8 +104,7 @@ class SatelliteLayer:
     def field(
         self,
         catalog,
-        accepted: dict,
-        accept_key: object,
+        filtered: list,
         center: tuple[float, float],
         radius: float,
         dt: datetime.datetime,
@@ -110,30 +113,31 @@ class SatelliteLayer:
     ) -> list[FieldSatellite]:
         """The satellites to draw for a frame at ``dt``.
 
-        ``accepted`` maps the NORAD id of each satellite that the catalog
-        filter accepts to its object, and ``accept_key`` changes when that
-        map changes. A satellite is drawn when it is above the horizon,
+        ``filtered`` holds the objects that the catalog filter accepts. The
+        catalog gives a new list when the filter result changes. A satellite
+        is drawn when it is above the horizon,
         within ``radius`` degrees of ``center``, in sunlight and not fainter
         than ``mag_limit``. The brightest ``FIELD_CAP`` are drawn. The NORAD
         ids in ``exclude`` are not drawn.
         """
+        if filtered is not self._filtered:
+            self._filtered = filtered
+            self._accepted = {obj.sequence: obj for obj in filtered}
         batch = self._batch
-        if self._batch_stale(batch, accept_key, center, radius, mag_limit):
-            batch = self._make_batch(
-                catalog, accepted, accept_key, center, radius, dt, mag_limit
-            )
+        if self._batch_stale(batch, filtered, center, radius, mag_limit):
+            batch = self._make_batch(catalog, filtered, center, radius, dt, mag_limit)
             self._batch = batch
         if batch is None or not batch.objects:
             return []
         return _select(batch, center, radius, dt, mag_limit, exclude)
 
-    def _batch_stale(self, batch, accept_key, center, radius, mag_limit) -> bool:
+    def _batch_stale(self, batch, filtered, center, radius, mag_limit) -> bool:
         if batch is None:
             return True
         if self._clock() - batch.made >= REFRESH_SECONDS:
             return True
         if (
-            accept_key is not batch.accept_key
+            filtered is not batch.filtered
             or radius != batch.radius
             or mag_limit != batch.mag_limit
         ):
@@ -142,8 +146,9 @@ class SatelliteLayer:
         return moved > batch.search_radius - radius - MAX_RATE_DEG_S * TRACK_SECONDS
 
     def _make_batch(
-        self, catalog, accepted, accept_key, center, radius, dt, mag_limit
+        self, catalog, filtered, center, radius, dt, mag_limit
     ) -> Optional[_Batch]:
+        accepted = self._accepted
         state = catalog.sky_state(dt)
         if state is None or not len(state.norad_ids) or not accepted:
             return None
@@ -188,7 +193,7 @@ class SatelliteLayer:
             radius=radius,
             search_radius=search_radius,
             mag_limit=mag_limit,
-            accept_key=accept_key,
+            filtered=filtered,
             objects=objects,
             mag=np.array(mags, dtype=float),
             ra=ra,
@@ -199,8 +204,6 @@ class SatelliteLayer:
 
 def _select(batch, center, radius, dt, mag_limit, exclude) -> list[FieldSatellite]:
     """Move the batch to ``dt`` and keep the satellites in the field."""
-    if not len(batch.objects):
-        return []
     part = (dt - batch.time).total_seconds() / TRACK_SECONDS
     ra_step = (batch.ra[:, 1] - batch.ra[:, 0] + 540.0) % 360.0 - 180.0
     dec_step = batch.dec[:, 1] - batch.dec[:, 0]

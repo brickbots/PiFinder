@@ -1532,34 +1532,7 @@ def look_many(
 
     One vectorized SGP4 call replaces a Skyfield call per satellite.
     """
-    if not sats:
-        return []
-    dt = _as_utc(dt)
-    if sun is None:
-        sun = sun_context(topos, dt)
-    t, sat_km, relative_km, alt, az = _geometry_many(sats, topos, [dt])
-    sat_km, relative_km = sat_km[:, :, 0], relative_km[:, :, 0]
-    range_km = np.linalg.norm(relative_km, axis=0)
-    ra = np.degrees(np.arctan2(relative_km[1], relative_km[0])) % 360.0
-    dec = np.degrees(np.arcsin(relative_km[2] / range_km))
-    sun_km = sun.sun_geocentric_km[:, np.newaxis]
-    sunlit = in_sunlight(sat_km, sun_km)
-    phase = phase_angle_deg(sat_km, sun_km, topos.at(t).position.km)
-    mags = _magnitudes(np.array([sat.std_mag for sat in sats]), range_km, phase)
-    return [
-        SatLook(
-            time=dt,
-            ra=float(ra[i]),
-            dec=float(dec[i]),
-            alt=float(alt[i, 0]),
-            az=float(az[i, 0]),
-            range_km=float(range_km[i]),
-            sunlit=bool(sunlit[i]),
-            sun_alt=sun.sun_alt,
-            mag=float(mags[i]) if sunlit[i] else None,
-        )
-        for i in range(len(sats))
-    ]
+    return sky_state_many(sats, topos, dt, sun=sun).looks()
 
 
 @dataclass
@@ -1569,7 +1542,7 @@ class SkyState:
     Element i of each array belongs to ``norad_ids[i]``. Angles are in
     degrees, RA/Dec in J2000. ``mag`` is NaN for a satellite in Earth's
     shadow, and each value is NaN for a satellite that SGP4 cannot
-    propagate.
+    propagate. ``sun_alt`` is the altitude of the Sun for the observer.
     """
 
     time: datetime
@@ -1577,31 +1550,43 @@ class SkyState:
     ra: np.ndarray
     dec: np.ndarray
     alt: np.ndarray
+    az: np.ndarray
+    range_km: np.ndarray
     mag: np.ndarray
+    sun_alt: float
 
     @classmethod
     def empty(cls, dt: datetime) -> "SkyState":
         nothing = np.zeros(0)
-        return cls(dt, np.zeros(0, dtype=np.int64), nothing, nothing, nothing, nothing)
-
-    @classmethod
-    def from_looks(
-        cls, dt: datetime, norad_ids: list[int], looks: list[SatLook]
-    ) -> "SkyState":
-        """The state of ``look_many`` results at ``dt``, without a second
-        SGP4 call."""
-        if not looks:
-            return cls.empty(_as_utc(dt))
         return cls(
-            _as_utc(dt),
-            np.array(norad_ids, dtype=np.int64),
-            np.array([now.ra for now in looks], dtype=float),
-            np.array([now.dec for now in looks], dtype=float),
-            np.array([now.alt for now in looks], dtype=float),
-            np.array(
-                [np.nan if now.mag is None else now.mag for now in looks], dtype=float
-            ),
+            time=dt,
+            norad_ids=np.zeros(0, dtype=np.int64),
+            ra=nothing,
+            dec=nothing,
+            alt=nothing,
+            az=nothing,
+            range_km=nothing,
+            mag=nothing,
+            sun_alt=math.nan,
         )
+
+    def looks(self) -> list[SatLook]:
+        """One ``SatLook`` per satellite, in the order of ``norad_ids``."""
+        sunlit = np.isfinite(self.mag)
+        return [
+            SatLook(
+                time=self.time,
+                ra=float(self.ra[i]),
+                dec=float(self.dec[i]),
+                alt=float(self.alt[i]),
+                az=float(self.az[i]),
+                range_km=float(self.range_km[i]),
+                sunlit=bool(sunlit[i]),
+                sun_alt=self.sun_alt,
+                mag=float(self.mag[i]) if sunlit[i] else None,
+            )
+            for i in range(len(self.norad_ids))
+        ]
 
 
 def _radec_of(relative_km: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -1619,14 +1604,15 @@ def sky_state_many(
     array: Optional[SatrecArray] = None,
     sun: Optional[SunContext] = None,
 ) -> SkyState:
-    """``look_many`` as arrays: positions and magnitudes of many satellites
-    at one time, with one SGP4 call and no object per satellite."""
+    """Positions and magnitudes of many satellites at one time, with one
+    SGP4 call. ``array`` is ``satrec_array(sats)``, when the caller keeps
+    one. Give ``sun`` from ``sun_context`` when the caller has it."""
     dt = _as_utc(dt)
     if not sats:
         return SkyState.empty(dt)
     if sun is None:
         sun = sun_context(topos, dt)
-    t, sat_km, relative_km, alt, _az = _geometry_many(sats, topos, [dt], array)
+    t, sat_km, relative_km, alt, az = _geometry_many(sats, topos, [dt], array)
     sat_km, relative_km = sat_km[:, :, 0], relative_km[:, :, 0]
     ra, dec = _radec_of(relative_km)
     sun_km = sun.sun_geocentric_km[:, np.newaxis]
@@ -1635,12 +1621,15 @@ def sky_state_many(
     range_km = np.linalg.norm(relative_km, axis=0)
     mags = _magnitudes(np.array([sat.std_mag for sat in sats]), range_km, phase)
     return SkyState(
-        dt,
-        np.array([sat.norad_id for sat in sats], dtype=np.int64),
-        ra,
-        dec,
-        alt[:, 0],
-        np.where(sunlit, mags, np.nan),
+        time=dt,
+        norad_ids=np.array([sat.norad_id for sat in sats], dtype=np.int64),
+        ra=ra,
+        dec=dec,
+        alt=alt[:, 0],
+        az=az[:, 0],
+        range_km=range_km,
+        mag=np.where(sunlit, mags, np.nan),
+        sun_alt=sun.sun_alt,
     )
 
 
