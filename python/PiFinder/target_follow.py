@@ -383,6 +383,7 @@ class TargetFollow:
         self.aim_dec: Optional[float] = None
         self.slew_started: Optional[float] = None
         self.last_rate_update = 0.0
+        self.last_alt_check = 0.0
         self.aim_count = 0
         # The meet point of a satellite, and the meet time. A correction
         # along the track moves the meet time.
@@ -513,6 +514,13 @@ class TargetFollow:
     def rate_update_due(self, now: float) -> bool:
         if now - self.last_rate_update >= RATE_UPDATE_S:
             self.last_rate_update = now
+            return True
+        return False
+
+    def alt_check_due(self, now: float) -> bool:
+        """True once per RATE_UPDATE_S: the time to check the altitude."""
+        if now - self.last_alt_check >= RATE_UPDATE_S:
+            self.last_alt_check = now
             return True
         return False
 

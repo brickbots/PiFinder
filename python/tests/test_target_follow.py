@@ -164,6 +164,57 @@ def test_follow_with_custom_rates_aims_waits_and_tracks():
     assert follow.stage == FollowStage.AIM
 
 
+def count_points(follow: TargetFollow) -> list:
+    """Count the computed points of the target of ``follow``."""
+    calls: list = []
+    target = follow.target
+    real = target.point
+
+    def point(unix_time: float):
+        calls.append(unix_time)
+        return real(unix_time)
+
+    target.point = point
+    return calls
+
+
+def test_follow_computes_one_point_a_second_in_wait_and_track(monkeypatch):
+    mount = start_follow(iss_pass().culmination.timestamp() - 90.0)
+    follow = mount._follow
+    mount.now += 8.0
+    mount.target_reached = True
+    mount.phase()
+    assert follow.stage == FollowStage.WAIT
+    # WAIT: only the altitude check, once a second.
+    calls = count_points(follow)
+    for _step in range(20):
+        mount.now += 0.1
+        mount.phase()
+    assert 1 <= len(calls) <= 2
+
+    # TRACK: one point a second, at the time of the position report.
+    mount.now = follow.aim_time + 0.1
+    point = follow.point(mount.now)
+    mount.current_ra, mount.current_dec = point.ra, point.dec
+    mount.phase()
+    assert follow.stage == FollowStage.TRACK
+    reported = time.time()
+    monkeypatch.setattr(time, "time", lambda: reported + 0.4)
+    mount.current_time = reported
+    calls.clear()
+    for _step in range(10):
+        mount.now += 0.11
+        mount.phase()
+    assert calls == [pytest.approx(mount.now - 0.4)]
+    assert follow.stage == FollowStage.TRACK
+    # The status target is that point, moved on to now.
+    now_point = follow.point(mount.now)
+    assert (
+        angular_distance(mount.target_ra, mount.target_dec, now_point.ra, now_point.dec)
+        < 0.01
+    )
+
+
 def test_follow_without_custom_rates_repeats_gotos_ahead():
     mount = start_follow(iss_pass().culmination.timestamp() - 120.0, rates_ok=False)
     follow = mount._follow
