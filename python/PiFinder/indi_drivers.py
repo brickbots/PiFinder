@@ -3,6 +3,7 @@ files (the "Telescopes" group), and the FIFO that starts them in indiserver."""
 
 import logging
 import os
+import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +16,9 @@ DEFAULT_FIFO = "/run/indi/fifo"
 # indiserver keeps no list of the drivers that PiFinder started, so PiFinder
 # records the running driver here and stops it before it starts another.
 RUNNING_DRIVER_FILE = "running-driver"
+# A write to the FIFO is tried this often, FIFO_RETRY_S apart.
+FIFO_ATTEMPTS = 5
+FIFO_RETRY_S = 0.1
 
 SIMULATOR = "Telescope Simulator"
 
@@ -74,20 +78,36 @@ def find_model(label: str, directory: Optional[Path] = None) -> Optional[MountMo
     return None
 
 
-def _fifo_command(line: str, fifo: Path) -> bool:
-    # O_NONBLOCK: opening a FIFO with no reader fails at once (indiserver is
-    # not running) instead of blocking for ever.
-    try:
-        fd = os.open(fifo, os.O_WRONLY | os.O_NONBLOCK)
-    except OSError as e:
-        logger.error("Cannot open the indiserver FIFO %s: %s", fifo, e)
-        return False
-    try:
-        os.write(fd, (line + "\n").encode())
-    finally:
-        os.close(fd)
-    logger.info("indiserver: %s", line)
-    return True
+def _fifo_command(lines: list[str], fifo: Path) -> bool:
+    """Write lines to the indiserver FIFO in one write.
+
+    indiserver opens its FIFO again after each writer closes it, so a quick
+    second writer can find no reader (ENXIO) or a closed pipe (EPIPE). The
+    write is tried again a few times before it fails."""
+    data = "".join(line + "\n" for line in lines).encode()
+    error: Optional[OSError] = None
+    for attempt in range(FIFO_ATTEMPTS):
+        if attempt:
+            time.sleep(FIFO_RETRY_S)
+        try:
+            # O_NONBLOCK: opening a FIFO with no reader fails at once
+            # instead of blocking for ever.
+            fd = os.open(fifo, os.O_WRONLY | os.O_NONBLOCK)
+        except OSError as e:
+            error = e
+            continue
+        try:
+            os.write(fd, data)
+        except OSError as e:
+            error = e
+            continue
+        finally:
+            os.close(fd)
+        for line in lines:
+            logger.info("indiserver: %s", line)
+        return True
+    logger.error("Cannot write to the indiserver FIFO %s: %s", fifo, error)
+    return False
 
 
 def _read_running(running_file: Path) -> tuple[str, str]:
@@ -112,9 +132,9 @@ def start_driver(model: MountModel, fifo: Optional[Path] = None) -> bool:
     running = _read_running(running_file)
     if running == (model.driver, model.device_name):
         return True
-    if running[0]:
-        _fifo_command(_stop_command(*running), fifo)
-    if not _fifo_command(f'start {model.driver} -n "{model.device_name}"', fifo):
+    lines = [_stop_command(*running)] if running[0] else []
+    lines.append(f'start {model.driver} -n "{model.device_name}"')
+    if not _fifo_command(lines, fifo):
         return False
     try:
         running_file.write_text(f"{model.driver}\t{model.device_name}\n")
@@ -128,5 +148,5 @@ def stop_driver(fifo: Optional[Path] = None) -> None:
     fifo = fifo or fifo_path()
     running_file = fifo.parent / RUNNING_DRIVER_FILE
     running = _read_running(running_file)
-    if running[0] and _fifo_command(_stop_command(*running), fifo):
+    if running[0] and _fifo_command([_stop_command(*running)], fifo):
         running_file.unlink(missing_ok=True)
