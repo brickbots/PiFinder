@@ -650,12 +650,27 @@ def test_seconds_until_set_is_the_horizon_crossing():
             continue
         if wait is None:
             continue
-        before = moment + datetime.timedelta(seconds=max(wait - 15, 0))
-        after = moment + datetime.timedelta(seconds=wait + 15)
+        before = moment + datetime.timedelta(seconds=max(wait - 2, 0))
+        after = moment + datetime.timedelta(seconds=wait + 2)
         assert satellites.look(sat, BRUSSELS, before).alt > 0
         assert satellites.look(sat, BRUSSELS, after).alt < 0
         checked += 1
     assert checked > 0
+
+
+@pytest.mark.unit
+def test_seconds_until_set_of_a_satellite_that_stays_up_is_none():
+    iss = satellites.TrackedSatellite.from_elements(iss_elements())
+    moment = satellites.find_passes(iss, BRUSSELS, NOW, hours=24)[0].culmination
+    # The ISS sets some minutes after its culmination: not in one minute.
+    assert satellites.seconds_until_set([iss], BRUSSELS, moment, 60.0) == [None]
+    assert satellites.seconds_until_set([iss], BRUSSELS, moment)[0] > 60.0
+    results, _errors = satellites.parse_elements(GEO_TLE)
+    geo = satellites.TrackedSatellite.from_elements(results[0])
+    below = wgs84.subpoint_of(geo.satellite.at(sf_utils.ts.from_datetime(NOW)))
+    topos = wgs84.latlon(45.0, below.longitude.degrees, 0.0)
+    assert satellites.seconds_until_set([geo], topos, NOW) == [None]
+    assert satellites.seconds_until_set([], BRUSSELS, NOW) == []
 
 
 @pytest.mark.unit

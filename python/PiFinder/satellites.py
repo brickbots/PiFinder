@@ -147,7 +147,6 @@ SUN_GRID_SECONDS = 300.0
 RATE_STEP_SECONDS = 1.0
 # The search for the time a satellite sets looks this far ahead.
 SET_SEARCH_SECONDS = 2 * 3600.0
-SET_STEP_SECONDS = 20.0
 UNIX_EPOCH_JD = 2440587.5
 
 _TLE_LINE1 = re.compile(r"^1 [ 0-9A-Z]{5}[A-Z ] ")
@@ -1615,30 +1614,24 @@ def seconds_until_set(
     topos,
     dt: datetime,
     search_seconds: float = SET_SEARCH_SECONDS,
-    step_seconds: float = SET_STEP_SECONDS,
 ) -> list[Optional[float]]:
     """For each satellite: the seconds until it goes below the horizon.
 
     None when the satellite is below the horizon at ``dt``, or stays up for
-    the full search time (a geostationary satellite, for example).
+    the full search time (a geostationary satellite, for example). The pass
+    search gives the set: a satellite above the horizon at ``dt`` has a
+    pass that starts at ``dt``.
     """
-    if not sats:
-        return []
     dt = _as_utc(dt)
-    offsets = np.arange(0.0, search_seconds + step_seconds, step_seconds)
-    times = [dt + timedelta(seconds=float(offset)) for offset in offsets]
-    alt = _geometry_many(sats, topos, times)[3]
+    found = find_passes_many(sats, topos, dt, search_seconds / 3600.0, 0.0)
     result: list[Optional[float]] = []
-    for row in alt:
-        down = np.flatnonzero(~(row > 0))
-        if len(down) == 0 or down[0] == 0:
-            result.append(None)
-            continue
-        after = int(down[0])
-        above, below = row[after - 1], row[after]
-        # The altitude is close to linear over one step near the horizon.
-        part = above / (above - below) if np.isfinite(below) else 0.0
-        result.append(float(offsets[after - 1] + part * step_seconds))
+    for passes in found:
+        wait = None
+        if passes and passes[0].rise <= dt:
+            seconds = (passes[0].set - dt).total_seconds()
+            if seconds < search_seconds:
+                wait = seconds
+        result.append(wait)
     return result
 
 
