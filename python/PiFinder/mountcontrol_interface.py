@@ -1202,6 +1202,7 @@ class MountControlBase:
             self._end_follow()
             return
         self._follow_held_arrow(follow, now)
+        follow.settle(now)
         # The point of the target now, computed at most once in a pass. AIM
         # and WAIT need it only for the altitude check, once per
         # RATE_UPDATE_S. TRACK checks the altitude at its rate update.
@@ -1349,6 +1350,8 @@ class MountControlBase:
             self._follow_seen(follow, now)
             return
         if command["type"] == "motion_stop":
+            if self._follow_motion is not None:
+                follow.shift_now(now)
             self._follow_motion = None
             return
         north, east, step_size = self._command_offset(command)
@@ -1381,6 +1384,7 @@ class MountControlBase:
         north, east, last, started = self._follow_motion
         if now - started > MAX_MOTION_S:
             self._follow_motion = None
+            follow.shift_now(now)
             return
         angle = self.step_size * (now - last)
         follow.nudge(north * angle, east * angle, now)

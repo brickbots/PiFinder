@@ -396,6 +396,80 @@ def test_arrow_during_a_follow_corrects_the_path_and_keeps_the_follow():
     assert angular_distance(still.ra, still.dec, moved.ra, moved.dec) < 1e-6
 
 
+def start_tracking(now: float) -> FakeMount:
+    """A mount that tracks the ISS from ``now``, on the target."""
+    mount = start_follow(now)
+    follow = mount._follow
+    mount.now += 8.0
+    mount.target_reached = True
+    mount.phase()
+    mount.now = follow.aim_time + 0.1
+    point = follow.point(mount.now)
+    mount.current_ra, mount.current_dec = point.ra, point.dec
+    mount.phase()
+    assert follow.stage == FollowStage.TRACK
+    return mount
+
+
+def count_shifts(monkeypatch) -> list:
+    """Count the new targets of a time offset."""
+    calls: list = []
+    real = SatelliteTarget.shifted
+
+    def shifted(self, seconds):
+        calls.append(seconds)
+        return real(self, seconds)
+
+    monkeypatch.setattr(SatelliteTarget, "shifted", shifted)
+    return calls
+
+
+def test_a_press_changes_the_track_rates_in_the_same_loop_pass():
+    mount = start_tracking(iss_pass().culmination.timestamp() - 90.0)
+    follow = mount._follow
+    mount.now += 0.2
+    point = follow.point(mount.now)
+    mount.current_ra, mount.current_dec = point.ra, point.dec
+    calls = mount.set_track_rates.call_count
+    # A press 0.05 degrees north, then the phase of the same loop pass.
+    mount.command({"type": "manual_movement", "offset": (1.0, 0.0), "step_size": 0.05})
+    mount.phase()
+    assert mount.set_track_rates.call_count == calls + 1
+    _ra_rate, dec_rate = mount.set_track_rates.call_args.args
+    assert dec_rate - point.dec_rate == pytest.approx(
+        0.05 / target_follow.CORRECTION_S, abs=2e-3
+    )
+
+
+def test_held_arrow_makes_new_elements_once_a_second(monkeypatch):
+    mount = start_tracking(iss_pass().culmination.timestamp() - 90.0)
+    follow = mount._follow
+    shifts = count_shifts(monkeypatch)
+    mount.step_size = 0.5
+    point = follow.point(mount.now)
+    cos_dec = math.cos(math.radians(point.dec))
+    along = (point.dec_rate / point.speed, point.ra_rate * cos_dec / point.speed)
+    mount.command({"type": "motion_start", "north": along[0], "east": along[1]})
+    mount.now += 0.1
+    mount.phase()
+    # The status shows the correction at once.
+    assert mount.status_text().startswith("Following +")
+    first = mount.status_text()
+    for _step in range(19):
+        mount.now += 0.1
+        mount.phase()
+    assert mount.status_text() != first
+    assert len(shifts) <= 2
+    held = follow.time_offset_s
+    mount.command({"type": "motion_stop"})
+    # The release makes the elements of the full correction.
+    assert shifts[-1] == pytest.approx(held)
+    assert len(shifts) <= 3
+    ahead = iss_target().point(mount.now + held)
+    corrected = follow.point(mount.now)
+    assert angular_distance(corrected.ra, corrected.dec, ahead.ra, ahead.dec) < 0.15
+
+
 def test_a_corrected_follow_stores_its_elements(tmp_path):
     mount = start_follow(iss_pass().culmination.timestamp() - 60.0)
     follow = mount._follow
