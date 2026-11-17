@@ -439,6 +439,151 @@ class TestChartSatellites:
         assert not chart._satellite_frame_due()
 
 
+def _dso(object_id, ra, dec, mag=8.0):
+    return CompositeObject(
+        object_id=object_id,
+        ra=ra,
+        dec=dec,
+        obj_type="Gx",
+        catalog_code="NGC",
+        mag=MagnitudeObject([str(mag)]),
+        size=SizeObject([]),
+    )
+
+
+class _CacheChart:
+    """A chart with a moving satellite, nearby DSOs, an observing list and a
+    target that a test can change. ``collections`` counts the runs of the
+    DSO marker collection."""
+
+    def __init__(self):
+        self.sat = FakeSatCatalog(ra=[10.0], dec=[20.0], alt=[40], mag=[3])
+        self.chart = _chart(self.sat)
+        self.dsos = [_dso(1, 10.0, 20.5), _dso(2, 10.5, 19.5)]
+        self.chart.catalogs.get_objects = lambda **kwargs: list(self.dsos)
+        self.observing_list = [_dso(3, 9.5, 20.0)]
+        self.target = None
+        self.dso = 128
+        self.dt = DT
+        self.chart.ui_state = SimpleNamespace(
+            observing_list=lambda: self.observing_list, target=lambda: self.target
+        )
+        self.chart.config_object = SimpleNamespace(
+            get_option=lambda name, default=None: self.dso
+        )
+        self.chart.snapshot = SimpleNamespace(datetime=lambda: self.dt)
+        self.chart.solution.estimate_time = 100.0
+        self.collections = 0
+        collect = self.chart._collect_dso_markers
+
+        def counting_collect(exclude_ids):
+            self.collections += 1
+            return collect(exclude_ids)
+
+        self.chart._collect_dso_markers = counting_collect
+
+    def redraw(self):
+        """One satellite frame: the satellite moves on, the solve stays."""
+        self.dt += datetime.timedelta(seconds=REFRESH_SECONDS)
+        self.chart._satellite_layer._clock.now += REFRESH_SECONDS
+        self.chart.plot_markers()
+        return self.chart.starfield.marker_lists[-1]
+
+
+@pytest.mark.unit
+class TestDsoMarkerCache:
+    def test_satellite_frames_collect_once(self):
+        c = _CacheChart()
+        frames = [c.redraw() for _ in range(5)]
+        assert c.collections == 1
+        # The DSO marker image is made once, from the 3 DSO markers. Each
+        # frame then plots only the satellite, which moves.
+        dso_list, *satellite_lists = c.chart.starfield.marker_lists
+        assert len(dso_list) == 3
+        assert SATELLITE_SYMBOL not in [m[2] for m in dso_list]
+        assert satellite_lists == frames
+        assert all([m[2] for m in frame] == [SATELLITE_SYMBOL] for frame in frames)
+        sat_decs = [frame[0][1] for frame in frames]
+        assert sat_decs == sorted(sat_decs) and len(set(sat_decs)) == 5
+
+    def test_cached_frames_keep_the_candidates(self):
+        c = _CacheChart()
+        c.redraw()
+        first = [o.object_id for o in c.chart._drawn_objects]
+        c.redraw()
+        assert [o.object_id for o in c.chart._drawn_objects] == first
+        assert c.collections == 1
+
+    def _change_solve(self, c):
+        c.chart.solution.estimate_time = 101.0
+
+    def _change_pointing(self, c):
+        est = c.chart.solution.pointing.aligned.estimate
+        est.RA, est.Dec = est.RA + 0.5, est.Dec - 0.5
+
+    def _change_fov(self, c):
+        c.chart.fov = 5.0
+
+    def _change_setting(self, c):
+        c.dso = 64
+
+    def _change_target(self, c):
+        c.target = _dso(1, 10.0, 20.5)
+
+    def _change_list(self, c):
+        c.observing_list = [_dso(4, 10.2, 20.2)]
+
+    def _grow_list(self, c):
+        c.observing_list.append(_dso(4, 10.2, 20.2))
+
+    def _change_filter(self, c):
+        c.chart.catalogs.catalog_filter.dirty_time = 2.0
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            "_change_solve",
+            "_change_pointing",
+            "_change_fov",
+            "_change_setting",
+            "_change_target",
+            "_change_list",
+            "_grow_list",
+            "_change_filter",
+        ],
+    )
+    def test_each_key_part_collects_again(self, change):
+        c = _CacheChart()
+        c.redraw()
+        c.redraw()
+        assert c.collections == 1
+        getattr(self, change)(c)
+        c.redraw()
+        assert c.collections == 2
+        c.redraw()
+        assert c.collections == 2
+
+    def test_changes_show_on_the_chart(self):
+        c = _CacheChart()
+        c.redraw()
+        c.observing_list = [_dso(4, 10.2, 20.2)]
+        c.target = _dso(1, 10.0, 20.5)
+        c.redraw()
+        ids = [o.object_id for o in c.chart._drawn_objects]
+        # The target, then object 4 of the new list, then nearby object 2.
+        assert ids[:3] == [1, 4, 2]
+        # The new DSO image has the markers of objects 4 and 2.
+        dso_list = c.chart.starfield.marker_lists[-2]
+        assert [round(m[1], 3) for m in dso_list] == [20.2, 19.5]
+
+    def test_new_view_makes_the_image_again(self):
+        c = _CacheChart()
+        c.redraw()
+        c.chart.starfield.roll = 30.0
+        c.redraw()
+        assert c.collections == 2
+
+
 # -- the catalog ---------------------------------------------------------------
 
 

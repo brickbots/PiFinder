@@ -209,6 +209,24 @@ def _fit(text: str, font, width: int) -> str:
     return text if len(text) <= chars else text[: chars - 1] + "…"
 
 
+def _split_band(text: str, font, width: int) -> tuple[str, str]:
+    """Split text into the words that fit ``width`` pixels and the rest.
+    A first word that is too long is cut, and the rest is empty."""
+    chars = max(1, width // max(font.width, 1))
+    if len(text) <= chars:
+        return text, ""
+    words = text.split()
+    head = ""
+    for index, word in enumerate(words):
+        candidate = f"{head} {word}".strip()
+        if len(candidate) > chars:
+            break
+        head = candidate
+    if not head:
+        return _fit(text, font, width), ""
+    return head, " ".join(words[index:])
+
+
 def _centered(draw, box, text: str, font, fill) -> None:
     x0, y0, x1, y1 = box
     width = draw.textlength(text, font=font.font)
@@ -236,6 +254,31 @@ def _status_texts(
         distance = format_distance(status.distance_deg)
     detail = _("step") + " " + format_step(status.step_deg)
     return status.text.upper(), distance, detail, True, True
+
+
+def _distance_width(draw, fonts, distance: str) -> int:
+    """The width of the distance in the band. A margin of 2 px: textlength
+    cuts the right edge of some glyphs."""
+    if not distance:
+        return 0
+    return int(draw.textlength(distance, font=fonts.bold.font)) + 2
+
+
+def band_texts(
+    draw, fonts, width: int, status: Optional[MountStatus], now: float
+) -> tuple[str, str, str, str, bool, bool]:
+    """(phase, distance, rest, detail, live, connected) as the band draws
+    them. ``rest`` holds the words of the phase that do not fit the band,
+    in their own case. The line under the band shows them before the
+    detail."""
+    phase, distance, detail, live, connected = _status_texts(status, now)
+    room = width - _distance_width(draw, fonts, distance) - 4
+    phase, rest = _split_band(phase, fonts.bold, room)
+    if rest and status is not None:
+        rest = " ".join(status.text.split()[-len(rest.split()) :])
+    line = _fit(f"{rest}  {detail}" if rest else detail, fonts.small, width)
+    rest = line[: len(rest)]
+    return phase, distance, rest, line[len(rest) :], live, connected
 
 
 def _progress(state: MountPageState, status: Optional[MountStatus]) -> Optional[float]:
@@ -275,23 +318,21 @@ def draw_mount_page(
     )
 
     # Status band: the phase and the distance, then the step.
-    phase, distance, detail, live, connected = _status_texts(status, now)
-    # A margin of 2 px: textlength cuts the right edge of some glyphs.
-    distance_w = (
-        int(draw.textlength(distance, font=fonts.bold.font)) + 2 if distance else 0
+    phase, distance, rest, detail, live, connected = band_texts(
+        draw, fonts, width, status, now
     )
-    draw.text(
-        (0, top),
-        _fit(phase, fonts.bold, width - distance_w - 4),
-        font=fonts.bold.font,
-        fill=bright if live else dim,
-    )
+    draw.text((0, top), phase, font=fonts.bold.font, fill=bright if live else dim)
     if distance:
+        distance_w = _distance_width(draw, fonts, distance)
         draw.text(
             (width - distance_w, top), distance, font=fonts.bold.font, fill=bright
         )
     y = top + fonts.bold.height + 2
-    draw.text((0, y), _fit(detail, fonts.small, width), font=fonts.small.font, fill=dim)
+    # The rest of the phase is brighter than the step after it.
+    draw.text((0, y), rest, font=fonts.small.font, fill=mid)
+    draw.text(
+        (fonts.small.width * len(rest), y), detail, font=fonts.small.font, fill=dim
+    )
     y += fonts.small.height + 3
 
     # Progress bar of a slew: a faint track, the done part bright.

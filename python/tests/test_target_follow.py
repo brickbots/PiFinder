@@ -127,14 +127,14 @@ def test_follow_with_custom_rates_aims_waits_and_tracks():
     aim_ra, aim_dec = mount.move_mount_to_target.call_args.args
     expected = follow.point(mount.now + target_follow.DEFAULT_LEAD_S)
     assert (aim_ra, aim_dec) == pytest.approx((expected.ra, expected.dec))
-    assert mount.status_text() == "Follow: slewing"
+    assert mount.status_text() == "Follow slew"
 
     # The slew ends after 8 s, before the satellite arrives.
     mount.now += 8.0
     mount.target_reached = True
     mount.phase()
     assert follow.stage == FollowStage.WAIT
-    assert mount.status_text().startswith("Follow: in")
+    assert mount.status_text().startswith("Follow in")
 
     # The satellite arrives: the mount tracks at its rates.
     mount.now = follow.aim_time + 0.1
@@ -454,7 +454,7 @@ def test_held_arrow_makes_new_elements_once_a_second(monkeypatch):
     mount.now += 0.1
     mount.phase()
     # The status shows the correction at once.
-    assert mount.status_text().startswith("Following +")
+    assert mount.status_text().startswith("Follow +")
     first = mount.status_text()
     for _step in range(19):
         mount.now += 0.1
@@ -786,7 +786,7 @@ def test_follow_below_the_horizon_slews_to_the_meet_point():
     expected = follow.point(meet_time)
     assert (aim_ra, aim_dec) == pytest.approx((expected.ra, expected.dec))
     assert follow.aim_time == meet_time
-    assert mount.status_text() == "Follow: slewing"
+    assert mount.status_text() == "Follow slew"
 
     # The slew ends. The mount waits with the sidereal tracking.
     mount.now += 30.0
@@ -797,7 +797,7 @@ def test_follow_below_the_horizon_slews_to_the_meet_point():
     seconds = math.ceil(meet_time - mount.now)
     minutes, rest = divmod(seconds, 60)
     compass = satellites.compass(follow.meet.az)
-    assert mount.status_text() == f"Meet in {minutes}:{rest:02d} 20° {compass}"
+    assert mount.status_text() == f"Meet {minutes}:{rest:02d} 20°{compass}"
     mount.set_track_rates.assert_not_called()
 
     # The ISS is below the horizon during the wait: the follow stays.
@@ -806,13 +806,13 @@ def test_follow_below_the_horizon_slews_to_the_meet_point():
         mount.phase()
         assert mount._follow is follow
     assert mount.move_mount_to_target.call_count == 1
-    assert mount.status_text().startswith("Meet in 2:")
+    assert mount.status_text().startswith("Meet 2:")
 
 
 def test_meet_text_format():
     meet = target_follow.MeetPoint(0.0, 20.4, 135.0)
-    assert meet_text(133.0, meet) == "Meet in 2:13 20° SE"
-    assert meet_text(0.4, meet) == "Meet in 0:01 20° SE"
+    assert meet_text(133.0, meet) == "Meet 2:13 20°SE"
+    assert meet_text(0.4, meet) == "Meet 0:01 20°SE"
 
 
 def wait_at_meet(mount: FakeMount) -> TargetFollow:
@@ -870,7 +870,7 @@ def test_click_before_the_meet_time_says_i_see_it():
     )
     notes = [call.args[0] for call in mount.notify.call_args_list]
     assert "Seen" in notes
-    assert mount.status_text() == f"Following {follow.time_offset_s:+.1f}s"
+    assert mount.status_text() == f"Follow {follow.time_offset_s:+.1f}s"
 
     # The next arrow corrects the path as before.
     offset = follow.time_offset_s
@@ -980,7 +980,7 @@ def test_new_pointing_offset_gives_a_goto_before_the_meet_time():
     mount.now += 1.0
     mount.phase()
     assert mount.move_mount_to_target.call_count == 2
-    assert mount.status_text().startswith("Meet in 0:")
+    assert mount.status_text().startswith("Meet 0:")
 
 
 def test_satellite_past_its_meet_point_follows_at_once():

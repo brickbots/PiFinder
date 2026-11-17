@@ -214,11 +214,12 @@ def track_rate_label(rate: str) -> str:
 
 
 def meet_text(seconds: float, meet: target_follow.MeetPoint) -> str:
-    """The wait at a meet point: "Meet in 2:13 20° SE"."""
+    """The wait at a meet point: "Meet 2:13 20°SE". Short, for the status
+    band of the 128 px screen."""
     minutes, rest = divmod(int(math.ceil(max(0.0, seconds))), 60)
     return (
-        _("Meet in")
-        + f" {minutes}:{rest:02d} {meet.alt:.0f}° {satellites.compass(meet.az)}"
+        _("Meet")
+        + f" {minutes}:{rest:02d} {meet.alt:.0f}°{satellites.compass(meet.az)}"
     )
 
 
@@ -1594,7 +1595,7 @@ class MountControlBase:
         if follow is None:
             return ""
         if follow.stage == FollowStage.AIM:
-            return _("Follow: slewing")
+            return _("Follow slew")
         correction = ""
         if abs(follow.time_offset_s) >= target_follow.MIN_TIME_OFFSET_S:
             correction = f" {follow.time_offset_s:+.1f}s"
@@ -1603,10 +1604,10 @@ class MountControlBase:
             seconds = 0.0 if now is None else follow.seconds_to_arrival(now)
             if follow.meet is not None and now is not None and follow.meet_pending(now):
                 return meet_text(seconds, follow.meet)
-            return _("Follow: in") + f" {seconds:.0f}s" + correction
+            return _("Follow in") + f" {seconds:.0f}s" + correction
         if follow.stage == FollowStage.TRACK:
-            return _("Following") + correction
-        return _("Follow: passing") + correction
+            return _("Follow") + correction if correction else _("Following")
+        return _("Follow pass") + correction
 
     #
     # RA rotation for the polar alignment
