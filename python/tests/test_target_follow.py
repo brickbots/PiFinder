@@ -1,6 +1,7 @@
 """Follow of a moving target: the plan and the mount control phase, with a
 fake mount."""
 
+import dataclasses
 import datetime
 import math
 import time
@@ -1029,7 +1030,51 @@ def test_no_pass_in_24_hours(monkeypatch):
     assert mount._follow is None
     mount.move_mount_to_target.assert_not_called()
     assert mount.console_queue.get_nowait() == ["WARNING", "No pass in 24 h"]
-    assert calls == [target_follow.NEXT_PASS_HOURS]
+    # The wait first, then the hours of the next pass text.
+    assert calls == [
+        target_follow.MEET_SEARCH_MINUTES / 60.0,
+        target_follow.NEXT_PASS_HOURS,
+    ]
+
+
+def test_a_meet_in_the_wait_needs_one_short_search(monkeypatch):
+    start = meet_start()
+    calls = []
+
+    def passes(sat, topos, start_dt, hours, min_alt):
+        calls.append(hours)
+        return [fake_pass(start + 300.0)]
+
+    monkeypatch.setattr(satellites, "find_passes", passes)
+    mount = start_follow(start)
+    assert mount._follow is not None
+    assert mount._follow.meet.time == pytest.approx(start + 300.0)
+    assert calls == [target_follow.MEET_SEARCH_MINUTES / 60.0]
+
+
+def test_a_pass_at_the_end_of_the_wait_gets_the_long_search(monkeypatch):
+    start = meet_start()
+    wait_end = start + target_follow.MEET_SEARCH_MINUTES * 60.0
+    calls = []
+
+    def passes(sat, topos, start_dt, hours, min_alt):
+        calls.append(hours)
+        if hours < target_follow.NEXT_PASS_HOURS:
+            # The pass is cut at the end of the window.
+            item = fake_pass(wait_end - 60.0)
+            return [dataclasses.replace(item, set=utc(wait_end))]
+        # Its visible part starts after the wait.
+        return [fake_pass(wait_end - 60.0, visible_start=wait_end + 30.0)]
+
+    monkeypatch.setattr(satellites, "find_passes", passes)
+    mount = start_follow(start)
+    assert calls == [
+        target_follow.MEET_SEARCH_MINUTES / 60.0,
+        target_follow.NEXT_PASS_HOURS,
+    ]
+    assert mount._follow is None
+    kind, text = mount.console_queue.get_nowait()
+    assert kind == "WARNING" and text.startswith("Next pass")
 
 
 def test_max_wait_setting_decides_on_the_meet(monkeypatch):

@@ -1010,6 +1010,10 @@ class MountControlBase:
         the lead, gets the follow without one. A lower satellite without a
         meet point gets no follow: the PiFinder tells the next pass in
         NEXT_PASS_HOURS.
+
+        The first search covers only the wait. The search of NEXT_PASS_HOURS
+        comes only for the text of the next pass, or for a pass that is not
+        over at the end of the wait: its visible part can come later.
         """
         alt = follow.point(now).alt
         target = follow.target
@@ -1018,15 +1022,24 @@ class MountControlBase:
             isinstance(target, target_follow.SatelliteTarget)
             and alt < target_follow.MEET_ALT_DEG
         ):
-            # One search for the wait and for the text of the next pass.
-            item = target_follow.find_pass(
-                target, now, target_follow.NEXT_PASS_HOURS * 60.0
-            )
+            long_min = target_follow.NEXT_PASS_HOURS * 60.0
+            wait_min = min(self.max_wait_min, long_min)
+            item = target_follow.find_pass(target, now, wait_min)
+            searched_min = wait_min
+            if (
+                item is not None
+                and wait_min < long_min
+                and item.set.timestamp() >= now + wait_min * 60.0 - 1.0
+            ):
+                item = target_follow.find_pass(target, now, long_min)
+                searched_min = long_min
             if item is not None and (
                 target_follow.meet_time(item) - now <= self.max_wait_min * 60.0
             ):
                 meet = target_follow.meet_point(target, item)
             elif alt < target_follow.MIN_ALT_DEG:
+                if searched_min < long_min:
+                    item = target_follow.find_pass(target, now, long_min)
                 self.warn(self._next_pass_text(item, now))
                 return False
         if meet is not None and (
