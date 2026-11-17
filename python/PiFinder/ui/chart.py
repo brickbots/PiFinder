@@ -142,6 +142,12 @@ class UIChart(UIModule):
     __title__ = "CHART"
     __help_name__ = "chart"
 
+    # The key and the result of the last DSO marker collection. See
+    # _cached_dso_markers.
+    _dso_markers_key = None
+    _dso_markers = None
+    _dso_markers_refs = None
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.last_update = time.time()
@@ -162,6 +168,12 @@ class UIChart(UIModule):
         # path in plot_markers().
         self._nearby_finder = ClosestObjectsFinder()
         self._nearby_filter_dirty_time = None
+        # The DSO markers of the last collection, their marker image and the
+        # key they belong to. A satellite frame with the same key uses them
+        # again.
+        self._dso_markers_key = None
+        self._dso_markers = None
+        self._dso_markers_refs = None
 
         # --- Satellites at their live positions
         self._satellite_layer = SatelliteLayer()
@@ -252,25 +264,31 @@ class UIChart(UIModule):
             return
 
         # --- DSO layers (observing list + nearby), deduped against the target
-        marker_list, outline_objects, marker_objects = self._collect_dso_markers(
-            exclude_ids
+        marker_image, outline_objects, marker_objects = self._cached_dso_markers(
+            exclude_ids, marker_brightness
         )
         self._drawn_objects.extend(marker_objects)
 
         # --- Satellites in the field, at their live positions
         field = self._field_satellites(center, dt, exclude_satellites)
+        satellite_markers = []
         for sat in field:
-            marker_list.append(
+            satellite_markers.append(
                 (plot.Angle(degrees=sat.ra)._hours, sat.dec, SATELLITE_SYMBOL)
             )
             self._drawn_objects.append(sat.obj)
             self._live_radec[id(sat.obj)] = (sat.ra, sat.dec)
 
-        if marker_list:
-            marker_image = self.starfield.plot_markers(
-                marker_list,
-            )
+        if satellite_markers:
+            # The marker images add with saturation, so the DSO image plus
+            # the satellite image equals one image of all the markers.
+            satellite_image = self.starfield.plot_markers(satellite_markers)
+            if marker_image is None:
+                marker_image = satellite_image
+            else:
+                marker_image = ImageChops.add(marker_image, satellite_image)
 
+        if marker_image is not None:
             marker_image = ImageChops.multiply(
                 marker_image,
                 Image.new(
@@ -443,6 +461,79 @@ class UIChart(UIModule):
                 fill=self.colors.get(255),
             )
 
+    def _dso_markers_cache_key(self, exclude_ids, marker_brightness, refs):
+        """The inputs of ``_collect_dso_markers`` and of its marker image, as
+        a tuple to compare.
+
+        It holds the solve (its time and the aligned RA/Dec), the FOV, the
+        target ids, the ``chart_dso`` setting, the observing list (its
+        identity and length), the selected catalogs, the dirty time of the
+        catalog filter and the starfield view (its projection, roll and
+        scale). The catalogs are filtered first, so that a stale filter
+        bumps the dirty time before it goes into the key.
+
+        ``refs`` holds the observing list and the projection, whose ids are
+        in the key.
+        """
+        observing_list, projection = refs
+        aligned = self.solution.pointing.aligned.estimate
+        catalogs_key = None
+        if self.catalogs is not None:
+            selected = self.catalogs.get_catalogs(only_selected=True)
+            self.catalogs.filter_catalogs(selected)
+            catalog_filter = getattr(self.catalogs, "catalog_filter", None)
+            catalogs_key = (
+                id(self.catalogs),
+                tuple(id(catalog) for catalog in selected),
+                getattr(catalog_filter, "dirty_time", None),
+            )
+        return (
+            getattr(self.solution, "estimate_time", None),
+            aligned.RA,
+            aligned.Dec,
+            self.fov,
+            frozenset(exclude_ids),
+            marker_brightness,
+            id(observing_list),
+            len(observing_list),
+            catalogs_key,
+            id(projection),
+            getattr(self.starfield, "roll", None),
+            getattr(self.starfield, "pixel_scale", None),
+        )
+
+    def _cached_dso_markers(self, exclude_ids, marker_brightness):
+        """The DSO markers: ``(marker_image, outline_objects,
+        marker_objects)``.
+
+        ``marker_image`` is the image of the DSO marker symbols before the
+        ``chart_dso`` brightness, or None without symbols. The other two are
+        as in ``_collect_dso_markers``.
+
+        The collection and the image are made again only when the key of
+        ``_dso_markers_cache_key`` changes. A satellite frame between two
+        solves has the same key, so it uses the markers of the last frame.
+        """
+        refs = (
+            self.ui_state.observing_list(),
+            getattr(self.starfield, "projection", None),
+        )
+        key = self._dso_markers_cache_key(exclude_ids, marker_brightness, refs)
+        if key != self._dso_markers_key or self._dso_markers is None:
+            marker_list, outline_objects, marker_objects = self._collect_dso_markers(
+                exclude_ids
+            )
+            marker_image = None
+            if marker_list:
+                marker_image = self.starfield.plot_markers(marker_list)
+            self._dso_markers = (marker_image, outline_objects, marker_objects)
+            self._dso_markers_key = key
+            # The key holds the ids of these objects. The references keep
+            # them alive, so a new object cannot get the same id.
+            self._dso_markers_refs = refs
+        marker_image, outline_objects, marker_objects = self._dso_markers
+        return marker_image, list(outline_objects), list(marker_objects)
+
     def _collect_dso_markers(self, exclude_ids):
         """
         Build the marker list for the observing-list and nearby-catalog layers,
@@ -495,7 +586,9 @@ class UIChart(UIModule):
         The BallTree is (re)built only when the catalog filter's ``dirty_time``
         changes (filter edits) or deferred catalogs finish loading (which marks
         the filter dirty) -- otherwise the cached tree is reused. The radius
-        query runs each call: on a new solve, and on each satellite frame.
+        query runs each call. ``_cached_dso_markers`` calls it only when
+        the solve, the FOV, the target, the observing list or the filter
+        changes, so a satellite frame between two solves does not query.
         """
         if self.catalogs is None:
             return []
