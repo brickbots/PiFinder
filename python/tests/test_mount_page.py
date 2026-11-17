@@ -6,8 +6,11 @@ import pytest
 from PIL import Image, ImageDraw
 
 from PiFinder.displays import get_display
+from PiFinder.mountcontrol_interface import meet_text
+from PiFinder.target_follow import MeetPoint
 from PiFinder.types.mount import MountStatus
 from PiFinder.ui.mount_page import (
+    band_texts,
     PRESS_FLASH_S,
     MountPageState,
     _fit,
@@ -178,3 +181,67 @@ def test_link_text():
         "WiFi 10.42.0.23:9998"
     )
     assert MountSetup("x", "wifi", "", 9600, "").link_text() == "WiFi driver default"
+
+
+FOLLOW = "MOUNT_TARGET_FOLLOW"
+# The band texts of each follow stage, with the distance to the target.
+FOLLOW_BANDS = [
+    ("slewing", FOLLOW, "Follow slew", 24.6),
+    ("slewing far", FOLLOW, "Follow slew", 124.6),
+    ("meet wait", FOLLOW, meet_text(453.2, MeetPoint(0.0, 20.0, 225.0)), 0.001),
+    ("meet wait far", FOLLOW, meet_text(453.2, MeetPoint(0.0, 20.0, 225.0)), 124.6),
+    ("wait", FOLLOW, "Follow in 12s -0.4s", 0.001),
+    ("following", FOLLOW, "Following", 0.001),
+    ("correction", FOLLOW, "Follow -0.4s", 0.001),
+    ("large correction", FOLLOW, "Follow +12.3s", 3.4),
+    ("pass", FOLLOW, "Follow pass", 0.001),
+    ("pass correction", FOLLOW, "Follow pass -0.4s", 0.001),
+    ("pass end", "MOUNT_TRACKING", "Tracking", 0.001),
+]
+
+
+@pytest.mark.parametrize("display", ["headless", "headless_176", "headless_320"])
+@pytest.mark.parametrize(
+    "phase,text,distance",
+    [b[1:] for b in FOLLOW_BANDS],
+    ids=[b[0] for b in FOLLOW_BANDS],
+)
+def test_follow_band_shows_the_whole_status(display, phase, text, distance):
+    d = get_display(display)
+    image = Image.new("RGB", (d.resX, d.resY))
+    draw = ImageDraw.Draw(image)
+    status = _status(phase, text, distance)
+    band, shown_distance, rest, detail, _live, _connected = band_texts(
+        draw, d.fonts, d.resX, status, NOW
+    )
+    line = rest + detail
+    # No ellipsis, and each word of the status is on the band or the line
+    # under it, in the same order.
+    assert "…" not in band + line
+    assert f"{band} {line}".upper().split()[: len(text.split())] == (
+        text.upper().split()
+    )
+    assert shown_distance
+    assert line.endswith("step 15.0'")
+    # Each line fits the screen width.
+    room = d.resX - draw.textlength(shown_distance, font=d.fonts.bold.font) - 2
+    assert draw.textlength(band, font=d.fonts.bold.font) <= room
+    assert draw.textlength(line, font=d.fonts.small.font) <= d.resX
+    draw_mount_page(draw, d, d.fonts, d.colors, status, MountPageState(), NOW)
+
+
+@pytest.mark.parametrize(
+    "text,band,rest",
+    [
+        ("Meet 7:34 20°SW", "MEET 7:34", "20°SW"),
+        ("Follow in 12s -0.4s", "FOLLOW IN 12S", "-0.4s"),
+        ("Follow pass -0.4s", "FOLLOW PASS", "-0.4s"),
+        ("Follow -0.4s", "FOLLOW -0.4S", ""),
+    ],
+)
+def test_small_screen_puts_the_rest_under_the_band(text, band, rest):
+    d = get_display("headless")
+    draw = ImageDraw.Draw(Image.new("RGB", (d.resX, d.resY)))
+    status = _status(FOLLOW, text, 0.001)
+    texts = band_texts(draw, d.fonts, d.resX, status, NOW)
+    assert texts[:4] == (band, "<1'", rest, ("  " if rest else "") + "step 15.0'")
