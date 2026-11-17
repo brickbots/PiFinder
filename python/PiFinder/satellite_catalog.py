@@ -384,6 +384,9 @@ class SatelliteCatalog(Catalog):
             ObjectLabel("cospar", "COSPAR", self.cospar_label),
         ]
 
+    # The longest list_info_text: "90° NW", or RISE_MARK and "21:43".
+    list_info_chars = 6
+
     def list_info_text(self, obj: CompositeObject) -> Optional[str]:
         """The INFO-mode text of a satellite in the object list.
 
