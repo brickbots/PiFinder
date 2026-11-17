@@ -1089,21 +1089,25 @@ class UIObjectList(UITextMenu):
 
                 item_name = self.create_label_text(_menu_item)
                 item_text = ""
+                info_chars = None
                 if self.current_mode == DisplayModes.LOCATE:
                     item_text = self.create_locate_text(_menu_item, pointing)
                 elif self.current_mode == DisplayModes.NAME:
                     item_text = self.create_name_text(_menu_item)
                 elif self.current_mode == DisplayModes.INFO:
-                    item_text = self.create_info_text(
-                        _menu_item, self._catalog_of(_menu_item, row_catalogs)
-                    )
+                    catalog = self._catalog_of(_menu_item, row_catalogs)
+                    item_text = self.create_info_text(_menu_item, catalog)
+                    if catalog is not None:
+                        info_chars = catalog.list_info_chars
 
                 # figure out line position / color / font
                 line_font, line_color, line_pos = self.get_line_font_color_pos(
                     line_number, _menu_item, is_focus=is_focus
                 )
 
-                row = self.row_text(item_name, item_text, line_font, layout.text_x)
+                row = self.row_text(
+                    item_name, item_text, line_font, layout.text_x, info_chars
+                )
 
                 # Type Marker
                 line_bg = 32 if is_focus else 0
@@ -1138,20 +1142,33 @@ class UIObjectList(UITextMenu):
             found[code] = self.catalogs.get_catalog_by_code(code)
         return found[code]
 
-    def row_text(self, label: str, text: str, font, label_x: int) -> RowText:
+    def row_text(
+        self,
+        label: str,
+        text: str,
+        font,
+        label_x: int,
+        info_chars: Optional[int] = None,
+    ) -> RowText:
         """
         The space of the two columns of a row in ``font``.
 
         The right column shows only when its text adds information to the
         label (see right_column_text). Then the label gets the row width
-        minus a reserve for the right column. Else the label gets the full
-        row width. The widths come from the display width and the font, so
-        they follow the 128, 176 and 320 px layouts.
+        minus a reserve for the right column. The reserve is
+        ``info_chars`` characters of ``font`` and a gap of one character
+        (see Catalog.list_info_chars). Without ``info_chars`` it is
+        RIGHT_COLUMN_RESERVE_CHARS characters of the base font. Else the
+        label gets the full row width. The widths come from the display
+        width and the font, so they follow the 128, 176 and 320 px layouts.
         """
         text = right_column_text(label, text)
         row_px = self.display.width - label_x
         if text:
-            row_px -= RIGHT_COLUMN_RESERVE_CHARS * self.fonts.base.width
+            if info_chars is None:
+                row_px -= RIGHT_COLUMN_RESERVE_CHARS * self.fonts.base.width
+            else:
+                row_px -= (info_chars + 1) * font.width
         label_chars = max(3, row_px // font.width)
         label_cut = len(label) > label_chars
         shown_chars = label_chars if label_cut else len(label)

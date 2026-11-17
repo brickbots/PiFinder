@@ -128,8 +128,52 @@ def test_start_other_driver_stops_the_running_one(fifo):
     assert not (fifo.path.parent / indi_drivers.RUNNING_DRIVER_FILE).exists()
 
 
+def test_stop_and_start_go_in_one_write(fifo, monkeypatch):
+    first = indi_drivers.MountModel("A", "A", "indi_a", "A Dev")
+    second = indi_drivers.MountModel("B", "B", "indi_b", "B Dev")
+    indi_drivers.start_driver(first, fifo.path)
+    writes: list[bytes] = []
+    real_write = os.write
+    monkeypatch.setattr(
+        indi_drivers.os,
+        "write",
+        lambda fd, data: writes.append(data) or real_write(fd, data),
+    )
+    indi_drivers.start_driver(second, fifo.path)
+    assert writes == [b'stop indi_a -n "A Dev"\nstart indi_b -n "B Dev"\n']
+
+
+def test_broken_pipe_is_tried_again(fifo, monkeypatch):
+    model = indi_drivers.MountModel("A", "A", "indi_a", "A Dev")
+    monkeypatch.setattr(indi_drivers, "FIFO_RETRY_S", 0.0)
+    real_write = os.write
+    failures = [BrokenPipeError()]
+
+    def write(fd, data):
+        if failures:
+            raise failures.pop()
+        return real_write(fd, data)
+
+    monkeypatch.setattr(indi_drivers.os, "write", write)
+    assert indi_drivers.start_driver(model, fifo.path)
+    assert fifo.read() == ['start indi_a -n "A Dev"']
+
+
+def test_a_pipe_that_stays_broken_fails_without_an_exception(fifo, monkeypatch):
+    model = indi_drivers.MountModel("A", "A", "indi_a", "A Dev")
+    monkeypatch.setattr(indi_drivers, "FIFO_RETRY_S", 0.0)
+
+    def write(fd, data):
+        raise BrokenPipeError()
+
+    monkeypatch.setattr(indi_drivers.os, "write", write)
+    assert not indi_drivers.start_driver(model, fifo.path)
+    assert not (fifo.path.parent / indi_drivers.RUNNING_DRIVER_FILE).exists()
+
+
 def test_start_driver_fails_without_indiserver(tmp_path):
-    # A FIFO with no reader, and a path with no FIFO: both fail at once.
+    # A FIFO with no reader, and a path with no FIFO: both fail after the
+    # retries, well within the join timeout.
     os.mkfifo(tmp_path / "fifo")
     model = indi_drivers.MountModel("A", "A", "indi_a", "A Dev")
     result: list[bool] = []
