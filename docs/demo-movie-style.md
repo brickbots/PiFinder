@@ -62,9 +62,6 @@ The PiFinder records its own screen. No screen recorder is necessary.
   PiFinder starts. If the mount gets its longitude after PiFinder starts,
   the sky simulator takes the jump of the RA for a sync, and every solve is
   off by the longitude.
-- Set `sleep_timeout` to `Off` in the config. A key press that wakes the
-  PiFinder does nothing else, so a timed key press after a long wait is
-  lost.
 
 ### Data that the movie needs
 
@@ -82,11 +79,11 @@ The PiFinder records its own screen. No screen recorder is necessary.
 |---|---|---|
 | Frame | 1920x1080, 30 fps, H.264, yuv420p, `+faststart` | Plays in every browser and on GitHub. |
 | Background | flat `#101010` | The red UI stays the brightest thing in the frame. |
-| Screen | one view only, 128 px x 7 = 896 px, nearest neighbour, at x 72, y 92 | Sharp pixels. Two views of the same screen split the attention. |
+| Main view | one large screen, 128 px x 7 = 896 px, nearest neighbour, at x 72, y 92 | Sharp pixels. The viewer reads the UI here. |
 | Screen source | the bare 128x128 UI frames, not a crop of the photo | The photo scales the UI by 1.19 with smoothing, so a crop is blurred. |
-| Keys | a crop of the keypad from the photo (no screen in it), 818 px wide, top right | The glow shows which key is pressed. The photo of the full device adds no information. |
+| Device | the device photo with its own small screen and the keypad, 818 px wide, top right, as an illustration | It shows the real device in use and the glow of the pressed key. |
 | Section title | Roboto Mono Bold 46 px, red `#ff3030`, numbered ("5  Follow with the mount") | The viewer knows where the story is. |
-| Caption | Roboto Mono Regular 38 px, white, 34 characters a line, under the keys, never on the screen | Text on the screen hides the UI. |
+| Caption | Roboto Mono Regular 38 px, white, 34 characters a line, under the device photo, never on the large screen | Text on the screen hides the UI. |
 | Caption text | Simplified Technical English: short sentences, key names in capitals (RIGHT, SQUARE, hold LEFT) | The viewer can do the same steps. |
 | Title card | 4 s, title Bold 72 px red, two lines Regular 40 px white | Says what the feature does. |
 | End card | 6 s, "Experimental", what is simulated, the pull request URLs | No viewer takes a simulation for a real sky. |
@@ -113,7 +110,8 @@ The edit is one ffmpeg `filter_complex`, made by a small Python script:
 1. List the segments as (start, end) seconds of the take, with the section
    title and the captions of each segment.
 2. For each segment, trim the bare screen and the photo with the same times,
-   scale the screen with `flags=neighbor`, crop the keypad, put both on the
+   scale the screen with `flags=neighbor`, crop the device photo (screen and
+   keypad, `crop=545:290:325:212`), put both on the
    background and draw the texts with `drawtext` (`textfile=`, so no quoting
    problems).
 3. Concatenate the title card, the segments and the end card.

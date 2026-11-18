@@ -2,8 +2,7 @@
 #   python/scripts/record_demo.sh --script satellite_tour --sky-sim default \
 #       --record satellite_tour.mp4
 # Mount control must be on, with the Telescope Simulator as the mount and an
-# indiserver running (see docs/source/mount_control.rst). Set sleep_timeout
-# to Off: a key press that wakes the PiFinder does nothing else.
+# indiserver running (see docs/source/mount_control.rst).
 # The groups visual, stations and amateur must be selected and on the
 # PiFinder. The clock must be about 13:29:10 UTC on 19 Nov 2026 at the start
 # (the fake GPS puts the PiFinder at 34.22 N, 118.22 W). Then the Chinese
