@@ -173,33 +173,33 @@ def read_lynga_catalog(file_path: Path) -> npt.NDArray:
         ("ClSeq", "i4"),  # Cluster Sequence code
         ("ClNum", "i4"),  # Number inside sequence
         ("RA2000h", "i4"),  # RA 2000 hours
-        ("RA2000m", "f4"),  # RA 2000 minutes
+        ("RA2000m", "f8"),  # RA 2000 minutes
         ("DE2000s", "U1"),  # Dec 2000 sign
         ("DE2000d", "i4"),  # Dec 2000 degrees
         ("DE2000m", "i4"),  # Dec 2000 minutes
-        ("Diam", "f4"),  # Angular diameter (arcmin)
+        ("Diam", "f8"),  # Angular diameter (arcmin)
         ("Dist", "i4"),  # Distance (pc)
-        ("logAge", "f4"),  # log(age) years
-        ("FeH", "f4"),  # Metallicity [Fe/H]
-        ("EBV", "f4"),  # Reddening E(B-V)
+        ("logAge", "f8"),  # log(age) years
+        ("FeH", "f8"),  # Metallicity [Fe/H]
+        ("EBV", "f8"),  # Reddening E(B-V)
         ("ClTyp", "U2"),  # Doubtful cluster flag
         ("TrConc", "i4"),  # Trumpler concentration class
         ("TrRange", "i4"),  # Trumpler range class
         ("TrRich", "U2"),  # Trumpler richness class
         ("TrNeb", "U1"),  # Trumpler nebulosity
-        ("maxBr50", "f4"),  # Brightest star magnitude (ref.50)
-        ("totMag50", "f4"),  # Total magnitude (ref.50)
-        ("totMag422", "f4"),  # Total magnitude (Skiff ref.422)
-        ("iBV422", "f4"),  # Integrated B-V (Skiff)
+        ("maxBr50", "f8"),  # Brightest star magnitude (ref.50)
+        ("totMag50", "f8"),  # Total magnitude (ref.50)
+        ("totMag422", "f8"),  # Total magnitude (Skiff ref.422)
+        ("iBV422", "f8"),  # Integrated B-V (Skiff)
         ("N422", "i4"),  # Number of stars (Skiff)
-        ("wRVel", "f4"),  # Radial velocity weight
+        ("wRVel", "f8"),  # Radial velocity weight
         ("RVel", "i4"),  # Radial velocity (km/s)
         ("Cname", "U9"),  # "C" designation
         ("DistJDL", "i4"),  # jdl distance (pc)
-        ("turnJDL", "f4"),  # jdl turn-off colour
-        ("AgeJDL", "f4"),  # jdl age (Myr)
-        ("EBVJDL", "f4"),  # jdl reddening
-        ("FeHJDL", "f4"),  # jdl abundance
+        ("turnJDL", "f8"),  # jdl turn-off colour
+        ("AgeJDL", "f8"),  # jdl age (Myr)
+        ("EBVJDL", "f8"),  # jdl reddening
+        ("FeHJDL", "f8"),  # jdl abundance
     ]
 
     def parse_field(value: str, field_dtype: str) -> Any:
@@ -208,7 +208,7 @@ def read_lynga_catalog(file_path: Path) -> npt.NDArray:
             return value
         elif field_dtype == "i4":
             return int(value) if value and value not in (".", "-") else 0
-        elif field_dtype == "f4":
+        elif field_dtype == "f8":
             try:
                 return float(value) if value and value not in (".", "-") else np.nan
             except ValueError:
