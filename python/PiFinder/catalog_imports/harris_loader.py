@@ -81,28 +81,29 @@ def read_harris_catalog(file_path: Path) -> npt.NDArray:
         (206, 210),  # Half-mass radius (Rh) (F4.2 arcmin)
     ]
 
-    # Define dtype for structured array
+    # Define dtype for structured array. The floats are float64, so a value
+    # such as 6.47 stays 6.47 and not 6.46999979019165.
     dtype = [
         ("ID", "U10"),  # Cluster ID
         ("Name", "U12"),  # Common name
         ("RAh", "i4"),  # RA hours
         ("RAm", "i4"),  # RA minutes
-        ("RAs", "f4"),  # RA seconds
+        ("RAs", "f8"),  # RA seconds
         ("DE_sign", "U1"),  # Dec sign
         ("DEd", "i4"),  # Dec degrees
         ("DEm", "i4"),  # Dec minutes
         ("DEs", "i4"),  # Dec seconds
-        ("GLON", "f4"),  # Galactic longitude
-        ("GLAT", "f4"),  # Galactic latitude
-        ("Rsun", "f4"),  # Distance from Sun
-        ("Rgc", "f4"),  # Distance from Galactic center
-        ("X", "f4"),  # X component
-        ("Y", "f4"),  # Y component
-        ("Z", "f4"),  # Z component
-        ("Vt", "f4"),  # Integrated V magnitude
-        ("MVt", "f4"),  # Absolute magnitude
-        ("Rc", "f4"),  # Core radius (arcmin)
-        ("Rh", "f4"),  # Half-mass radius (arcmin)
+        ("GLON", "f8"),  # Galactic longitude
+        ("GLAT", "f8"),  # Galactic latitude
+        ("Rsun", "f8"),  # Distance from Sun
+        ("Rgc", "f8"),  # Distance from Galactic center
+        ("X", "f8"),  # X component
+        ("Y", "f8"),  # Y component
+        ("Z", "f8"),  # Z component
+        ("Vt", "f8"),  # Integrated V magnitude
+        ("MVt", "f8"),  # Absolute magnitude
+        ("Rc", "f8"),  # Core radius (arcmin)
+        ("Rh", "f8"),  # Half-mass radius (arcmin)
     ]
 
     def parse_line(line: str) -> tuple:
@@ -117,7 +118,7 @@ def read_harris_catalog(file_path: Path) -> npt.NDArray:
             return value
         elif field_dtype == "i4":
             return int(value) if value and value != "." else 0
-        elif field_dtype == "f4":
+        elif field_dtype == "f8":
             try:
                 return float(value) if value and value != "." else np.nan
             except ValueError:
