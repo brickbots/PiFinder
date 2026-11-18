@@ -14,7 +14,7 @@ import pytest
 from skyfield.api import wgs84
 
 import PiFinder.satellites as satellites
-from PiFinder import target_follow
+from PiFinder import main, target_follow
 from PiFinder.calc_utils import FastAltAz
 from PiFinder.mountcontrol_interface import (
     MountControlBase,
@@ -82,6 +82,14 @@ def start_follow(
     mount.now = now
     mount.command(follow_command() if command is None else command)
     return mount
+
+
+def console_messages(mount: FakeMount) -> list:
+    """The [kind, text] messages in the console queue of the mount."""
+    messages = []
+    while not mount.console_queue.empty():
+        messages.append(mount.console_queue.get_nowait())
+    return messages
 
 
 def samples_command(name: str, samples: list) -> dict:
@@ -868,8 +876,16 @@ def test_click_before_the_meet_time_says_i_see_it():
     assert mount.set_track_rates.call_args.args == pytest.approx(
         (point.ra_rate, point.dec_rate)
     )
-    notes = [call.args[0] for call in mount.notify.call_args_list]
-    assert "Seen" in notes
+    # The confirmation goes to the screen as a CONFIRM message. The main
+    # loop shows it on the mount page too, for 2 s.
+    seen = f"Seen {follow.time_offset_s:+.1f}s"
+    messages = console_messages(mount)
+    assert ["CONFIRM", seen] in messages
+    menu_manager = Mock()
+    menu_manager.stack = [Mock(shows_mount_status=True)]
+    for message in messages:
+        main.show_status_message(menu_manager, Mock(), message)
+    menu_manager.message.assert_called_once_with(seen, 2.0)
     assert mount.status_text() == f"Follow {follow.time_offset_s:+.1f}s"
 
     # The next arrow corrects the path as before.
@@ -923,8 +939,7 @@ def test_click_after_the_meet_time_corrects_the_path():
     north, east = 3.0 * point.dec_rate, 3.0 * point.ra_rate * cos_dec
     mount.command({"type": "manual_movement", "offset": (north, east), "step_size": 1})
     assert follow.time_offset_s == pytest.approx(3.0, abs=0.05)
-    notes = [call.args[0] for call in mount.notify.call_args_list]
-    assert "Seen" not in notes
+    assert all(kind != "CONFIRM" for kind, _text in console_messages(mount))
 
 
 def test_click_at_the_meet_point_stores_corrected_elements(tmp_path):

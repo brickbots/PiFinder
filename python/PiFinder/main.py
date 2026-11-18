@@ -40,6 +40,7 @@ from PiFinder import keyboard_interface
 from PiFinder import usb_gps
 from PiFinder import lazy_import
 import PiFinder.sound as sound
+from PiFinder.types.mount import keeps_awake
 from PiFinder.types.sound import Earcon, SetVolume
 from PiFinder.battery_bq25895 import (
     POLL_INTERVAL as BATTERY_POLL_INTERVAL,
@@ -501,16 +502,26 @@ HOLD_DIRECTIONS = {
     keyboard_interface.KeyboardInterface.HOLD_RIGHT: "right",
 }
 
+
+def must_stay_awake(menu_manager, snapshot) -> bool:
+    """True while the screen on top or a mount follow must keep the
+    PiFinder awake. A key press that wakes the PiFinder does nothing else,
+    so a sleep during a follow would lose the "I see it" press at the meet
+    point."""
+    return menu_manager.keep_awake() or keeps_awake(snapshot.mount_status())
+
+
 # Seconds on screen of a [kind, text] console message, by kind.
-STATUS_MESSAGE_SECONDS = {"WARNING": 3.0, "MOUNT": 1.5}
+STATUS_MESSAGE_SECONDS = {"WARNING": 3.0, "MOUNT": 1.5, "CONFIRM": 2.0}
 # Seconds on screen of a console message of three lines or more.
 LONG_MESSAGE_SECONDS = 6.0
 
 
 def show_status_message(menu_manager, console, message) -> None:
     """Show a [kind, text] message from a worker process on the screen,
-    and keep it in the console log. Kinds: "WARNING" (a fault) and
-    "MOUNT" (mount control progress)."""
+    and keep it in the console log. Kinds: "WARNING" (a fault), "MOUNT"
+    (mount control progress) and "CONFIRM" (the mount accepted a user
+    input, for example "Seen"). The mount page hides "MOUNT" only."""
     kind, text = str(message[0]), str(message[1])
     console.write(f"{kind}: {text}")
     # The mount page shows mount progress in its status band.
@@ -1377,7 +1388,9 @@ def main(
                             menu_manager.key_right()
 
                 menu_manager.update()
-                power_manager.update(keep_awake=menu_manager.keep_awake())
+                power_manager.update(
+                    keep_awake=must_stay_awake(menu_manager, UIModule.snapshot)
+                )
                 display_device.tick()
 
         except KeyboardInterrupt:

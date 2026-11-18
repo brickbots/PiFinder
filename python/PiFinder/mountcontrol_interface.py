@@ -849,6 +849,11 @@ class MountControlBase:
         """Show mount control progress on the PiFinder screen."""
         self.console_queue.put(["MOUNT", text])
 
+    def confirm(self, text: str) -> None:
+        """Show that the mount accepted a user input. Each screen shows it,
+        the mount page too."""
+        self.console_queue.put(["CONFIRM", text])
+
     def _stop_mount(self) -> bool:
         if self.state != MountControlPhases.MOUNT_STOPPED:
             # Reset drift compensation data when stopping
@@ -1345,7 +1350,8 @@ class MountControlBase:
             self.warn(_("Too early"))
             return
         logger.info("Follow: seen, %+.1f s ahead", follow.time_offset_s)
-        self.notify(_("Seen"))
+        # TRANSLATORS: The user saw the satellite; the time correction follows
+        self.confirm(_("Seen") + f" {follow.time_offset_s:+.1f}s")
         self._follow_step(now)
 
     def _follow_nudge_command(self, command: dict, now: Optional[float]) -> None:
