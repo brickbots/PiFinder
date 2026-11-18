@@ -50,6 +50,18 @@ DISTANCE_PHASES = (
     "MOUNT_TARGET_FOLLOW",
 )
 
+# Phases in which the PiFinder must not sleep: a follow of a moving target,
+# with its wait at the meet point. A key press that wakes the PiFinder does
+# nothing else, so a sleep would lose the "I see it" press.
+AWAKE_PHASES = ("MOUNT_TARGET_FOLLOW",)
+
+
+def keeps_awake(status: Optional[MountStatus], now: Optional[float] = None) -> bool:
+    """True when the mount status says that the PiFinder must stay awake."""
+    return (
+        status is not None and not status.is_stale(now) and status.phase in AWAKE_PHASES
+    )
+
 
 def format_step(step_deg: float) -> str:
     """An angle in the unit that fits it: degrees, arcminutes or arcseconds."""
