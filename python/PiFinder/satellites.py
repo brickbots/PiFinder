@@ -22,6 +22,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import asdict, dataclass, field, fields, replace
 from datetime import datetime, timedelta, timezone
@@ -565,6 +566,9 @@ class GroupRefresh:
 
 
 _download_lock = threading.Lock()
+# The result of the last run of refresh_groups. A run that waited for the
+# lock reads it. Only the holder of _download_lock reads or writes it.
+_last_refresh: Optional[GroupRefresh] = None
 
 
 def forced_download_wait(
@@ -603,66 +607,103 @@ def refresh_groups(
     progress_callback: Optional[Callable[[Optional[int]], None]] = None,
     on_start: Optional[Callable[[], None]] = None,
     groups: Optional[Iterable[str]] = None,
+    wait: bool = False,
 ) -> GroupRefresh:
     """Download the groups that need it. Only one download runs at a time.
 
     Without ``groups`` the selected groups are used. Without ``force`` the
     file age decides. With ``force`` each group downloads, except a group
     that ``forced_download_wait`` refuses.
+
+    When another download runs, the result is "busy". With ``wait`` the call
+    waits for that download instead. A group that the other download got or
+    failed to get counts as downloaded or failed in this result, so the
+    caller gets a real result and the group does not download again.
     """
+    global _last_refresh
+    earlier: Optional[GroupRefresh] = None
     if not _download_lock.acquire(blocking=False):
-        return GroupRefresh("busy")
+        if not wait:
+            return GroupRefresh("busy")
+        started = time.monotonic()
+        _download_lock.acquire()
+        now += timedelta(seconds=time.monotonic() - started)
+        earlier = _last_refresh
     try:
-        if groups is None:
-            groups = selected_groups(directory)
-        groups = tuple(groups)
-        if not groups:
-            return GroupRefresh("no_groups")
-        waits = forced_download_wait(now, directory, groups)
-        wanted = []
-        refused = []
-        for group in groups:
-            needed, reason = group_download_needed(group, now, directory)
-            if needed or (force and waits[group] <= 0):
-                logger.info("Satellite group %s: %s", group, reason)
-                wanted.append(group)
-            elif force:
-                refused.append((group, waits[group]))
-        wait = min((seconds for _group, seconds in refused), default=0.0)
-        if not wanted:
-            if force:
-                return GroupRefresh(
-                    "too_soon", wait_seconds=wait, refused=tuple(refused)
-                )
-            return GroupRefresh("current")
-        if on_start is not None:
-            on_start()
-        downloaded = []
-        failed = []
-        errors = []
-        for group in wanted:
-            record_download_start(group, now, directory)
-            try:
-                result = download_group(group, directory, progress_callback)
-            except Exception as exc:  # a fault in one group must not stop the rest
-                logger.exception("Download of satellite group %s failed", group)
-                result = DownloadResult(False, None, None, str(exc))
-            if result.success:
-                downloaded.append(group)
-            else:
-                failed.append(group)
-                errors.append((group, download_error_text(result)))
-            record_download_end(group, now, result, directory)
-        return GroupRefresh(
-            "failed" if failed else "downloaded",
-            tuple(failed),
-            wait,
-            tuple(downloaded),
-            tuple(refused),
-            tuple(errors),
+        result = _refresh_groups_locked(
+            now, force, directory, progress_callback, on_start, groups, earlier
         )
+        _last_refresh = result
+        return result
     finally:
         _download_lock.release()
+
+
+def _refresh_groups_locked(
+    now: datetime,
+    force: bool,
+    directory: Path,
+    progress_callback: Optional[Callable[[Optional[int]], None]],
+    on_start: Optional[Callable[[], None]],
+    groups: Optional[Iterable[str]],
+    earlier: Optional[GroupRefresh],
+) -> GroupRefresh:
+    """The work of ``refresh_groups``, with the lock held. ``earlier`` is
+    the result of the download that this call waited for, or None."""
+    if groups is None:
+        groups = selected_groups(directory)
+    groups = tuple(groups)
+    if not groups:
+        return GroupRefresh("no_groups")
+    waits = forced_download_wait(now, directory, groups)
+    earlier_done = earlier.downloaded if earlier is not None else ()
+    earlier_errors = dict(earlier.errors) if earlier is not None else {}
+    earlier_failed = earlier.failed if earlier is not None else ()
+    wanted = []
+    refused = []
+    downloaded = []
+    failed = []
+    errors = []
+    for group in groups:
+        needed, reason = group_download_needed(group, now, directory)
+        if needed or (force and waits[group] <= 0):
+            logger.info("Satellite group %s: %s", group, reason)
+            wanted.append(group)
+        elif group in earlier_done:
+            downloaded.append(group)
+        elif group in earlier_failed:
+            failed.append(group)
+            errors.append((group, earlier_errors.get(group, "")))
+        elif force:
+            refused.append((group, waits[group]))
+    wait = min((seconds for _group, seconds in refused), default=0.0)
+    if not wanted and not downloaded and not failed:
+        if force:
+            return GroupRefresh("too_soon", wait_seconds=wait, refused=tuple(refused))
+        return GroupRefresh("current")
+    if wanted and on_start is not None:
+        on_start()
+    for group in wanted:
+        record_download_start(group, now, directory)
+        try:
+            result = download_group(group, directory, progress_callback)
+        except Exception as exc:  # a fault in one group must not stop the rest
+            logger.exception("Download of satellite group %s failed", group)
+            result = DownloadResult(False, None, None, str(exc))
+        if result.success:
+            downloaded.append(group)
+        else:
+            failed.append(group)
+            errors.append((group, download_error_text(result)))
+        record_download_end(group, now, result, directory)
+    return GroupRefresh(
+        "failed" if failed else "downloaded",
+        tuple(failed),
+        wait,
+        tuple(downloaded),
+        tuple(refused),
+        tuple(errors),
+    )
 
 
 # ---------------------------------------------------------------------------

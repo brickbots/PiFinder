@@ -9,6 +9,8 @@ import json
 import multiprocessing
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -29,6 +31,7 @@ from PiFinder.ui.base import UIModule
 from PiFinder.ui.object_list import UIObjectList
 from satellite_helpers import (
     DEVICE_LINE_CHARS,
+    FakeDownloads,
     SAT_DATA as DATA,
     SatSharedState,
     make_catalog,
@@ -606,6 +609,103 @@ def test_failed_group_download_message_has_the_reason(sat_dir):
     with mock.patch.object(satellites, "download_group", failed_like_404):
         text = sat_groups.downloads._download("last-30-days", sat_dir)
     assert text == "Download failed\nLast 30 days\nGroup empty now"
+
+
+class SignalingLock:
+    """A lock that sets ``waiting`` when a caller starts to wait for it."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.waiting = threading.Event()
+
+    def acquire(self, blocking=True):
+        if self._lock.acquire(blocking=False):
+            return True
+        if not blocking:
+            return False
+        self.waiting.set()
+        return self._lock.acquire()
+
+    def release(self):
+        self._lock.release()
+
+
+@pytest.mark.unit
+def test_update_now_during_an_automatic_download_gives_its_result(
+    tmp_path, monkeypatch
+):
+    """A fresh session: the automatic download of the missing files runs
+    when the user selects "Update now". The user gets the result of that
+    download, not "busy", and no group downloads twice."""
+    lock = SignalingLock()
+    monkeypatch.setattr(satellites, "_download_lock", lock)
+    release = threading.Event()
+    downloads = FakeDownloads()
+
+    def slow_download(group, directory=None, progress_callback=None):
+        release.wait(5)
+        return downloads(group, directory, progress_callback)
+
+    monkeypatch.setattr(satellites, "download_group", slow_download)
+    seed_groups(tmp_path, [], ["visual", "stations"])
+    cat = make_catalog(tmp_path, build=False)
+    results = []
+    cat.on_refresh_done = results.append
+
+    automatic = threading.Thread(target=cat._download_missing)
+    automatic.start()
+    while not cat._is_downloading:
+        time.sleep(0.01)
+    assert cat.refresh() is None
+    assert lock.waiting.wait(5)
+    release.set()
+    automatic.join(5)
+    deadline = time.monotonic() + 5
+    while not results and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    assert [result.status for result in results] == ["downloaded"]
+    assert set(results[0].downloaded) == {"visual", "stations"}
+    assert sorted(downloads.groups) == ["stations", "visual"]
+    assert sat_groups.catalog_result_message(results[0]) == "Downloaded"
+
+
+@pytest.mark.unit
+def test_update_now_after_a_failed_automatic_download_gives_the_failure(
+    tmp_path, monkeypatch
+):
+    """A group that the automatic download failed to get, with a recent
+    answer of CelesTrak, is a failure in the result of the waiting call."""
+    lock = SignalingLock()
+    monkeypatch.setattr(satellites, "_download_lock", lock)
+    release = threading.Event()
+
+    def refused_download(group, directory=None, progress_callback=None):
+        release.wait(5)
+        return failed_like_404(group, directory, progress_callback)
+
+    monkeypatch.setattr(satellites, "download_group", refused_download)
+    seed_groups(tmp_path, [], ["visual"])
+    results = []
+    automatic = threading.Thread(
+        target=lambda: satellites.refresh_groups(system_now(), False, tmp_path)
+    )
+    automatic.start()
+    waiting = threading.Thread(
+        target=lambda: results.append(
+            satellites.refresh_groups(system_now(), True, tmp_path, wait=True)
+        )
+    )
+    waiting.start()
+    assert lock.waiting.wait(5)
+    release.set()
+    automatic.join(5)
+    waiting.join(5)
+    assert [result.status for result in results] == ["failed"]
+    assert results[0].failed == ("visual",)
+    assert sat_groups.catalog_result_message(results[0]) == (
+        "Download failed\nBrightest\nGroup empty now"
+    )
 
 
 @pytest.mark.unit

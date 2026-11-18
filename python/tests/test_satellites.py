@@ -1,5 +1,6 @@
 """Satellite element parsing, positions, magnitudes, passes and catalog."""
 
+import dataclasses
 import datetime
 import json
 import threading
@@ -21,7 +22,9 @@ from PiFinder.catalog_base import CatalogState
 from PiFinder.catalog_arrays import name_to_t9_digits
 from PiFinder.catalogs import Catalog, Catalogs
 from PiFinder.state import Location
+from PiFinder.ui.fonts import Font
 from PiFinder.ui.object_list import UIObjectList
+from PiFinder.utils import pifinder_dir
 from satellite_helpers import (
     GEO_TLE,
     ISS_NORAD,
@@ -1094,9 +1097,9 @@ def test_device_refresh_downloads_the_selected_groups_only(catalog, monkeypatch)
     finished = threading.Event()
     refresh_sources = catalog._refresh_sources
 
-    def refresh_and_report(force=False):
+    def refresh_and_report(force=False, wait=False):
         try:
-            return refresh_sources(force)
+            return refresh_sources(force, wait=wait)
         finally:
             finished.set()
 
@@ -1828,7 +1831,7 @@ def test_a_geostationary_satellite_has_no_passes_and_a_fixed_text(catalog, tmp_p
     satellites.save_user_elements(satellites.parse_elements(GEO_TLE)[0], tmp_path)
     catalog.do_timed_task()
     geo = next(obj for obj in catalog._get_objects() if obj.sequence == 29055)
-    assert "Geostationary: fixed in the sky" in geo.description
+    assert "Geostationary\nFixed in the sky" in geo.description
     assert catalog._passes.get(29055, []) == []
 
     location = SatSharedState(NOW).location()
@@ -1837,3 +1840,62 @@ def test_a_geostationary_satellite_has_no_passes_and_a_fixed_text(catalog, tmp_p
     detail = web_satellites.satellite_detail(29055, NOW, location, directory=tmp_path)
     assert detail["geostationary"] and detail["passes"] == []
     assert detail["now"]["alt"] > 0
+
+
+# The description font and the width of each screen, as in displays.py.
+DESCRIPTION_SCREENS = ((10, 128), (12, 176), (16, 320))
+
+
+def _description_cases(catalog):
+    """Descriptions of the longest kind for each state of a satellite."""
+    iss = satellites.TrackedSatellite.from_elements(iss_elements())
+    web = satellites.TrackedSatellite.from_elements(
+        dataclasses.replace(iss_elements(), source="user")
+    )
+    geo = satellites.TrackedSatellite.from_elements(
+        satellites.parse_elements(GEO_TLE)[0][0]
+    )
+
+    def look(alt, mag, sun_alt=-20.0):
+        return satellites.SatLook(
+            NOW, 10.0, 20.0, alt, 359.0, 38888.0, mag is not None, sun_alt, mag
+        )
+
+    a_pass = satellites.SatPass(
+        rise=NOW,
+        culmination=NOW,
+        set=NOW,
+        rise_az=247.0,
+        max_alt=89.0,
+        max_alt_az=0.0,
+        set_az=67.0,
+        visible_start=NOW,
+        min_mag=-3.9,
+    )
+    cases = [
+        catalog._describe(iss, look(89.0, -3.9), a_pass),
+        catalog._describe(web, look(89.0, -3.9, sun_alt=5.0), a_pass),
+        catalog._describe(iss, look(45.0, None), None),
+        catalog._describe(iss, look(-10.0, None), a_pass),
+        catalog._describe(geo, look(30.0, 11.5), None),
+        catalog._describe(geo, look(-30.0, None), None),
+    ]
+    catalog._pass_time = None
+    cases.append(catalog._describe(iss, look(-10.0, None), None))
+    catalog._pass_time = NOW
+    cases.append(catalog._describe(iss, look(-10.0, None), None))
+    return cases
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("size, width", DESCRIPTION_SCREENS)
+def test_every_description_line_fits_the_screen(catalog, size, width):
+    """The details screen draws each line from x 0 and the scroll bar on the
+    last pixel column, so a line must fit in width - 1 pixels."""
+    font = Font(
+        str(pifinder_dir / "fonts" / "RobotoMonoNerdFontMono-Bold.ttf"), size, width
+    )
+    for description in _description_cases(catalog):
+        for line in description.split("\n"):
+            assert len(line) <= font.line_length, line
+            assert font.font.getlength(line) <= width - 1, line

@@ -162,6 +162,7 @@ class GroupDownloads:
                 force=True,
                 directory=directory,
                 groups=(group,),
+                wait=True,
             )
         except Exception:
             logger.exception("Download of satellite group %s failed", group)
