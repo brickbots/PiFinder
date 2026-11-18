@@ -22,10 +22,10 @@ def test_object_counts():
         "Ta2": 200,
         "H": 400,
         "SaA": 114,
-        "SaM": 2162,
+        "SaM": 2157,  # five pairs SAC marks rejected ("STT 56 rej.") are no double star
         "SaR": 333,
         "Str": 78,
-        "EGC": 91,
+        "EGC": 102,  # with the Magellanic Cloud globulars
         "RDS": 110,
         "B": 343,
         "Sh2": 313,
@@ -34,11 +34,12 @@ def test_object_counts():
         "TLK": 93,
         "Har": 147,
         "Lyn": 1151,
+        "Nam": 578,  # every IAU-named star with a Hipparcos number
     }
 
     # catalog count
     num_catalogs = len(list(db.get_catalogs()))
-    assert num_catalogs == 21
+    assert num_catalogs == 22
     actual_catalogs = [row["catalog_code"] for row in db.get_catalogs()]
     expected_catalogs = list(catalog_counts.keys())
     missing_catalogs = set(expected_catalogs) - set(actual_catalogs)
@@ -291,8 +292,9 @@ def check_ic_objects():
             "name": "Heart Nebula",
             "ra": 38.200,  # RA = 02h 32m 48s
             "dec": 61.450,  # Dec = +61° 27' 00"
-            # "obj_type": "Nb", # Emission nebula
-            "obj_type": "OC",  # Open cluster at the heart of the nebula
+            # The import merges IC 1805, Sh2 190 and Lyn 77 into one object:
+            # the cluster with its emission nebula.
+            "obj_type": "C+N",
             "const": "Cas",  # Cassiopeia
         },
         {

@@ -663,7 +663,10 @@ def load_arp():
                 aka_names = [row["name"]]  # Start with the first name
                 mag = row["magnitude"]
                 if utils.is_number(mag):
-                    mag = MagnitudeObject([float(mag)])
+                    # arp.sqlite stores the magnitudes as float32 values
+                    # (13.800000190734863), so round to the two decimals of a
+                    # catalog magnitude.
+                    mag = MagnitudeObject([round(float(mag), 2)])
                 else:
                     logging.warning(
                         f"Invalid magnitude for Arp {row['catalog_identifier']}"
