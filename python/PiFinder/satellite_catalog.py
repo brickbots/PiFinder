@@ -276,7 +276,10 @@ class SatelliteCatalog(Catalog):
         return max(float(self.MIN_DOWNLOAD_WAIT_SECONDS), wait)
 
     def _refresh_sources(
-        self, force: bool = False, groups: Optional[tuple[str, ...]] = None
+        self,
+        force: bool = False,
+        groups: Optional[tuple[str, ...]] = None,
+        wait: bool = False,
     ) -> satellites.GroupRefresh:
         started = []
 
@@ -295,6 +298,7 @@ class SatelliteCatalog(Catalog):
                 progress_callback=self._set_download_progress,
                 on_start=on_start,
                 groups=groups,
+                wait=wait,
             )
         finally:
             if started:
@@ -323,9 +327,11 @@ class SatelliteCatalog(Catalog):
 
     def _user_refresh(self) -> None:
         """The forced download of ``refresh``. The result goes to
-        ``on_refresh_done``, so the user sees it on any screen."""
+        ``on_refresh_done``, so the user sees it on any screen. When an
+        automatic download runs, this waits for it and reports its result
+        for the groups that it got."""
         try:
-            result = self._refresh_sources(force=True)
+            result = self._refresh_sources(force=True, wait=True)
         except Exception:  # the user gets a message, not a dead thread
             logger.exception("Satellite download failed")
             result = satellites.GroupRefresh("failed")
@@ -572,32 +578,28 @@ class SatelliteCatalog(Catalog):
             if now.mag is None:
                 lines.append("In Earth shadow")
             elif now.sun_alt > satellites.DARK_SUN_ALT_DEG:
-                lines.append(f"Mag {now.mag:.1f}, sky too bright")
+                lines.append(f"Mag {now.mag:.1f}")
+                lines.append("Sky too bright")
             else:
                 lines.append(f"Mag {now.mag:.1f}, visible")
         else:
             lines.append("Below horizon")
         if sat.elements.geostationary:
-            lines.append(
-                "Geostationary: fixed in the sky"
-                if now.alt > 0
-                else "Geostationary: never rises here"
-            )
+            lines.append("Geostationary")
+            lines.append("Fixed in the sky" if now.alt > 0 else "Never rises here")
         elif next_pass is not None:
             start = next_pass.visible_start or next_pass.rise
+            lines.append(f"Next {start.astimezone(zone).strftime('%H:%M')}")
             lines.append(
-                f"Next: {start.astimezone(zone).strftime('%H:%M')} "
                 f"{satellites.compass(next_pass.rise_az)}"
                 f"->{satellites.compass(next_pass.set_az)} "
                 f"max {next_pass.max_alt:.0f}°"
-                + (
-                    f" mag {next_pass.min_mag:.1f}"
-                    if next_pass.min_mag is not None
-                    else ""
-                )
             )
+            if next_pass.min_mag is not None:
+                lines.append(f"mag {next_pass.min_mag:.1f}")
         elif self._pass_time is not None:
-            lines.append(f"No visible pass in {satellites.PASS_HOURS:.0f} h")
+            lines.append("No visible pass")
+            lines.append(f"in {satellites.PASS_HOURS:.0f} h")
         else:
             lines.append("Passes: calculating")
         age = sat.elements.age_days(now.time)
@@ -634,7 +636,7 @@ class SatelliteCatalog(Catalog):
     ) -> None:
         if not (math.isfinite(now.ra) and math.isfinite(now.dec)):
             # SGP4 cannot propagate this element set to the current time.
-            obj.description = "No position: the elements are not usable"
+            obj.description = "No position\nElements not usable"
             obj.alt = obj.az = None
             return
         next_pass = self._next_visible(sat.norad_id, now.time)

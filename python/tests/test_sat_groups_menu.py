@@ -289,7 +289,7 @@ def test_downloads_run_one_at_a_time_in_order(sat_dir):
     downloads = sat_groups.GroupDownloads()
     calls = []
 
-    def fake_refresh(now, force, directory, groups):
+    def fake_refresh(now, force, directory, groups, wait):
         calls.append(groups)
         return satellites.GroupRefresh("downloaded")
 
