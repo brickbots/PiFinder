@@ -445,10 +445,45 @@ def test_vega_takes_hipparcos_values(hipparcos):
     db = objects_db.ObjectsDatabase()
     vega = listing_object(db, "Nam", 91262)
     assert object_listings(db, vega["id"]) >= {"Str 77", "SaM 1241", "WDS 94640"}
+    # Its WDS pairs are optical, and every WDS pair is a double star.
+    assert vega["obj_type"] == "D*"
     assert json.loads(vega["mag"])["filter_mag"] == 0.03
     ra, dec = hip_position(hipparcos, 91262)
     assert vega["ra"] == pytest.approx(ra, abs=1e-9)
     assert vega["dec"] == pytest.approx(dec, abs=1e-9)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "listing, listings, obj_type",
+    [
+        # Atria's only pair, WFC 179 (11.45 at 92"), is flagged optical (U).
+        ("Nam 82273", {"WDS 85313", "Nam 82273"}, "D*"),
+        # Suhail's only pair, SEE 109, is 12.6 mag fainter (2.21/14.8).
+        ("Nam 44816", {"WDS 50823", "Nam 44816"}, "D*"),
+        # Arcturus's only pair, HDS 2003, is flagged dubious (X).
+        ("Nam 69673", {"Str 28", "WDS 74543", "Nam 69673"}, "*"),
+    ],
+)
+def test_every_wds_pair_but_a_dubious_one_is_a_double_star(listing, listings, obj_type):
+    db = objects_db.ObjectsDatabase()
+    code, sequence = listing.split()
+    star = listing_object(db, code, int(sequence))
+    assert object_listings(db, star["id"]) == listings
+    assert star["obj_type"] == obj_type
+
+
+@pytest.mark.unit
+def test_wds_listings_by_type():
+    db = objects_db.ObjectsDatabase()
+    counts = dict(
+        db.conn.execute(
+            "SELECT o.obj_type, COUNT(*) FROM catalog_objects c"
+            " JOIN objects o ON o.id = c.object_id"
+            " WHERE c.catalog_code = 'WDS' GROUP BY o.obj_type"
+        ).fetchall()
+    )
+    assert counts == {"D*": 120706, "*": 10597}
 
 
 @pytest.mark.unit
