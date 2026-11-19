@@ -29,21 +29,6 @@ class UIObsList(UITextMenu):
 
     __title__ = "Obs Lists"
 
-    # The list is drawn as a 7-row window centered on the selection. Each row has
-    # a fixed color, vertical offset and font; the middle row is the selected
-    # item -- brightest and largest, and it scrolls when its text overflows.
-    _SELECTED_ROW = 3
-    _ROW_STYLES = (
-        # (color, y_offset, font_name)
-        (96, 0, "base"),
-        (128, 13, "base"),
-        (192, 25, "bold"),
-        (255, 40, "large"),
-        (192, 60, "bold"),
-        (128, 76, "base"),
-        (96, 89, "base"),
-    )
-
     def __init__(self, *args, **kwargs):
         incoming = kwargs.get("item_definition", {})
         subdir = incoming.get("subdir", "")
@@ -89,44 +74,25 @@ class UIObsList(UITextMenu):
             TextLayouterScroll.MEDIUM,
         )
 
-    def update(self, force=False):
-        self.clear_screen()
-        self.draw.rectangle((-1, 60, 129, 80), outline=self.colors.get(128), width=1)
+    def _draw_item_text(self, pos, text, row, is_focus):
+        """Scroll the selected item when it is too long for the line.
 
-        line_horiz_pos = 13
-        window_start = self._current_item_index - self._SELECTED_ROW
-
-        for line_number, style in enumerate(self._ROW_STYLES):
-            i = window_start + line_number
-            if not (0 <= i < self.get_nr_of_menu_items()):
-                continue
-
-            line_color, line_pos, font_name = style
-            line_font = getattr(self.fonts, font_name)
-            line_pos += 20
-            item_text = str(self._menu_items[i])
-
-            if line_number == self._SELECTED_ROW:
-                # Scroll the selected item if it's too long
-                if self._scroll_item != item_text:
-                    self._scroll_item = item_text
-                    self._scroll_text = TextLayouterScroll(
-                        text=_(item_text),
-                        draw=self.draw,
-                        color=self.colors.get(line_color),
-                        font=line_font,
-                        scrollspeed=self._get_scrollspeed(),
-                    )
-                self._scroll_text.draw((line_horiz_pos, line_pos))
-            else:
-                self.draw.text(
-                    (line_horiz_pos, line_pos),
-                    _(item_text),
-                    font=line_font.font,
-                    fill=self.colors.get(line_color),
-                )
-
-        return self.screen_update()
+        UITextMenu draws everything else: the rows, the selection box and the
+        other items.
+        """
+        if not is_focus:
+            super()._draw_item_text(pos, text, row, is_focus)
+            return
+        if self._scroll_item != text:
+            self._scroll_item = text
+            self._scroll_text = TextLayouterScroll(
+                text=text,
+                draw=self.draw,
+                color=self.colors.get(row.brightness),
+                font=row.font,
+                scrollspeed=self._get_scrollspeed(),
+            )
+        self._scroll_text.draw(pos)
 
     def key_right(self):
         if not self._menu_items:
