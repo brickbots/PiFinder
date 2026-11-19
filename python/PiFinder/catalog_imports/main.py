@@ -43,6 +43,7 @@ CATALOG_LOADERS = [
     ("wds_loader", "load_wds"),
     ("harris_loader", "load_harris"),
     ("lynga_loader", "load_lynga"),
+    ("pk_loader", "load_pk"),
     # Last, so each star another catalog lists keeps its sky object when the
     # star-identity stage joins the Named Stars listing to it by HIP number.
     ("named_stars_loader", "load_named_stars"),
@@ -182,6 +183,14 @@ def main():
     logging.info("Finalizing database...")
     conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     conn.execute("PRAGMA journal_mode = DELETE")
+
+    # Finalize database for read-only deployment (NixOS)
+    logging.info("Finalizing database for read-only deployment...")
+    conn, _ = objects_db.get_conn_cursor()
+    conn.execute("PRAGMA journal_mode = DELETE")  # Required for read-only FS
+    conn.execute("VACUUM")  # Compact database
+    conn.commit()
+    logging.info("Database finalization complete")
 
 
 if __name__ == "__main__":

@@ -3,7 +3,6 @@
 """Raw, magnified multi-star Focus screen."""
 
 import math
-import sys
 import time
 from collections import deque
 from typing import Optional
@@ -11,11 +10,9 @@ from typing import Optional
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageOps
 
-from PiFinder import focus, utils
+from PiFinder import focus
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenu, MarkingMenuOption
-
-sys.path.append(str(utils.tetra3_dir))
 
 # Ten times the apparent size of the old full-frame preview. On a square panel
 # this maps a 26x26 patch from the 512x512 camera frame into each half-screen
@@ -114,8 +111,6 @@ def focus_crop_size(
 
 
 class UIPreview(UIModule):
-    from PiFinder import tetra3
-
     __title__ = "CAMERA"
     __help_name__ = "camera"
     _display_mode_list = [DISPLAY_STARS, DISPLAY_SINGLE, DISPLAY_IMAGE, DISPLAY_STATS]
@@ -224,7 +219,7 @@ class UIPreview(UIModule):
         saved = self._saved_camera_exp
         if isinstance(saved, (int, float)) and saved > 0:
             return int(saved)
-        metadata = self.shared_state.last_image_metadata() or {}
+        metadata = self.snapshot.last_image_metadata() or {}
         exposure = metadata.get("exposure_time")
         if isinstance(exposure, (int, float)) and exposure > 0:
             return int(exposure)
@@ -279,7 +274,7 @@ class UIPreview(UIModule):
         """Attach HIP identities only to blobs from the solved exposure."""
         if frame_time <= 0 or frame_time == self._last_focus_catalog_time:
             return
-        solution = self.shared_state.solution()
+        solution = self.snapshot.solution()
         if solution.last_solve_success != frame_time:
             return
         centroids = solution.matched_centroids
@@ -788,7 +783,7 @@ class UIPreview(UIModule):
         if force:
             self.last_update = 0
 
-        metadata = self.shared_state.last_image_metadata()
+        metadata = self.snapshot.last_image_metadata()
         last_image_time = metadata["exposure_end"]
         image_updated = False
         if last_image_time > self.last_update:

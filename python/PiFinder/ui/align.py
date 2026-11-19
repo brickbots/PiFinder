@@ -206,10 +206,10 @@ class UIAlign(UIModule):
         if force:
             self.last_update = 0
 
-        if self.shared_state.solve_state():
+        if self.snapshot.solve_state():
             self.animate_fov()
             constellation_brightness = 64
-            self.solution = self.shared_state.solution()
+            self.solution = self.snapshot.solution()
             last_estimate_time = self.solution.estimate_time
 
             if self.solution_is_new(last_estimate_time) or force:
@@ -225,8 +225,8 @@ class UIAlign(UIModule):
                     chart_center.RA,
                     chart_center.Dec,
                     chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
-                    location=self.shared_state.location(),
-                    dt=self.shared_state.datetime(),
+                    location=self.snapshot.location(),
+                    dt=self.snapshot.datetime(),
                 )
                 chart_rot_angle = orientation.rot_deg if orientation else None
                 # The frustum marks what the camera images, so it follows the
@@ -234,8 +234,8 @@ class UIAlign(UIModule):
                 # as visible_stars, and an alignment star the camera cannot
                 # see is no use.
                 camera_fov = self._optical_train.resolve(
-                    self.shared_state.camera_type(),
-                    self.shared_state.camera_lens(),
+                    self.snapshot.camera_type(),
+                    self.snapshot.camera_lens(),
                 ).fov_degrees
                 # This needs to be called first to set RA/DEC/chart_rot_angle
                 image_obj, self.visible_stars = self.starfield.plot_starfield(

@@ -1000,5 +1000,5 @@ class UIRADecEntry(UIModule):
         self.draw_bottom_bar()
 
         if self.shared_state:
-            self.shared_state.set_screen(self.screen)
+            self.publish_screen(self.shared_state, self.screen)
         return self.screen_update()

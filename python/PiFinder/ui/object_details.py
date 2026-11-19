@@ -6,9 +6,8 @@ This module contains all the UI code for the object details screen
 
 """
 
-from pydeepskylog.exceptions import InvalidParameterError
-
 from PiFinder import cat_images
+from PiFinder.object_sequence import ObjectSequence, listing_keys
 from PiFinder.composite_object import MagnitudeObject
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
@@ -31,7 +30,13 @@ from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.db.objects_db import ObjectsDatabase
 import time
 from typing import Optional
-import pydeepskylog as pds
+
+import numpy as np
+
+from PiFinder.lazy_import import lazy_module
+
+pds = lazy_module("pydeepskylog")
+pds_exceptions = lazy_module("pydeepskylog.exceptions")
 
 
 # Read-only handle to the catalog DB, opened once and shared across detail
@@ -64,28 +69,36 @@ def _obs_db() -> ObservationsDatabase:
 
 def _listing_index(object_list, listing, hint: Optional[int] = None) -> Optional[int]:
     """
-    Where ``listing`` sits in ``object_list`` (a list or a NumPy array), or
-    None if it isn't there.
+    Where ``listing`` sits in ``object_list`` (an ObjectSequence or a list),
+    or None if it isn't there.
 
     Matched by catalog listing, never by ``==``: CompositeObject equality
     compares object_id, and several catalog listings can share one sky object
-    (M 31 and NGC 224), so ``list.index`` or ``np.where(... == ...)`` finds
+    (M 31 and NGC 224), so ``list.index`` or ``ObjectSequence.index`` finds
     whichever sibling listing comes first.
 
     ``hint`` is the caller's own idea of the position. It wins when that slot
-    holds this very instance, which is the only way to tell apart a listing
-    that appears twice (an observing list naming M 31 twice resolves both
-    entries to one shared CompositeObject). Otherwise the first slot holding
-    this instance, then the first holding this listing's
-    (catalog_code, sequence).
+    holds this listing, which is the only way to tell apart a listing that
+    appears twice (an observing list naming M 31 twice). Otherwise the first
+    slot holding this instance, then the first holding this listing's
+    (catalog_code, sequence). An ObjectSequence is searched on its
+    listing_key column, so no objects are built for the search.
     """
+    key = (listing.catalog_code, listing.sequence)
     if hint is not None and 0 <= hint < len(object_list):
-        if object_list[hint] is listing:
+        candidate = object_list[hint]
+        candidate_key = (candidate.catalog_code, candidate.sequence)
+        if candidate is listing or candidate_key == key:
             return hint
+    if isinstance(object_list, ObjectSequence):
+        wanted = listing_keys(
+            np.array([listing.catalog_code]), np.array([listing.sequence])
+        )[0]
+        hits = np.flatnonzero(object_list.column("listing_key") == wanted)
+        return int(hits[0]) if len(hits) else None
     for index, candidate in enumerate(object_list):
         if candidate is listing:
             return index
-    key = (listing.catalog_code, listing.sequence)
     for index, candidate in enumerate(object_list):
         if (candidate.catalog_code, candidate.sequence) == key:
             return index
@@ -309,7 +322,7 @@ class UIObjectDetails(UIModule):
             )
 
         # Get the SQM from the shared state
-        sqm = self.shared_state.get_sky_brightness()
+        sqm = self.snapshot.get_sky_brightness()
 
         # Check if a telescope and eyepiece are set
         if (
@@ -366,7 +379,11 @@ class UIObjectDetails(UIModule):
                             object_diameter1=diameter1,
                             object_diameter2=diameter2,
                         )
-                except (ValueError, TypeError, InvalidParameterError) as e:
+                except (
+                    ValueError,
+                    TypeError,
+                    pds_exceptions.InvalidParameterError,
+                ) as e:
                     # mag_str / size are not always plain numbers: double stars
                     # carry component mags like "7.0/9.5", asterisms a size like
                     # "3°", and some objects have no magnitude. float() then
@@ -419,7 +436,7 @@ class UIObjectDetails(UIModule):
         self.descTextLayout.set_sections(sections)
         self.texts["desc"] = self.descTextLayout
 
-        solution = self.shared_state.solution()
+        solution = self.snapshot.solution()
         roll = 0
         if solution and solution.has_pointing():
             roll = solution.pointing.aligned.estimate.Roll
@@ -458,7 +475,7 @@ class UIObjectDetails(UIModule):
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
-        if not self.shared_state.solution().has_pointing():
+        if not self.snapshot.solution().has_pointing():
             self.draw.text(
                 self._pointing_msg_anchor_1,
                 _("No solve"),  # TRANSLATORS: No solve yet... (Part 1/2)
@@ -478,7 +495,7 @@ class UIObjectDetails(UIModule):
                 self._elipsis_count = 0
             return
 
-        if not self.shared_state.altaz_ready():
+        if not self.snapshot.altaz_ready():
             self.draw.text(
                 self._pointing_msg_anchor_1,
                 _("Searching"),  # TRANSLATORS: Searching for GPS (Part 1/2)
@@ -518,7 +535,7 @@ class UIObjectDetails(UIModule):
 
         indicator_color = 255 if self._unmoved else 128
         point_az, point_alt = calc_utils.aim_degrees(
-            self.shared_state,
+            self.snapshot,
             self.mount_type,
             self.screen_direction,
             self.object,
@@ -585,7 +602,7 @@ class UIObjectDetails(UIModule):
                 if self.object:
                     # check for visibility and adjust mag/size text color
                     obj_altitude = calc_utils.calc_object_altitude(
-                        self.shared_state, self.object
+                        self.snapshot, self.object
                     )
 
                     if obj_altitude:
@@ -759,7 +776,7 @@ class UIObjectDetails(UIModule):
         logging screen
         """
         self.maybe_add_to_recents()
-        if not self.shared_state.solution().has_pointing():
+        if not self.snapshot.solution().has_pointing():
             return
         object_item_definition = {
             "name": _("LOG"),
@@ -841,7 +858,7 @@ class UIObjectDetails(UIModule):
             try:
                 if self.object:
                     point_val1, point_val2 = calc_utils.aim_degrees(
-                        self.shared_state,
+                        self.snapshot,
                         self.mount_type,
                         self.screen_direction,
                         self.object,
