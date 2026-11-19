@@ -741,7 +741,7 @@ def test_a_wds_double_makes_a_merged_star_d_star(db):
     assert sky_object(db, "SaR", 161)["obj_type"] == "D*"
 
 
-def test_a_star_wds_lists_only_with_optical_companions_is_single(db):
+def test_a_star_wds_lists_only_with_dubious_companions_is_single(db):
     add(db, "Str", 77, "*", 200.975, 54.9167, mag=[2.2])
     add(db, "TLK", 1, "*", 200.98, 54.925, mag=[2.0, 2.5])
     add(db, "WDS", 94640, "*", 200.98, 54.925, mag=[2.2, 9.5])
@@ -773,28 +773,30 @@ def wds_pair(components="AB", notes="N", sep=1.9, mag1=3.5, mag2=6.2):
         # Propus's BU 1008, with an orbit.
         (wds_pair(notes="NC"), True),
         (wds_pair(components=""), True),
-        (wds_pair(components="Aa,Ab", sep=0.5), True),
-        # Too close to split: Capella's, Algol's and Dschubba's pairs.
-        (wds_pair(components="Aa,Ab", sep=0.33), False),
-        (wds_pair(notes="NO", sep=0.076), False),
-        # Flagged optical or dubious: Vega's H 5 39 (U), Arcturus's HDS 2003 (X).
-        (wds_pair(notes="NL U"), False),
-        (wds_pair(notes="NS"), False),
-        (wds_pair(notes="X"), False),
-        (wds_pair(notes="Y"), False),
-        # Not the primary's pair: Vega's STF 3136 BC.
-        (wds_pair(components="BC"), False),
-        # A companion no observer looks for: Alphard's 9.7 at 284",
-        # σ CMa's 14.2 at 11".
-        (wds_pair(sep=284.4, mag1=2.0, mag2=9.7), False),
-        (wds_pair(sep=11.1, mag1=3.5, mag2=14.2), False),
-        # Exactly 5 mag fainter passes, though 18.6 - 13.6 is
-        # 5.000000000000002 in floating point (WDS 02594+4847).
-        (wds_pair(sep=10.0, mag1=13.6, mag2=18.6), True),
-        (wds_pair(sep=10.0, mag1=13.6, mag2=18.61), False),
-        (wds_pair(sep=np.nan), False),
-        (wds_pair(mag2=np.nan), False),
+        # Flagged optical: Vega's H 5 39 (U), STFB 9 (S); and L, Y.
+        (wds_pair(notes="NL U"), True),
+        (wds_pair(notes="NS"), True),
+        (wds_pair(notes="L"), True),
+        (wds_pair(notes="Y"), True),
+        # A companion more than 5 mag fainter: σ CMa's 14.2 at 11".
+        (wds_pair(sep=11.1, mag1=3.5, mag2=14.2), True),
+        # Closer than 0.5": Capella's, Algol's and Dschubba's pairs.
+        (wds_pair(components="Aa,Ab", sep=0.33), True),
+        (wds_pair(notes="NO", sep=0.076), True),
+        # Wider than 60": Alphard's 9.7 at 284".
+        (wds_pair(sep=284.4, mag1=2.0, mag2=9.7), True),
+        # Without the primary: Vega's STF 3136 BC.
+        (wds_pair(components="BC"), True),
+        # No separation, or no primary magnitude: WDS still lists the pair.
+        (wds_pair(sep=np.nan), True),
         (wds_pair(mag1=np.nan, mag2=9.0), True),
+        # Flagged dubious: Arcturus's HDS 2003, ζ Scl's B 631 (NX).
+        (wds_pair(notes="X"), False),
+        (wds_pair(notes="NX"), False),
+        (wds_pair(notes="NL X"), False),
+        # No companion magnitude.
+        (wds_pair(mag2=np.nan), False),
+        (wds_pair(components="Aa,Ab", sep=0.354, mag1=9.07, mag2=np.nan), False),
     ],
 )
 def test_is_double_star_pair(pair, double):

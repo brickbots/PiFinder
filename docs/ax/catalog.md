@@ -739,20 +739,20 @@ RASC's doubles (RDS), or a WDS pair that is a double star lists it;
 otherwise `*`. Each loader types its own listings by the rule — SaM and
 RDS `D*`; Str, SaR and TLK `*`; a WDS listing `D*` when one of its pairs
 is a double star — and a merged star is `D*` if any of its sky objects
-was. A WDS pair is a double star if WDS flags it neither optical
-(S, U, Y, L) nor dubious (X), it includes the primary (its components
-are blank or start with A), and its companion is one an observer would
-look for: between 0.5″ and 60″ from the primary and within 5 mag of it
-(Rich's choice, 2026-10; the limits are named constants in
-`wds_loader.py`). Closer pairs are interferometric, split by no observer
-(Capella, Algol, Dschubba). WDS lists every pair
-ever measured, and many it has never flagged are faint field stars:
-without those limits nearly every bright star would be a double
-(Alphard's 9.7 mag companion at 284″, Vega's 12 mag survey stars).
-Hipparcos's CCDM letter is blank for wide pairs and for pairs it could
-not resolve (Sirius, Polaris, Antares), so neither decides by itself.
-SAC lists Vega and Fomalhaut, so the rule makes them `D*`; their
-companions are field stars, and corrections make them `*`.
+was. A WDS pair is a double star unless WDS notes it as dubious (X) or
+gives no magnitude for its companion: optical pairs (S, U, Y, L) count,
+and so do pairs without the primary (BC), and pairs however close, wide
+or unequal. WDS lists a pair because someone measured it as one, so the
+type says what the object is; whether an observer can see the companion
+is for the filters (a double filters by its brighter star, 2.2) and for
+the separation and both magnitudes the entry shows. This follows
+mrosseel's review of #697 (2026-11). The earlier rule kept only
+unflagged pairs with the primary, 0.5″ to 60″ apart and within 5 mag,
+and typed 40,788 of WDS's 131,303 listings `*`; the rule now types
+10,597 `*`, nearly all because their only pairs are flagged X. Vega
+(optical companions) and Fomalhaut (SHY 106, its wide companion TW PsA)
+are `D*` by WDS, as SAC lists them. ζ Scl, which SAC lists but whose only
+WDS pair (B 631) is flagged X, has a correction that makes it `*`.
 
 A **not-found** NGC/IC number (Steinicke's status 10, about 300 of
 them) keeps its listing, its nominal position and type `?`, and its
