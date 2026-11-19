@@ -64,7 +64,7 @@ def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool
     # success, set all the things...
     command_queues["console"].put(_("Alignment Set"))
     shared_state.set_target_pixel(target_pixel)
-    config_object.set_option("target_pixel", target_pixel)
+    config_object.save_target_pixel(target_pixel)
     return True
 
 
@@ -93,14 +93,7 @@ class UIAlign(UIModule):
         self.visible_stars = None
         self.star_list = np.empty((0, 2))
         self.alignment_star = None
-        # target_pixel is (Y, X) in native camera space; scale to display space.
-        target_pixel = self.config_object.get_option("target_pixel", (256, 256))
-        scale_x = self.display_class.resX / CAMERA_NATIVE_RES
-        scale_y = self.display_class.resY / CAMERA_NATIVE_RES
-        self.marker_position = (
-            target_pixel[1] * scale_x,
-            target_pixel[0] * scale_y,
-        )
+        self.marker_position = self._target_pixel_marker()
 
         # Marking menu definition
         self.marking_menu = MarkingMenu(
@@ -172,6 +165,19 @@ class UIAlign(UIModule):
         self.draw.line(
             [x_pos + 3, y_pos, x_pos + 8, y_pos],
             fill=self.colors.get(255),
+        )
+
+    def _target_pixel_marker(self):
+        """The active alignment point, in display space, as (x, y).
+
+        target_pixel is (Y, X) in native camera space. It belongs to the
+        active telescope, so this is read again each time align mode starts
+        rather than once at preload.
+        """
+        target_pixel = self.config_object.active_target_pixel()
+        return (
+            target_pixel[1] * self.display_class.resX / CAMERA_NATIVE_RES,
+            target_pixel[0] * self.display_class.resY / CAMERA_NATIVE_RES,
         )
 
     def set_fov(self, fov):
@@ -423,6 +429,7 @@ class UIAlign(UIModule):
                     self.message(_("Alignment failed"), 2)
         else:
             self.align_mode = True
+            self.marker_position = self._target_pixel_marker()
         self.update(force=True)
 
     def key_up(self):
@@ -449,7 +456,7 @@ class UIAlign(UIModule):
                 # reset reticle to center
                 center_pixel = (CAMERA_NATIVE_RES // 2, CAMERA_NATIVE_RES // 2)
                 self.shared_state.set_target_pixel(center_pixel)
-                self.config_object.set_option("target_pixel", center_pixel)
+                self.config_object.save_target_pixel(center_pixel)
                 self.marker_position = (
                     self.display_class.centerX,
                     self.display_class.centerY,

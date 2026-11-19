@@ -5,10 +5,11 @@ This module handles non-volatile config options
 """
 
 import json
+import math
 import os
 from pathlib import Path
 from PiFinder import utils, equipment, locations
-from typing import Any
+from typing import Any, Optional
 import logging
 
 logger = logging.getLogger("config")
@@ -18,6 +19,23 @@ _LEGACY_SCREEN_DIRECTIONS = {
     "v4_right": "rev4_right",
     "v4_straight": "rev4_straight",
 }
+
+
+# (Y, X) centre of the 512x512 camera image: "no alignment offset known".
+IMAGE_CENTER_PIXEL = (256.0, 256.0)
+
+
+def _as_target_pixel(value) -> Optional[tuple[float, float]]:
+    """``value`` as a finite (Y, X) float pair, or None if it is not one."""
+    if not isinstance(value, (list, tuple)):
+        return None
+    try:
+        y, x = (float(v) for v in value)
+    except (TypeError, ValueError):
+        return None
+    if not (math.isfinite(y) and math.isfinite(x)):
+        return None
+    return (y, x)
 
 
 class Config:
@@ -89,6 +107,23 @@ class Config:
                 eq_config["eyepieces"]
             ):
                 eq_config["active_eyepiece_index"] = 0
+
+            # A telescope's alignment point is only ever written by the
+            # alignment screens, but a hand edit can still break one.  Drop
+            # an unusable point here (that telescope falls back to the global
+            # target_pixel) rather than let from_dict raise and throw away
+            # every telescope and eyepiece.
+            for telescope in eq_config["telescopes"]:
+                if not isinstance(telescope, dict):
+                    continue
+                stored = telescope.get("target_pixel")
+                if stored is not None and _as_target_pixel(stored) is None:
+                    logger.warning(
+                        "Ignoring unusable alignment point %r on telescope %r",
+                        stored,
+                        telescope.get("name"),
+                    )
+                    telescope["target_pixel"] = None
 
             try:
                 self.equipment = equipment.Equipment.from_dict(eq_config)
@@ -167,6 +202,42 @@ class Config:
             return self._config_dict.get(
                 option, self._default_config_dict.get(option, default)
             )
+
+    def active_target_pixel(self) -> tuple[float, float]:
+        """The alignment point the solver should use now, as (Y, X).
+
+        The active telescope's own point if it has been aligned; otherwise
+        the global ``target_pixel`` (the point every telescope shared before
+        alignment became per-telescope, and the one used when no telescope
+        is selected); otherwise the image centre.  A stored value that is
+        not a usable pixel is skipped rather than raised, so a hand-edited
+        config cannot stop the solver.
+        """
+        telescope = self.equipment.active_telescope
+        if telescope is not None:
+            pixel = _as_target_pixel(telescope.target_pixel)
+            if pixel is not None:
+                return pixel
+        pixel = _as_target_pixel(self.get_option("target_pixel"))
+        if pixel is not None:
+            return pixel
+        return IMAGE_CENTER_PIXEL
+
+    def save_target_pixel(self, target_pixel) -> None:
+        """Persist a new alignment point, (Y, X), for the active telescope.
+
+        With no telescope selected it goes to the global ``target_pixel``,
+        which is also what every not-yet-aligned telescope falls back to.
+        """
+        pixel = _as_target_pixel(target_pixel)
+        if pixel is None:
+            raise ValueError(f"Not a target pixel: {target_pixel!r}")
+        telescope = self.equipment.active_telescope
+        if telescope is None:
+            self.set_option("target_pixel", list(pixel))
+        else:
+            telescope.target_pixel = list(pixel)
+            self.save_equipment()
 
     def reset_filters(self):
         """

@@ -1,7 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from operator import attrgetter
-from typing import NamedTuple, Union
+from typing import NamedTuple, Optional, Union
 
 
 class Limits(NamedTuple):
@@ -81,6 +81,15 @@ class Telescope:
     flop_image: bool
     reverse_arrow_a: bool
     reverse_arrow_b: bool
+    # This telescope's alignment point: the (Y, X) pixel in the 512x512
+    # camera image that sits at the centre of its eyepiece.  None until the
+    # telescope is aligned; Config.active_target_pixel() then falls back to
+    # the global ``target_pixel``.  Excluded from equality because records
+    # are looked up by value (set_active_telescope, the DeepskyLog import's
+    # duplicate check, the device menu's selected item), and those lookups
+    # must still find a telescope after it has been aligned.  See
+    # docs/adr/0047-alignment-point-belongs-to-the-telescope.md.
+    target_pixel: Optional[list[float]] = field(default=None, compare=False)
 
 
 @dataclass_json

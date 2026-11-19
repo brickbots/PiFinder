@@ -807,6 +807,9 @@ def main(
                     menu_manager.jump_to_label("recent")
                 elif ui_command == "reload_config":
                     cfg.load_config()
+                    # The web page may have changed the active telescope,
+                    # and each telescope keeps its own alignment point.
+                    shared_state.set_target_pixel(cfg.active_target_pixel())
                 elif ui_command == "catalogs_fully_loaded":
                     logger.info(
                         "All catalogs loaded - WDS and extended catalogs available"
