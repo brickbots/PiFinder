@@ -12,10 +12,13 @@ with a :class:`~PiFinder.optics.Lens` to derive one. See
 ``docs/ax/camera/CONTEXT.md`` (Optics) and ``docs/adr/0027``.
 """
 
+import logging
 from dataclasses import dataclass, replace
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import numpy as np
+
+logger = logging.getLogger("Camera.Profiles")
 
 
 @dataclass
@@ -40,6 +43,16 @@ class CameraProfile:
 
     # Digital gain multiplier applied after sensor readout
     digital_gain: float = 1.0
+
+    # Analogue gain the sensor actually delivered on the frames that fitted the
+    # radiometric zero point, as the exact value the driver reports. The sensor
+    # quantises the request (30 on the IMX462 becomes 29.51209...), and analogue
+    # gain is applied before the ADC, so it is in the raw array. The radiometer
+    # scales each frame by calibration / reported. Store the exact reported
+    # float: a rounded value makes the ratio 0.999997 instead of 1, and on a sky
+    # one ADU above the pedestal that moves samples across the resolution limit.
+    # None turns the correction off.
+    calibration_analogue_gain: Optional[float] = None
 
     # Bit depth of the sensor
     bit_depth: int = 10
@@ -125,7 +138,8 @@ class CameraProfile:
     # wrong at one end or the other. Measured per sensor; 0.0 disables the
     # correction and keeps a plain constant (mono sensors have no colour, and
     # an IR-cut sensor has almost no NIR leak to correct).
-    # Derivation, evidence and caveats: docs/adr/0026. Re-derive with
+    # Derivation, evidence and caveats: docs/adr/0022-sqm-measurement.md
+    # section 5. Re-derive with
     # scripts/evaluate_radiometer_archive.py rather than by hand.
     radiometric_colour_slope: float = 0.0
 
@@ -232,9 +246,25 @@ class CameraProfile:
         so the result matches the live pipeline by construction rather than by
         a parallel reimplementation. An already-cropped frame is returned
         untouched.
+
+        A frame matching neither extent is returned untouched and logged.
+        Photometry measures it whole against a field width that describes the
+        crop, which is the error this method exists to prevent, so it must not
+        pass in silence. The archive holds such frames: the 1520x1520 HQ
+        sweeps are four columns wider than today's 1516x1520 crop.
         """
         if self.is_full_sensor(raw_array):
             return self.crop_and_rotate(raw_array)
+        height, width = raw_array.shape[:2]
+        if (width, height) != self.crop_size:
+            logger.warning(
+                "Frame %dx%d matches neither the %dx%d sensor nor the %dx%d "
+                "crop; measuring it whole against the crop's field width",
+                width,
+                height,
+                *self.raw_size,
+                *self.crop_size,
+            )
         return raw_array
 
     def __repr__(self) -> str:
@@ -263,6 +293,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         ),  # Avoid auto 728x544 mode that blacks out at high exposure
         analog_gain=15.0,  # Maximum analog gain for this sensor
         digital_gain=1.0,  # TODO: find optimum value
+        calibration_analogue_gain=14.962356567382812,  # delivered for a request of 15
         bit_depth=10,
         pixel_pitch_um=3.45,  # Sony Pregius S IMX296 datasheet
         default_lens_key="16mm",
@@ -306,6 +337,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         raw_size=(1920, 1080),
         analog_gain=30.0,
         digital_gain=1.0,  # TODO: find optimum value
+        calibration_analogue_gain=29.51209259033203,  # delivered for a request of 30
         bit_depth=12,
         pixel_pitch_um=2.90,  # Sony STARVIS IMX462 datasheet
         default_lens_key="16mm",
@@ -357,6 +389,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         raw_size=(1920, 1080),
         analog_gain=30.0,
         digital_gain=1.0,  # TODO: find optimum value
+        calibration_analogue_gain=29.51209259033203,  # shares the imx462 driver
         bit_depth=12,
         pixel_pitch_um=2.90,  # Same sensor family as imx462
         default_lens_key="16mm",
@@ -399,6 +432,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         raw_size=(2028, 1520),  # Smaller size auto-selects sensor binning
         analog_gain=22.0,  # Cedar uses this value
         digital_gain=13.0,  # Initial tests show higher values don't help much
+        calibration_analogue_gain=21.787233352661133,  # delivered for a request of 22
         bit_depth=12,
         # IMX477's native pitch is 1.55; the 2028x1520 mode above 2x2-bins it.
         pixel_pitch_um=3.10,
