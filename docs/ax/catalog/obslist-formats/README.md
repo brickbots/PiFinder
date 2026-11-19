@@ -133,6 +133,7 @@ like `"Galaxy"`. The canonical set is defined by `OBJ_TYPES` in
 | `PN` | Planetary nebula | | `Kt` | Knot |
 | `DN` | Dark nebula | | `Pla` | Planet |
 | `C+N` | Cluster + nebula | | `CM` | Comet |
+| `AS` | Asteroid | | | |
 | | | | `?` | Unknown |
 
 A code drives two things: the symbol drawn next to the object, and the **Type**

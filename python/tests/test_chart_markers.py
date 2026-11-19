@@ -51,6 +51,13 @@ class _StubCatalogs:
     def __init__(self, objects, dirty_time=1.0):
         self._objects = objects
         self.catalog_filter = SimpleNamespace(dirty_time=dirty_time)
+        self.filtered_catalogs = []
+
+    def get_catalogs(self, only_selected=True):
+        return ["selected"] if only_selected else ["selected", "other"]
+
+    def filter_catalogs(self, catalogs=None):
+        self.filtered_catalogs.append(catalogs)
 
     def get_objects(self, only_selected=True, filtered=True):
         return list(self._objects)
@@ -134,6 +141,14 @@ class TestNearbyMarkerSelection:
         # Bump dirty_time -> index rebuilds and reflects the new set.
         cats.catalog_filter.dirty_time = 2.0
         assert {o.object_id for o in chart._get_nearby_markers()} == {2}
+
+    def test_filters_selected_catalogs_first(self):
+        # Object lists filter only the catalogs they show, so the chart must
+        # bring the selected catalogs up to date before it reads them.
+        cats = _StubCatalogs([_dso(1, 0.0, 0.0, mag=8.0)])
+        chart = _chart(cats, _solution(0.0, 0.0), fov=5.0)
+        chart._get_nearby_markers()
+        assert cats.filtered_catalogs == [["selected"]]
 
     def test_no_catalogs_returns_empty(self):
         chart = _chart(None, _solution(0.0, 0.0), fov=5.0)

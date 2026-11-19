@@ -22,58 +22,44 @@ Maintainers can make `fresh` root on `main` automatically per clone (without cha
 git remote set-head origin main
 ```
 
-**Initialise the `tetra3` submodule in every new worktree.** `python/PiFinder/tetra3` is a git submodule (the `cedar-solve`/Tetra3 solver); the importable package is its inner `tetra3/tetra3/` dir, and `import tetra3` resolves it through the symlink `python/tetra3 -> PiFinder/tetra3/tetra3`. That symlink is deliberately **untracked** (see ADR 0035 — tracking it broke `git pull` on fielded units), so in every fresh clone or worktree create it by hand alongside initialising the submodule. `git worktree add` / `EnterWorktree` does **not** populate submodules, so a fresh worktree starts with an empty submodule dir. Any test that imports the solver then fails with `ModuleNotFoundError: No module named 'tetra3'` (or `cedar_detect_pb2`) — this is a missing checkout, **not** a code problem, so don't reach for `PYTHONPATH` hacks. Fix it once per worktree:
-
-```bash
-git submodule update --init python/PiFinder/tetra3
-ln -sfn PiFinder/tetra3/tetra3 python/tetra3
-```
-
-mypy also needs this: its config points at `python/PiFinder/tetra3/tetra3`, so `nox -s type_hints` can't run in a worktree until the submodule is initialised.
+**No tetra3 submodule on this branch.** Unlike upstream `main`, the solver
+(`cedar-solve`/Tetra3) is an ordinary uv dependency (pinned git rev in
+`python/pyproject.toml`), so worktrees need no `git submodule` step.
 
 ## Development Commands
 
-**Running Python**
-Developers may have created virtual environments in directories like ".venv" or "venv". Make sure these virtual
-environments are activated before any of the python based tools below.
+**This branch uses uv2nix (pyproject.toml + uv.lock), not nox/requirements*.txt.**
+All Python tooling comes from the flake dev shell (`nix develop`, or direnv with
+the repo's `.envrc`). The shell is built from `python/uv.lock`, the same Nix
+environment as the PiFinder service. Do not run `uv sync`: it builds a separate
+`.venv` of manylinux wheels, and on NixOS those fail to load `libstdc++`.
 
-**Development workflow uses Nox for task automation:**
-```bash
-nox -s lint          # Code linting with Ruff (auto-fixes issues)
-nox -s format        # Code formatting with Ruff
-nox -s type_hints    # Type checking with MyPy
-nox -s smoke_tests   # Quick functionality validation
-nox -s unit_tests    # Full unit test suite
-nox -s babel         # I18n message extraction and compilation
-nox -s web_tests     # Testing the webserver, see below
-```
+`python/scripts/check.sh` runs every check. It enters the dev shell by itself
+when needed. CI (`.github/workflows/nox.yml`, which keeps the upstream "nox"
+check name) and the pre-commit hooks call this script, so local runs and CI
+run the same commands with the same tools.
 
-**Direct testing with pytest:**
-```bash
-pytest -m smoke      # Smoke tests for core functionality
-pytest -m unit       # Unit tests for isolated components
-pytest -m integration # End-to-end integration tests
-```
-
-**Development setup:**
 ```bash
 cd python/
-python3.9 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install -r requirements_dev.txt
+scripts/check.sh              # all checks: lint, types, smoke, unit, integration
+scripts/check.sh lint         # ruff check + ruff format --check
+scripts/check.sh format       # ruff format (writes the files)
+scripts/check.sh types        # mypy PiFinder
+scripts/check.sh unit         # pytest -m unit (also: smoke, integration)
 ```
-If the .venv dir already exists, you can directly source it and run the app.
 
-
-Watch out for .venv directories containing virtual environments, that you need to activate first. 
+The integration stage skips the web tests, which need Selenium and a running
+PiFinder. The pytest stages run with an empty temporary HOME, as on a CI
+runner, so they never see your `~/PiFinder_data`. Ruff is pinned in the uv `dev` group (0.4.8, the pin of upstream
+main's noxfile). To change a dependency, edit `pyproject.toml` and run `uv lock`
+inside the dev shell. The shell sets `UV_NO_SYNC` and `UV_PROJECT_ENVIRONMENT`
+so `uv` uses the Nix environment and never creates `.venv`.
 
 **Running the application:**
 
-First start the `cedar-detect-server` which is in `bin` (you need to use `-p 50551`, when invoking it).
-Use the correct architecture suffix for cedar-detect-server according to the platform you're running on. 
+First start the `cedar-detect-server`, which is on the dev shell `PATH` (use
+`-p 50551` when you start it).
 
-Development setup has to have run and you should be in .venv virtual environment
 ```bash
 cd python/
 python -m PiFinder.main [options]
@@ -81,7 +67,7 @@ python -m PiFinder.main [options]
 Usual startup:
 
 ```bash
-python3.9 -m PiFinder.main -fh --camera debug --keyboard local -x
+python -m PiFinder.main -fh --camera debug --keyboard local -x
 ```
 
 ## Reference Documentation
@@ -166,6 +152,7 @@ Tests use pytest with custom markers for different test types. The smoke tests p
 **Testing Framework:** Uses Selenium WebDriver with Pytest for automated browser testing of the web interface
 
 **Infrastructure Requirements:**
+- Dev shell `nix develop .#web`: the default dev shell plus Chromium and chromedriver from the pinned nixpkgs. It sets `CHROME_BINARY`. The web test workflow uses it.
 - Selenium Grid server at localhost:4444 (configurable via SELENIUM_GRID_URL environment variable). 
   This server is started outside of the test code, for maximum flexibility
 - Chrome browser in headless mode for test execution
@@ -192,6 +179,39 @@ Tests use pytest with custom markers for different test types. The smoke tests p
 - **Linting:** Ruff with Python 3.9 target, Black-compatible formatting
 - **Type Checking:** MyPy with gradual typing adoption
 - **Code Style:** 88-character line length, double quotes, space indentation
+- **Comments:** describe what the code does now, not how it changed. No "previously / no longer / used to / moved from" — history lives in git/jj, not in comments.
 - **I18n Support:** Babel integration for multi-language UI
 
 The codebase follows modern Python practices with type hints, comprehensive testing, and automated code quality checks integrated into the development workflow.
+
+## NixOS Development
+
+**CRITICAL: Never run `nix build` or `nix eval` on Pi 4 targets.** The Pi 4 lacks sufficient resources and will hang/crash. Always build on pi5.local (GitHub Actions runner), push to Attic, then trigger the upgrade service:
+```bash
+# Build on pi5
+ssh pi5.local 'nix build --no-link --print-out-paths github:mrosseel/PiFinder/nixos#nixosConfigurations.pifinder.config.system.build.toplevel'
+# Push to Attic (so Pi can download signed paths)
+ssh pi5.local 'attic push pifinder:pifinder <store-path>'
+# Trigger upgrade on target Pi (downloads from Attic, activates, reboots)
+ssh pifinder@<target-ip> 'echo "<store-path>" > /run/pifinder/upgrade-ref && sudo systemctl start --no-block pifinder-upgrade.service'
+# Monitor progress
+ssh pifinder@<target-ip> 'cat /run/pifinder/upgrade-status'
+```
+
+**Netboot deployment (dev Pi on proxnix NFS):**
+```bash
+./deploy-image-to-nfs.sh    # Build and deploy to NFS
+```
+
+**Power control (Shelly plug via Home Assistant):**
+```bash
+~/.local/bin/pifinder-power-off.sh   # Turn off PiFinder
+~/.local/bin/pifinder-power-on.sh    # Turn on PiFinder
+```
+
+**Check Pi status:**
+```bash
+ssh pifinder@192.168.5.146           # SSH to netboot Pi
+systemctl status pifinder            # Check service status
+journalctl -u pifinder -f            # Follow service logs
+```

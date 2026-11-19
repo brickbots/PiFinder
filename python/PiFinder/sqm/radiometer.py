@@ -109,6 +109,7 @@ def collect_radiometer_sample(
     captured_at: float,
     border_fraction: float = 0.10,
     stride: int = 4,
+    optical_black_pedestal: Optional[float] = None,
     analogue_gain: Optional[float] = None,
 ) -> Optional[dict]:
     """Reduce a raw frame to a robust sky-background sample.
@@ -169,6 +170,8 @@ def collect_radiometer_sample(
     if red is not None:
         sample["background_red"] = red
         sample["background_green"] = green
+    if optical_black_pedestal is not None and np.isfinite(optical_black_pedestal):
+        sample["optical_black_pedestal"] = float(optical_black_pedestal)
     gain = _usable_gain(analogue_gain)
     if gain is not None:
         sample["analogue_gain"] = gain
@@ -210,6 +213,8 @@ def radiometric_sqm(
     *,
     pedestal: Optional[float] = None,
     field_width_degrees: Optional[float] = None,
+    floor: float = 0.0,
+    zero_point: Optional[float] = None,
 ) -> tuple[Optional[float], dict]:
     """Convert one camera sample directly to SQM-L-equivalent brightness.
 
@@ -227,21 +232,27 @@ def radiometric_sqm(
         pedestal = float(profile.bias_offset)
     if field_width_degrees is None:
         field_width_degrees = optical_train_for_profile(profile).fov_degrees
-    signal = background - pedestal
+    signal = background - pedestal - floor * exposure_sec
     gain_ratio = analogue_gain_ratio(sample, profile)
     signal /= gain_ratio
+    effective_zero_point = (
+        float(zero_point)
+        if zero_point is not None
+        else float(profile.radiometric_zero_point)
+    )
     details = {
         **sample,
         "pedestal": pedestal,
         "analogue_gain_ratio": gain_ratio,
+        "skyglow_floor": floor,
         "background_corrected": signal,
-        "radiometric_zero_point": profile.radiometric_zero_point,
+        "radiometric_zero_point": effective_zero_point,
         "radiometric_fov_degrees": field_width_degrees,
     }
     if signal <= 1.0:
         details["failure_reason"] = "background_not_resolved_above_pedestal"
         return None, details
-    if not profile.radiometric_zero_point or not field_width_degrees:
+    if not effective_zero_point or not field_width_degrees:
         details["failure_reason"] = "radiometric_factory_calibration_unavailable"
         return None, details
 
@@ -249,26 +260,36 @@ def radiometric_sqm(
     # zero point moves with it. Slope 0 (mono, or an IR-cut sensor with no NIR
     # leak to correct) leaves this a plain constant. R/G is clamped to the
     # calibrated range rather than extrapolated off the end of the fit.
-    zero_point = float(profile.radiometric_zero_point)
+    applied_zero_point = effective_zero_point
     slope = float(getattr(profile, "radiometric_colour_slope", 0.0) or 0.0)
     red = sample.get("background_red")
     green = sample.get("background_green")
-    if slope and red is not None and green is not None and (green - pedestal) > 1.0:
+    if (
+        zero_point is None
+        and slope
+        and red is not None
+        and green is not None
+        and (green - pedestal) > 1.0
+    ):
         ratio = (red - pedestal) / (green - pedestal)
         lo, hi = profile.radiometric_colour_range
         clamped = min(max(ratio, lo), hi)
-        zero_point += slope * (clamped - profile.radiometric_colour_pivot)
+        applied_zero_point += slope * (clamped - profile.radiometric_colour_pivot)
         details["sky_red_over_green"] = ratio
         details["sky_red_over_green_clamped"] = clamped
     # radiometric_zero_point keeps meaning the profile constant, so archives
     # stay comparable across this change; the applied value is reported
     # alongside it and is always present, corrected or not.
-    details["radiometric_zero_point_effective"] = zero_point
+    details["radiometric_zero_point_effective"] = applied_zero_point
 
     pixels_per_side = int(sample["pixels_per_side"])
     arcsec_squared_per_pixel = (field_width_degrees * 3600.0) ** 2 / pixels_per_side**2
     flux_density = signal / arcsec_squared_per_pixel
-    value = zero_point + 2.5 * math.log10(exposure_sec) - 2.5 * math.log10(flux_density)
+    value = (
+        applied_zero_point
+        + 2.5 * math.log10(exposure_sec)
+        - 2.5 * math.log10(flux_density)
+    )
     details.update(
         {
             "background_flux_density": flux_density,
@@ -313,16 +334,18 @@ class RadiometerAccumulator:
             age = now - float(sample["captured_at"])
             if age < 0 or age > self.max_age_seconds:
                 continue
-            pedestal = (
-                pedestal_for_exposure(float(sample["exposure_sec"]))
-                if pedestal_for_exposure is not None
-                else None
-            )
+            pedestal = sample.get("paired_pedestal")
+            if pedestal is None and pedestal_for_exposure is not None:
+                pedestal = pedestal_for_exposure(float(sample["exposure_sec"]))
+            sample_floor = float(sample.get("spectral_floor", 0.0))
+            sample_zero_point = sample.get("paired_radiometric_zero_point")
             value, details = radiometric_sqm(
                 sample,
                 profile,
                 pedestal=pedestal,
                 field_width_degrees=field_width_degrees,
+                floor=sample_floor,
+                zero_point=sample_zero_point,
             )
             if value is not None:
                 values.append(value)

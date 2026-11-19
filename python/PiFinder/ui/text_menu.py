@@ -8,6 +8,7 @@ This module contains all the UI Module classes
 from typing import Union
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.layout import carousel_layout
+from PiFinder.ui.ui_utils import draw_text_cached
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 
 
@@ -61,24 +62,31 @@ class UITextMenu(UIModule):
                     _("Select None")
                 ] + self._menu_items  # TRANSLATORS: catalog filter deselect all
             else:
-                stored_value = self.config_object.get_option(config_option)
-                if stored_value is None and self.item_definition.get("value_callback"):
-                    # The option is unset and this menu knows how to work out
-                    # its own default (typically from detected hardware, where
-                    # a single written-down default would be wrong on some
-                    # devices). Keep what value_callback already resolved.
-                    stored_value = (
-                        self._selected_values[0] if self._selected_values else None
-                    )
-                self._selected_values = [stored_value]
-                if self._selected_values == [None]:
-                    # default to the first option... just in case
-                    self._selected_values = [self.item_definition["items"][0]["value"]]
+                self._sync_single_selection(config_option)
 
-                # Set current item index based on selection
-                for i, _item in enumerate(self.item_definition["items"]):
-                    if _item["value"] == self._selected_values[0]:
-                        self._current_item_index = i
+    def _sync_single_selection(self, config_option):
+        """Match the highlight/checkmark to the stored config value."""
+        stored_value = self.config_object.get_option(config_option)
+        if stored_value is None and self.item_definition.get("value_callback"):
+            # Hardware-dependent menus calculate their default through the
+            # callback; preserve that value until the option is explicitly set.
+            stored_value = self._selected_values[0] if self._selected_values else None
+        self._selected_values = [stored_value]
+        if self._selected_values == [None]:
+            # default to the first option... just in case
+            self._selected_values = [self.item_definition["items"][0]["value"]]
+
+        # Set current item index based on selection
+        for i, _item in enumerate(self.item_definition["items"]):
+            if _item["value"] == self._selected_values[0]:
+                self._current_item_index = i
+
+    def active(self):
+        # Re-read config so the highlight tracks values changed while a
+        # submenu was open (e.g. returning from Fallback/Custom shape pickers).
+        config_option = self.item_definition.get("config_option")
+        if config_option and self._menu_type != "multi":
+            self._sync_single_selection(config_option)
 
     def update(self, force=False):
         # clear screen
@@ -110,21 +118,24 @@ class UITextMenu(UIModule):
                 except Exception:
                     suffix = ""
 
-            self.draw.text(
+            # Cached glyphs: the menu draws the same lines on every frame.
+            draw_text_cached(
+                self.screen,
                 (layout.text_x, row.y),
                 _(item_text) + suffix,  # I18N: translate item for display, add suffix
-                font=row.font.font,
-                fill=self.colors.get(row.brightness),
+                row.font.font,
+                self.colors.get(row.brightness),
             )
             if (
                 item_def is not None
                 and item_def.get("value", "--") in self._selected_values
             ):
-                self.draw.text(
+                draw_text_cached(
+                    self.screen,
                     (layout.check_x, row.y),
                     self._CHECKMARK,
-                    font=row.font.font,
-                    fill=self.colors.get(row.brightness),
+                    row.font.font,
+                    self.colors.get(row.brightness),
                 )
 
         return self.screen_update()

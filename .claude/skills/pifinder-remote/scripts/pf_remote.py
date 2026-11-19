@@ -43,7 +43,9 @@ import subprocess
 import sys
 import tempfile
 import time
+import http.cookiejar
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -132,25 +134,51 @@ def base_url(args):
     return f"http://127.0.0.1:{getattr(args, 'port', DEFAULT_PORT)}"
 
 
-def http_get(url, timeout=15):
-    req = urllib.request.Request(url, method="GET")
+# One cookie jar for the process, so the Web UI login session is sent with
+# every request after login().
+_OPENER = urllib.request.build_opener(
+    urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+)
+
+
+def _open(req, timeout):
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with _OPENER.open(req, timeout=timeout) as r:
             return r.status, r.read()
     except urllib.error.HTTPError as e:
         return e.code, e.read()
+
+
+def http_get(url, timeout=15):
+    return _open(urllib.request.Request(url, method="GET"), timeout)
+
+
+def login(base, timeout=15):
+    """Log in to the Web UI. The password comes from PIFINDER_PASSWORD
+    (default "solveit"). A headless dev run accepts any password."""
+    form = urllib.parse.urlencode(
+        {"password": os.environ.get("PIFINDER_PASSWORD", "solveit")}
+    ).encode("utf-8")
+    req = urllib.request.Request(base + "/login", data=form, method="POST")
+    return _open(req, timeout)
 
 
 def http_post(url, payload, timeout=15):
+    """POST JSON. On a 401, log in once and send the request again."""
     data = json.dumps(payload if payload is not None else {}).encode("utf-8")
-    req = urllib.request.Request(
-        url, data=data, method="POST", headers={"Content-Type": "application/json"}
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return r.status, r.read()
-    except urllib.error.HTTPError as e:
-        return e.code, e.read()
+
+    def send():
+        req = urllib.request.Request(
+            url, data=data, method="POST", headers={"Content-Type": "application/json"}
+        )
+        return _open(req, timeout)
+
+    status, body = send()
+    if status == 401:
+        parts = urllib.parse.urlsplit(url)
+        login(f"{parts.scheme}://{parts.netloc}", timeout)
+        status, body = send()
+    return status, body
 
 
 def wait_ready(base, timeout=60.0, interval=1.0):

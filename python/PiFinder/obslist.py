@@ -267,17 +267,17 @@ def _name_key(name: str) -> tuple:
 
 def _build_name_index(catalogs: Catalogs) -> dict:
     """
-    Map every catalog object's names to the object, for name-based resolution.
-    The key is _name_key, so spacing/case variants like "NGC 6205" and
-    "NGC6205" collapse together. First writer wins, so a name resolves to one
-    stable object.
+    Map every catalog object's names to a function that returns the object,
+    for name-based resolution; the object is made only for a name that an
+    entry uses. The key is _name_key, so spacing/case variants like
+    "NGC 6205" and "NGC6205" collapse together. First writer wins, so a name
+    resolves to one stable object.
     """
     index: dict = {}
-    for obj in catalogs.get_objects(only_selected=False, filtered=False):
-        for nm in obj.names:
-            key = _name_key(nm)
-            if key[0] and key not in index:
-                index[key] = obj
+    for name, resolve in catalogs.iter_names():
+        key = _name_key(name)
+        if key[0] and key not in index:
+            index[key] = resolve
     return index
 
 
@@ -300,9 +300,9 @@ def resolve_by_name(name: str, name_index: dict):
     if designation:
         keys.append(_name_key(designation))
     for key in keys:
-        obj = name_index.get(key)
-        if obj:
-            return obj
+        resolve = name_index.get(key)
+        if resolve:
+            return resolve()
     return None
 
 

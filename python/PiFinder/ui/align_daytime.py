@@ -166,7 +166,7 @@ class UIAlignDaytime(UIModule):
         if force:
             self.last_update = 0.0
 
-        metadata = self.shared_state.last_image_metadata()
+        metadata = self.snapshot.last_image_metadata()
         last_image_time = metadata["exposure_end"]
 
         if last_image_time > self.last_update or force:
@@ -240,7 +240,7 @@ class UIAlignDaytime(UIModule):
     def _exposure_text(self):
         if self.exposure_mode == "auto":
             return _("AUTO")
-        metadata = self.shared_state.last_image_metadata()
+        metadata = self.snapshot.last_image_metadata()
         exp = metadata.get("exposure_time")
         if exp:
             exp_sec = exp / 1_000_000

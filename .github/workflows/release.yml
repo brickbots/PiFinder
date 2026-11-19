@@ -66,18 +66,18 @@ jobs:
         id: sha
         run: echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Ensure nix is on PATH (self-hosted runner)
-        run: |
-          echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
-          echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
+      # The shared CI action and scripts come from the ref that runs this
+      # workflow, because the source to build can be another repo or branch.
+      - uses: actions/checkout@v4
+        with:
+          path: .ci
+          sparse-checkout: .github
+          persist-credentials: false
 
-      - name: Setup Attic caches (cache.pifinder.io)
-        env:
-          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
-        run: |
-          nix profile install nixpkgs#attic-client
-          attic login pifinder https://cache.pifinder.io "$ATTIC_TOKEN"
-          attic use pifinder:pifinder
+      - uses: ./.ci/.github/actions/setup-nix
+        with:
+          attic-token: ${{ secrets.ATTIC_TOKEN }}
+          self-hosted: "true"
 
       - name: Build and push release closure to Attic
         id: push
@@ -93,6 +93,9 @@ jobs:
             attic push pifinder:pifinder-release "$STORE_PATH"
           fi
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Push dev shell to the cache
+        run: .ci/.github/scripts/push_dev_shell.sh aarch64-linux
 
       # Lean image: the system and an empty PiFinder_data.
       - name: Build SD image
@@ -163,21 +166,17 @@ jobs:
         id: sha
         run: echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - uses: DeterminateSystems/nix-installer-action@main
+      # The shared CI action and scripts come from the ref that runs this
+      # workflow, because the source to build can be another repo or branch.
+      - uses: actions/checkout@v4
         with:
-          determinate: false
-          extra-conf: |
-            extra-system-features = big-parallel
-            extra-substituters = https://cache.pifinder.io/pifinder
-            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+          path: .ci
+          sparse-checkout: .github
+          persist-credentials: false
 
-      - name: Setup Attic caches (cache.pifinder.io)
-        env:
-          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
-        run: |
-          nix profile install nixpkgs#attic-client
-          attic login pifinder https://cache.pifinder.io "$ATTIC_TOKEN"
-          attic use pifinder:pifinder
+      - uses: ./.ci/.github/actions/setup-nix
+        with:
+          attic-token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: Build and push release closure to Attic
         id: push
@@ -190,6 +189,9 @@ jobs:
             attic push pifinder:pifinder-release "$STORE_PATH"
           fi
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Push dev shell to the cache
+        run: .ci/.github/scripts/push_dev_shell.sh aarch64-linux
 
       # Lean image: the system and an empty PiFinder_data.
       - name: Build SD image
