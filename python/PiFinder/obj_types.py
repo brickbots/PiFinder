@@ -21,6 +21,8 @@ OBJ_TYPES = {
     "Ast": _("Asterism"),  # TRANSLATORS: Object type
     "Pla": _("Planet"),  # TRANSLATORS: Object type
     "CM": _("Comet"),  # TRANSLATORS: Object type
+    "AS": _("Asteroid"),  # TRANSLATORS: Object type
+    "Sat": _("Satellite"),  # TRANSLATORS: Object type
     "?": _("Unkn"),  # TRANSLATORS: Object type
 }
 
@@ -34,6 +36,8 @@ OBJ_TYPE_MARKERS = {
     "***": "dstar",
     "Ast": "ast",
     "Pla": "planet",
+    "AS": "asteroid",
+    "Sat": "sat",
 }
 
 # abbreviations and symbols as used in the NGC/IC catalogues

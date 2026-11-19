@@ -21,6 +21,7 @@ import pytest
 import PiFinder.i18n  # noqa: F401  installs the _() gettext builtin
 from PiFinder.displays import get_display
 from PiFinder.state import Location
+from PiFinder.state_snapshot import StateSnapshot
 from PiFinder.ui import callbacks
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.timeentry import UITimeEntry
@@ -28,23 +29,23 @@ from PiFinder.ui.timeentry import UITimeEntry
 pytestmark = pytest.mark.unit
 
 
-def _make_shared_state(location: Location):
-    """A stub shared_state exposing just what the entry modules touch."""
+def _make_shared_state():
+    """A stub shared_state with the proxy calls the entry modules make."""
     return SimpleNamespace(
         ui_state=lambda: MagicMock(),
-        location=lambda: location,
-        local_datetime=lambda: None,  # UIDateEntry pre-fills from this
         set_screen=lambda *a, **k: None,
     )
 
 
 def _build(module_cls, location: Location):
-    """Construct a real entry module on a headless display with a stub state."""
+    """Construct a real entry module on a headless display with a stub state.
+    The module reads the location from its snapshot; with no datetime set,
+    ``local_datetime()`` is None, which UIDateEntry pre-fills from."""
     display = get_display("headless")
-    return module_cls(
+    module = module_cls(
         display,
         None,  # camera_image
-        _make_shared_state(location),
+        _make_shared_state(),
         {},  # command_queues
         MagicMock(),  # config_object
         MagicMock(),  # catalogs
@@ -52,6 +53,8 @@ def _build(module_cls, location: Location):
         add_to_stack=MagicMock(),
         remove_from_stack=MagicMock(),
     )
+    module.snapshot = StateSnapshot({"location": location})
+    return module
 
 
 _LOCKED = Location(lock=True, timezone="America/New_York")
@@ -132,7 +135,7 @@ def test_set_time_survives_a_fix_with_no_resolvable_timezone():
     gps_queue = MagicMock()
     ui_module = MagicMock()
     ui_module.command_queues = {"gps": gps_queue}
-    ui_module.shared_state.location.return_value = Location(lock=True, timezone=None)
+    ui_module.snapshot = StateSnapshot({"location": Location(lock=True, timezone=None)})
     ui_module.item_definition = {"time_str": "21:30:00"}
 
     callbacks.set_time(ui_module, "21:30:00")  # must not raise

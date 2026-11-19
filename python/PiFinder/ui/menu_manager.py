@@ -126,7 +126,7 @@ class MenuManager:
         self._stack_anim_counter: float = 0
         self._stack_anim_direction: int = 0
 
-        self.stack: list[type[UIModule]] = []
+        self.stack: list[UIModule] = []
         self.add_to_stack(menu_structure.pifinder_menu)
 
         self.marking_menu_stack: list[MarkingMenu] = []
@@ -138,6 +138,8 @@ class MenuManager:
 
         # This will be populated if we are in 'help' mode
         self.help_images: Union[None, list[Image.Image]] = None
+        # Last UI state written to shared state (see update_screen)
+        self._published_ui_state: Union[None, dict] = None
         self.help_image_index = 0
 
         # screenshot stuff
@@ -150,7 +152,7 @@ class MenuManager:
 
     def screengrab(self):
         self.ss_count += 1
-        filename = f"{self.stack[-1].__uuid__}_{self.ss_count :0>3}_{self.stack[-1].title.replace('/','-')}"
+        filename = f"{self.stack[-1].__uuid__}_{self.ss_count:0>3}_{self.stack[-1].title.replace('/', '-')}"
         ss_imagepath = self.ss_path + f"/{filename}.png"
         ss = self.shared_state.screen().copy()
         ss.save(ss_imagepath)
@@ -159,9 +161,9 @@ class MenuManager:
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
             self._stack_top_image = self.stack[-1].screen.copy()
-            self.stack[-1].inactive()  # type: ignore[call-arg]
+            self.stack[-1].inactive()
             self.stack.pop()
-            self.stack[-1].active()  # type: ignore[call-arg]
+            self.stack[-1].active()
             self._stack_anim_counter = time.time() + self.config_object.get_option(
                 "menu_anim_speed", 0
             )
@@ -195,7 +197,7 @@ class MenuManager:
         item dict
         """
         if item.get("state") is not None:
-            self.stack[-1].inactive()  # type: ignore[call-arg]
+            self.stack[-1].inactive()
             self.stack.append(item["state"])
         else:
             self.stack.append(
@@ -215,15 +217,15 @@ class MenuManager:
             if item.get("stateful", False):
                 item["state"] = self.stack[-1]
 
-        self.stack[-1].active()  # type: ignore[call-arg]
+        self.stack[-1].active()
         if len(self.stack) > 1:
             self._stack_anim_counter = time.time() + self.config_object.get_option(
                 "menu_anim_speed", 0
             )
             self._stack_anim_direction = -1
 
-    def message(self, message: str, timeout: float) -> None:
-        self.stack[-1].message(message, timeout)  # type: ignore[arg-type]
+    def message(self, message: str, timeout: float, size=None) -> None:
+        self.stack[-1].message(message, timeout, size=size)
 
     def jump_to_label(self, label: str) -> None:
         # to prevent many recent/object UI modules
@@ -235,7 +237,7 @@ class MenuManager:
             for stack_index, ui_module in enumerate(self.stack):
                 if ui_module.item_definition.get("label", "") == label:
                     self.stack = self.stack[: stack_index + 1]
-                    self.stack[-1].active()  # type: ignore[call-arg]
+                    self.stack[-1].active()
                     return
         # either this is not a special case, or we didn't find
         # the label already in the stack
@@ -294,7 +296,7 @@ class MenuManager:
             return
 
         # Business as usual, update the module at the top of the stack
-        self.stack[-1].update()  # type: ignore[call-arg]
+        self.stack[-1].update()
 
         # are we animating?
         if self._stack_anim_counter > time.time():
@@ -334,18 +336,23 @@ class MenuManager:
         """
         screen_to_display = screen_image.convert(self.display_class.device.mode)
 
-        # Always update the logical UI state so the API reflects the current stack top,
-        # even while a visual message popup is displayed.
+        # Keep the logical UI state current so the API reflects the stack
+        # top, even while a visual message popup is displayed. Each write is
+        # a round trip to the shared-state process, so write only a change.
         if self.shared_state:
-            self.shared_state.set_current_ui_state(self.serialize_current_ui_state())
+            ui_state = self.serialize_current_ui_state()
+            if ui_state != self._published_ui_state:
+                self.shared_state.set_current_ui_state(ui_state)
+                self._published_ui_state = ui_state
 
-        if time.time() < self.ui_state.message_timeout():
+        if time.time() < UIModule.message_until:
             return None
 
         self.display_class.device.display(screen_to_display)
+        UIModule.frame_rate.tick()
 
         if self.shared_state:
-            self.shared_state.set_screen(screen_to_display)
+            UIModule.publish_screen(self.shared_state, screen_to_display)
 
     def key_number(self, number):
         if self.help_images is not None:
@@ -402,6 +409,9 @@ class MenuManager:
         pass
 
     def key_long_right(self):
+        if getattr(self.stack[-1], "holds_arrows", False):
+            # The screen moves something while RIGHT is held.
+            return
         # jump to recent objects
         if self.stack[-1].item_definition.get("label") != "object_details":
             recent_list = self.ui_state.recent_list()
@@ -415,10 +425,23 @@ class MenuManager:
                 }
                 self.add_to_stack(object_item_definition)
 
+    def arrow_hold(self, direction: str) -> None:
+        """An arrow is held down: "up", "down", "left" or "right"."""
+        if self.help_images is not None or self.marking_menu_stack:
+            return
+        self.stack[-1].arrow_hold(direction)
+
+    def arrow_hold_end(self) -> None:
+        """The held arrow was released."""
+        self.stack[-1].arrow_hold_end()
+
     def key_long_left(self):
         """
         Return to top of menu
         """
+        if getattr(self.stack[-1], "holds_arrows", False):
+            # The screen moves something while LEFT is held.
+            return
         if self.help_images is not None:
             # Exit help
             self.help_images = None

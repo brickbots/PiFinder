@@ -1,15 +1,22 @@
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
+# Each hook runs python/scripts/check.sh, the same script and dev shell as CI.
 repos:
-  - repo: https://github.com/saltstack/mirrors-nox
-    rev: 'v2022.11.21'  # Use the sha / tag you want to point at
+  - repo: local
     hooks:
-      - id: nox
-        files: ^.*\.py$
-        args:
-          - -f
-          - python/noxfile.py
-          - -s
-          - type_hints
-          - smoke_tests
-          - --
+      - id: ruff
+        name: ruff lint and format check
+        entry: python/scripts/check.sh lint
+        language: system
+        files: ^python/.*\.py$
+        pass_filenames: false
+      - id: mypy
+        name: mypy type check
+        entry: python/scripts/check.sh types
+        language: system
+        files: ^python/.*\.py$
+        pass_filenames: false
+      - id: smoke-tests
+        name: smoke tests
+        entry: python/scripts/check.sh smoke
+        language: system
+        files: ^python/.*\.py$
+        pass_filenames: false

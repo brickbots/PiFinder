@@ -8,7 +8,6 @@ and constelleations
 import logging
 import os
 import numpy as np
-import pandas
 from pathlib import Path
 from typing import Optional, Sequence, Tuple
 from PiFinder import utils
@@ -19,9 +18,12 @@ from skyfield.api import Star, load, Angle
 from skyfield.data import hipparcos, stellarium
 from skyfield.projections import build_stereographic_projection
 from PiFinder.calc_utils import sf_utils
+from PiFinder.lazy_import import lazy_module
 
 
 logger = logging.getLogger("Plot")
+
+pandas = lazy_module("pandas")
 
 # Below this ratio of camera field to chart field there is no frustum worth
 # drawing: the box would be within a pixel or two of the chart edge, so it
@@ -489,9 +491,9 @@ class Starfield:
             # Keep edges where at least one endpoint is on-screen.
             start_on = (sx_pos > 0) & (sx_pos < W) & (sy_pos > 0) & (sy_pos < H)
             end_on = (ex_pos > 0) & (ex_pos < W) & (ey_pos > 0) & (ey_pos < H)
-            for i in np.flatnonzero(start_on | end_on):
+            for edge_i in np.flatnonzero(start_on | end_on):
                 idraw.line(
-                    [sx_pos[i], sy_pos[i], ex_pos[i], ey_pos[i]],
+                    [sx_pos[edge_i], sy_pos[edge_i], ex_pos[edge_i], ey_pos[edge_i]],
                     fill=constellation_brightness,
                 )
 

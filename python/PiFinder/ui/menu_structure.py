@@ -20,7 +20,10 @@ from PiFinder.ui.obs_list import UIObsList
 from PiFinder.ui.locationentry import UILocationEntry
 from PiFinder.ui.radec_entry import UIRADecEntry
 from PiFinder.ui.telemetry_list import UITelemetryList
+from PiFinder.ui.lm_entry import UILMEntry
 import PiFinder.ui.callbacks as callbacks
+from PiFinder import indi_drivers, mount_settings, track_rates
+import PiFinder.ui.sat_groups as sat_groups
 
 
 # override locally the gettext marker function, i.e. the strings are not translated on load, but extracted. CHECK END OF FILE
@@ -35,6 +38,157 @@ s = _("Language: fr")
 s = _("Language: zh")
 s = s
 del s
+
+
+# Glyph-shape options for the obj-chart mark (sets obj_chart_crosshair_style).
+# Copy per use site (dict(d)) so each submenu gets its own item objects.
+_OBJ_CHART_SHAPE_ITEMS = [
+    {"name": _("Simple"), "value": "simple"},
+    {"name": _("Circle"), "value": "circle"},
+    {"name": _("Bullseye"), "value": "bullseye"},
+    {"name": _("Brackets"), "value": "brackets"},
+    {"name": _("Dots"), "value": "dots"},
+    {"name": _("Cross"), "value": "cross"},
+]
+
+# Experimental > Mount Control. The mount list comes from the installed INDI
+# driver files, grouped by manufacturer.
+_mount_manufacturers: dict[str, list[dict]] = {}
+for _mount_model in indi_drivers.mount_models():
+    _mount_manufacturers.setdefault(_mount_model.manufacturer, []).append(
+        {"name": _mount_model.label, "value": _mount_model.label}
+    )
+_mount_items = [
+    {
+        "name": manufacturer,
+        "class": UITextMenu,
+        "select": "single",
+        "config_option": "mount_control_model",
+        "post_callback": callbacks.mount_settings_changed,
+        "items": models,
+    }
+    for manufacturer, models in _mount_manufacturers.items()
+] or [{"name": _("No INDI drivers")}]
+_mount_control_menu = {
+    "name": _("Mount Control"),
+    "class": UITextMenu,
+    "select": "single",
+    # The connection screen of Object Details jumps here.
+    "label": "mount_settings",
+    "items": [
+        {
+            "name": _("Mount Control"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control",
+            "post_callback": callbacks.mount_settings_changed,
+            "items": [
+                {"name": _("Off"), "value": False},
+                {"name": _("On"), "value": True},
+            ],
+        },
+        {
+            "name": _("Mount"),
+            "class": UITextMenu,
+            "select": "single",
+            "items": _mount_items,
+        },
+        {
+            # What the direction keys and the arrows move to: the direction
+            # in the eyepiece view, or a fixed compass (N up, E left).
+            "name": _("Arrows"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control_arrows",
+            "items": [
+                {"name": _("Eyepiece view"), "value": "eyepiece"},
+                {"name": _("Compass"), "value": "compass"},
+            ],
+        },
+        {
+            # Auto: the lunar rate for the Moon, sidereal for the rest.
+            "name": _("Track Rate"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": track_rates.OPTION,
+            "post_callback": callbacks.mount_track_rate_changed,
+            "items": [
+                {"name": _("Auto"), "value": "auto"},
+                {"name": _("Sidereal"), "value": "sidereal"},
+                {"name": _("Lunar"), "value": "lunar"},
+                {"name": _("Solar"), "value": "solar"},
+            ],
+        },
+        {
+            # The longest wait of a satellite follow at its meet point.
+            "name": _("Max wait"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": mount_settings.MAX_WAIT_OPTION,
+            "post_callback": callbacks.mount_settings_changed,
+            "items": [
+                {
+                    "name": f"{minutes // 60} h" if minutes >= 60 else f"{minutes} min",
+                    "value": minutes,
+                }
+                for minutes in mount_settings.MAX_WAIT_CHOICES_MIN
+            ],
+        },
+        {
+            "name": _("Connection"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control_connection",
+            "post_callback": callbacks.mount_settings_changed,
+            "items": [
+                {"name": _("USB"), "value": "usb"},
+                {"name": _("WiFi"), "value": "wifi"},
+            ],
+        },
+        {
+            # Common mount access points. Other addresses: the Mount page of
+            # the web interface.
+            "name": _("WiFi Address"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control_address",
+            "post_callback": callbacks.mount_settings_changed,
+            "items": [
+                {"name": _("Driver default"), "value": ""},
+                {"name": "OnStep 192.168.0.1", "value": "192.168.0.1:9999"},
+                {"name": "SkyWatcher 192.168.4.1", "value": "192.168.4.1:11880"},
+            ],
+        },
+        {
+            "name": _("Port"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control_port",
+            "post_callback": callbacks.mount_settings_changed,
+            "items": [
+                {"name": port, "value": port}
+                for port in (
+                    "/dev/ttyUSB0",
+                    "/dev/ttyUSB1",
+                    "/dev/ttyACM0",
+                    "/dev/ttyACM1",
+                )
+            ],
+        },
+        {
+            "name": _("Baud Rate"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control_baud",
+            "post_callback": callbacks.mount_settings_changed,
+            "items": [
+                {"name": str(baud), "value": baud}
+                for baud in (9600, 19200, 38400, 57600, 115200)
+            ],
+        },
+    ],
+}
+
 
 pifinder_menu = {
     "name": "PiFinder",
@@ -91,16 +245,10 @@ pifinder_menu = {
                     "select": "single",
                     "items": [
                         {
-                            "name": _("Planets"),
+                            "name": _("Messier"),
                             "class": UIObjectList,
                             "objects": "catalog",
-                            "value": "PL",
-                        },
-                        {
-                            "name": _("Comets"),
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "CM",
+                            "value": "M",
                         },
                         {
                             "name": _("NGC"),
@@ -109,10 +257,10 @@ pifinder_menu = {
                             "value": "NGC",
                         },
                         {
-                            "name": _("Messier"),
+                            "name": _("Planets"),
                             "class": UIObjectList,
                             "objects": "catalog",
-                            "value": "M",
+                            "value": "PL",
                         },
                         {
                             "name": _("DSO..."),
@@ -192,6 +340,12 @@ pifinder_menu = {
                                     "value": "NGC",
                                 },
                                 {
+                                    "name": _("PK Planetary"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "PK",
+                                },
+                                {
                                     "name": _("Sharpless"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
@@ -260,6 +414,54 @@ pifinder_menu = {
                                 },
                             ],
                         },
+                        {
+                            "name": _("Small bodies..."),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": _("Comets"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "CM",
+                                },
+                                {
+                                    "name": _("Asteroids"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "MP",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Satellites..."),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": _("Satellites"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "SA",
+                                },
+                                {
+                                    "name": _("Sat groups"),
+                                    "class": UITextMenu,
+                                    "select": "multi",
+                                    "label": "sat_groups",
+                                    "values_callback": sat_groups.selected_groups,
+                                    "toggle_callback": sat_groups.toggle_group,
+                                    "update_callback": sat_groups.show_next_message,
+                                    "items": [
+                                        {
+                                            "name": _("Update now"),
+                                            "callback": sat_groups.update_now,
+                                        }
+                                    ]
+                                    + sat_groups.menu_items(),
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
@@ -312,6 +514,14 @@ pifinder_menu = {
                                 {
                                     "name": _("Comets"),
                                     "value": "CM",
+                                },
+                                {
+                                    "name": _("Asteroids"),
+                                    "value": "MP",
+                                },
+                                {
+                                    "name": _("Satellites"),
+                                    "value": "SA",
                                 },
                                 {
                                     "name": _("NGC"),
@@ -374,6 +584,10 @@ pifinder_menu = {
                                         {
                                             "name": _("NGC"),
                                             "value": "NGC",
+                                        },
+                                        {
+                                            "name": _("PK Planetary"),
+                                            "value": "PK",
                                         },
                                         {
                                             "name": _("Sharpless"),
@@ -942,6 +1156,150 @@ pifinder_menu = {
                     ],
                 },
                 {
+                    "name": _("Obj Chart..."),
+                    "class": UITextMenu,
+                    "select": "single",
+                    "label": "obj_chart_settings",
+                    "items": [
+                        {
+                            "name": _("Mark"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "obj_chart_mark",
+                            "config_option": "obj_chart_mark_source",
+                            "items": [
+                                {
+                                    "name": _("Standard"),
+                                    "value": "standard",
+                                },
+                                {
+                                    "name": _("Fallback"),
+                                    "value": "fallback",
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "label": "obj_chart_mark_fallback",
+                                    "config_option": "obj_chart_crosshair_style",
+                                    "pre_callback": callbacks.set_obj_chart_mark_fallback,
+                                    "items": [dict(d) for d in _OBJ_CHART_SHAPE_ITEMS],
+                                },
+                                {
+                                    "name": _("Custom"),
+                                    "value": "custom",
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "label": "obj_chart_mark_custom",
+                                    "config_option": "obj_chart_crosshair_style",
+                                    "pre_callback": callbacks.set_obj_chart_mark_custom,
+                                    "items": [dict(d) for d in _OBJ_CHART_SHAPE_ITEMS],
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Anim"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "obj_chart_crosshair",
+                            "config_option": "obj_chart_crosshair",
+                            "items": [
+                                {
+                                    "name": _("Off"),
+                                    "value": "off",
+                                },
+                                {
+                                    "name": _("On"),
+                                    "value": "on",
+                                },
+                                {
+                                    "name": _("Pulse"),
+                                    "value": "pulse",
+                                },
+                                {
+                                    "name": _("Fade"),
+                                    "value": "fade",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Style"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "obj_chart_style",
+                            "config_option": "obj_chart_crosshair_style",
+                            "items": [
+                                {
+                                    "name": _("Simple"),
+                                    "value": "simple",
+                                },
+                                {
+                                    "name": _("Circle"),
+                                    "value": "circle",
+                                },
+                                {
+                                    "name": _("Bullseye"),
+                                    "value": "bullseye",
+                                },
+                                {
+                                    "name": _("Brackets"),
+                                    "value": "brackets",
+                                },
+                                {
+                                    "name": _("Dots"),
+                                    "value": "dots",
+                                },
+                                {
+                                    "name": _("Cross"),
+                                    "value": "cross",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Speed"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "obj_chart_speed",
+                            "config_option": "obj_chart_crosshair_speed",
+                            "items": [
+                                {
+                                    "name": _("Fast (1s)"),
+                                    "value": "1.0",
+                                },
+                                {
+                                    "name": _("Medium (2s)"),
+                                    "value": "2.0",
+                                },
+                                {
+                                    "name": _("Slow (3s)"),
+                                    "value": "3.0",
+                                },
+                                {
+                                    "name": _("Very Slow (4s)"),
+                                    "value": "4.0",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Set LM"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "obj_chart_lm",
+                            "config_option": "obj_chart_lm_mode",
+                            "items": [
+                                {
+                                    "name": _("Auto"),
+                                    "value": "auto",
+                                },
+                                {
+                                    "name": _("Fixed"),
+                                    "value": "fixed",
+                                    "class": UILMEntry,
+                                    "mode": "lm_entry",
+                                    "config_option": "obj_chart_lm_fixed",
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
                     "name": _("Camera Exp"),
                     "class": UITextMenu,
                     "select": "single",
@@ -1254,12 +1612,17 @@ pifinder_menu = {
                 },
                 {"name": _("Console"), "class": UIConsole},
                 {"name": _("Software Upd"), "class": UISoftware},
-                {"name": _("Test Mode"), "callback": callbacks.activate_debug},
+                {
+                    "name": _("Test Mode"),
+                    "callback": callbacks.activate_debug,
+                    "name_suffix_callback": callbacks.test_mode_suffix,
+                },
                 {
                     "name": _("Experimental"),
                     "class": UITextMenu,
                     "select": "Single",
                     "items": [
+                        _mount_control_menu,
                         {
                             "name": _("Polar Align"),
                             "class": UIPolarAlign,
@@ -1271,41 +1634,80 @@ pifinder_menu = {
                             "select": "single",
                             "items": [
                                 {
+                                    "name": _("Dev Mode"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "dev_mode",
+                                    "items": [
+                                        {"name": _("Off"), "value": False},
+                                        {"name": _("On"), "value": True},
+                                    ],
+                                },
+                                {
+                                    "name": _("Show FPS"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "show_fps",
+                                    "post_callback": callbacks.apply_show_fps,
+                                    "items": [
+                                        {"name": _("Off"), "value": False},
+                                        {"name": _("On"), "value": True},
+                                    ],
+                                },
+                                {
+                                    "name": _("Screen Off"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "screen_off_timeout",
+                                    "items": [
+                                        {"name": _("Off"), "value": "Off"},
+                                        {"name": "30s", "value": "30s"},
+                                        {"name": "1m", "value": "1m"},
+                                        {"name": "10m", "value": "10m"},
+                                        {"name": "30m", "value": "30m"},
+                                    ],
+                                },
+                                {
                                     "name": _("Telemetry"),
                                     "class": UITextMenu,
                                     "select": "single",
                                     "items": [
                                         {
                                             "name": _("Record"),
+                                            "callback": callbacks.telemetry_record_toggle,
+                                            "name_suffix_callback": callbacks.telemetry_record_suffix,
+                                        },
+                                        {
+                                            "name": _("Sections"),
                                             "class": UITextMenu,
-                                            "select": "single",
-                                            "config_option": "telemetry_record",
-                                            "post_callback": callbacks.telemetry_record_toggle,
+                                            "select": "multi",
+                                            "config_option": "telemetry_sections",
+                                            "post_callback": callbacks.telemetry_section_toggle,
                                             "items": [
+                                                {"name": _("IMU"), "value": "imu"},
+                                                {"name": _("SQM"), "value": "sqm"},
+                                                {"name": _("Solves"), "value": "solve"},
                                                 {
-                                                    "name": _("Off"),
-                                                    "value": False,
+                                                    "name": _("Targets"),
+                                                    "value": "target",
                                                 },
                                                 {
-                                                    "name": _("On"),
-                                                    "value": True,
+                                                    "name": _("Images"),
+                                                    "value": "images",
                                                 },
                                             ],
                                         },
                                         {
-                                            "name": _("Images"),
+                                            "name": _("Max Size"),
                                             "class": UITextMenu,
                                             "select": "single",
-                                            "config_option": "telemetry_images",
+                                            "config_option": "telemetry_max_session_mb",
                                             "items": [
-                                                {
-                                                    "name": _("Off"),
-                                                    "value": False,
-                                                },
-                                                {
-                                                    "name": _("On"),
-                                                    "value": True,
-                                                },
+                                                {"name": _("250 MB"), "value": 250},
+                                                {"name": _("500 MB"), "value": 500},
+                                                {"name": _("1 GB"), "value": 1024},
+                                                {"name": _("2 GB"), "value": 2048},
+                                                {"name": _("Unlimited"), "value": 0},
                                             ],
                                         },
                                         {

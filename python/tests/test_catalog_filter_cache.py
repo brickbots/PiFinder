@@ -157,6 +157,33 @@ def test_object_mutation_applied_after_mark_dirty(catalog):
     assert _sequences(catalog.filter_objects()) == [1, 3]
 
 
+@pytest.mark.unit
+def test_dynamic_content_change_refilters_only_changed_catalog():
+    changed = Catalog("DYN", "dynamic")
+    unchanged = Catalog("STATIC", "static")
+    changed.add_object(_make_obj(1, mag=5.0, catalog_code="DYN"))
+    unchanged.add_object(_make_obj(1, mag=5.0, catalog_code="STATIC"))
+    catalog_filter = CatalogFilter(shared_state=FakeSharedState(), magnitude=10.0)
+    catalogs = Catalogs([changed, unchanged])
+    catalogs.set_catalog_filter(catalog_filter)
+    catalogs.filter_catalogs()
+    changed_first = changed.get_filtered_objects()
+    unchanged_first = unchanged.get_filtered_objects()
+    dirty_time = catalog_filter.dirty_time
+
+    changed.get_objects()[0].mag = MagnitudeObject([15.0])
+    changed.invalidate_filter_cache()
+    catalog_filter.mark_catalog_content_dirty()
+    assert catalog_filter.is_dirty()
+    catalogs.filter_catalogs()
+
+    assert catalog_filter.dirty_time == dirty_time
+    assert changed.get_filtered_objects() is not changed_first
+    assert changed.get_filtered_objects() == []
+    assert unchanged.get_filtered_objects() is unchanged_first
+    assert not catalog_filter.is_dirty()
+
+
 def _make_catalogs(cat: Catalog, shared_state, **filter_kwargs) -> Catalogs:
     catalogs = Catalogs([cat])
     catalogs.set_catalog_filter(

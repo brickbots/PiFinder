@@ -9,7 +9,7 @@ breaks the batched call is caught in CI rather than in the field.
 """
 
 import math
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -200,3 +200,17 @@ def test_calc_comets_respects_comet_names_filter():
     subset = visible[:1]
     result = comets.calc_comets(_DT, comet_names=subset)
     assert set(result) == set(subset)
+
+
+@pytest.mark.unit
+def test_comet_track_gives_one_position_per_time():
+    """comet_track follows one comet through a list of times."""
+    sf_utils.set_location(_LAT, _LON, _ALT)
+    df = comets._load_comets_dataframe()
+    name = next(iter(comets._calc_comets_vectorized(df, _DT)))
+    times = [_DT, _DT + timedelta(hours=1)]
+    track = comets.comet_track(name, times)
+    assert len(track) == 2
+    assert track[0] == comets.calc_comets(_DT, comet_names=[name])[name]["radec"]
+    assert track[1] != track[0]
+    assert comets.comet_track("no such comet", times) == []

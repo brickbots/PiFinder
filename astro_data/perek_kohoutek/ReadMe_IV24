@@ -1,0 +1,284 @@
+IV/24               Catalogue of Galactic Planetary Nebulae    (Kohoutek, 2001)
+================================================================================
+Catalogue of Galactic Planetary Nebulae
+     Kohoutek L.
+    <Astron. Astrophys., 378, 843 (2001)>
+    <Abh. Hamburger Stermw. XII (2001)>
+    =2001A&A...378..843K
+================================================================================
+ADC_Keywords: Planetary nebulae; Cross identifications
+Keywords: ISM: planetary nebulae: general
+
+Abstract:
+    The "Catalogue of Galactic Planetary Nebulae (Version 2000)" appears
+    in Abhandlungen aus der Hamburger Sternwarte, Band XII in the year
+    2001. It is a continuation of CGPN(1967) and contains 1510 objects
+    classified as galactic PNe up to the end of 1999. The lists of
+    possible pre-PNe and possible post-PNe are also given. The catalogue
+    is restricted only to the data belonging to the location and
+    identification of the objects. It gives identification charts of PNe
+    discovered since 1965 (published in the supplements to CGPN) and those
+    charts of objects discovered earlier, which have wrong or uncertain
+    identification. The question "what is a planetary nebula" is discussed
+    and the typical values of PNe and of their central stars are
+    summarized. Short statistics about the discoveries of PNe are given.
+    The catalogue is also available in the Centre de Donnees, Strasbourg
+    and at Hamburg Observatory via internet.
+
+File Summary:
+--------------------------------------------------------------------------------
+ FileName      Lrecl  Records    Explanations
+--------------------------------------------------------------------------------
+ReadMe            80        .    This file
+table1.dat        91     1759    General List of Planetary Nebulae and
+                                  Misclassified Planetary Nebulae
+                                  (according to galactic longitude)
+table2.dat        80     1510    List of Planetary Nebulae
+                                  (according to right ascension)
+table3.dat        72      249    List of Misclassified Planetary Nebulae
+table4.dat       104     6576    Accurate Coordinates of Planetary Nebulae
+table5.dat        93      746    Possible pre-Planetary Nebulae
+table6.dat        91      154    Possible post-Planetary Nebulae
+table7.dat        74      322    Index of Discovery Lists
+table8.dat        80      655    List of Finding Charts
+notes1.dat        80      823    Notes to table1
+notes2.dat        80      294    Notes to table2
+notes4.dat        80      552    Notes to table4
+notes8.dat        80      370    Notes to table8
+refs.dat         197      386    References
+images/*           .       30    Finding charts and illustrations (postscript)
+text.tex        1208     1819    LaTeX version of the catalog
+--------------------------------------------------------------------------------
+
+See also:
+   V/84 : Strasbourg-ESO Catalogue of Galactic Planetary Nebulae (Acker+, 1992)
+  VI/14 : Bibliographical index of planetary nebulae, period 1965-79
+                                                                 (Acker+, 1981)
+     J/A+A/274/895 : Radio obs. of Southern PN Candidates (Van de Steene+ 1993)
+     J/A+A/280/581 : Chemical abundances of PNe (Pasquali+, 1993)
+     J/A+A/307/215 : Spectrophotomety of planetary nebulae (Cuisinier+, 1996)
+     J/A+A/318/256 : Planetary nebulae properties (Gorny+ 1997)
+     J/A+A/373/536 : New galactic bulge PNe (van de Steene+, 2001)
+     J/A+A/380/300 : Abundances of PN towards Galactic bulge (Escudero+, 2001)
+    J/A+AS/106/559 : HeII4686 line intensities of PN (Tylenda+, 1994)
+    J/A+AS/126/297 : PN abundances (Ratag+ 1997)
+     J/ApJ/515/610 : New PN in southern Galactic Bulge (Beaulieu+, 1999)
+       J/AN/318/35 : New and Misclassified Planetary Nebulae (Kohoutek, 1997)
+
+Byte-by-byte Description of file: table1.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units   Label     Explanations
+--------------------------------------------------------------------------------
+   1-  9  A9    ---     PK        [0-9. +-] PK designation, as in CGPN
+      10  A1    ---   f_PK        [M*] Misclassified, possible PN
+  12- 25  A14   ---     Name      Other name of the PN
+  27- 28  I2    h       RAh       Right Ascension B1950 (hours)
+  30- 33  F4.1  min     RAm       Right Ascension B1950 (minutes)
+      36  A1    ---     DE-       Declination B1950 (sign)
+  37- 38  I2    deg     DEd       Declination B1950 (degrees)
+  40- 41  I2    arcmin  DEm       Declination B1950 (minutes)
+  45- 46  A2    ---     List      [S1-6 ] Origin of the name:
+                                    original PK (blank) or Supplement 1 to 6
+  48- 77  A30   ---     Disc      Discoverer and reference
+      79  A1    ---     Note      [*] indicates a remark
+  81- 89  A9    ---     ImFile    Name of finding chart image,
+                                   in "image" subdirectory.
+      91  I1    ---     Page      ? Page number of image within file
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: table2.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units   Label     Explanations
+--------------------------------------------------------------------------------
+   1-  9  A9    ---     PK        [0-9. +-] PK designation, as in CGPN
+      10  A1    ---   f_PK        [*] Possible PN
+  12- 25  A14   ---     Name      Other name of the PN
+  28- 29  I2    h       RA1h      Right Ascension B1950 (hours)
+  31- 34  F4.1  min     RA1m      Right Ascension B1950 (minutes)
+      37  A1    ---     DE1-      Declination B1950 (sign)
+  38- 39  I2    deg     DE1d      Declination B1950 (degrees)
+  41- 42  I2    arcmin  DE1m      Declination B1950 (minutes)
+  45- 47  I3    ---     FC        ? Finding chart number
+  50- 51  I2    h       RAh       Right Ascension J2000 (hours)
+  53- 56  F4.1  min     RAm       Right Ascension J2000 (minutes)
+      59  A1    ---     DE-       Declination J2000 (sign)
+  60- 61  I2    deg     DEd       Declination J2000 (degrees)
+  63- 64  I2    arcmin  DEm       Declination J2000 (minutes)
+  68- 78  A11   ---     PNG       Designation in Strasbourg-ESO Catalog, or
+                                    "possible" "rejected"
+      80  A1    ---     Note      [*] indicates a remark
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: table3.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units   Label     Explanations
+--------------------------------------------------------------------------------
+   1-  9  A9    ---     PK        [0-9. +-] PK designation, as in CGPN
+  12- 23  A12   ---     Name      Other name of the PN
+  25- 26  I2    h       RAh       Right Ascension B1950 (hours)
+  28- 31  F4.1  min     RAm       Right Ascension B1950 (minutes)
+      34  A1    ---     DE-       Declination B1950 (sign)
+  35- 36  I2    deg     DEd       Declination B1950 (degrees)
+  38- 39  I2    arcmin  DEm       Declination B1950 (minutes)
+      43  I1    ---     Sup       [1,6]? Supplement number where
+                                    misclassification explained
+  47- 72  A26   ---     Text      Explanation of the misclassification
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: table4.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units     Label     Explanations
+--------------------------------------------------------------------------------
+   1-  9  A9    ---       PK        [0-9. +-] PK designation, as in CGPN
+      10  A1    ---     f_PK        [*] Possible PN
+  12- 26  A15   ---       Name      Other name of the PN
+  28- 29  I2    h         RA.Eq.h   Right Ascension for Equinox Eq (hours)
+  31- 32  I2    min       RA.Eq.m   Right Ascension for Equinox Eq (minutes)
+  34- 39  F6.3  s         RA.Eq.s   Right Ascension for Equinox Eq (seconds)
+      40  A1    ---     u_RA.Eq.s   Uncertainty flag (:) on Right Ascension
+      41  A1    ---       DE.Eq.-   Declination for Equinox Eq (sign)
+  42- 43  I2    deg       DE.Eq.d   Declination for Equinox Eq (degrees)
+  45- 46  I2    arcmin    DE.Eq.m   Declination for Equinox Eq (minutes)
+  48- 52  F5.2  arcsec    DE.Eq.s   Declination for Equinox Eq (minutes)
+      53  A1    ---     u_DE.Eq.s   Uncertainty flag (:) on Declination
+  55- 58  I4    yr        Eq        Equinox (1900, 1950 or 2000)
+  62- 76  A15   ---       Origin    Origin of the position (1)
+      80  A1    ---       Note      [*] Note flag
+  82- 83  I2    h         RAh       Right Ascension for J2000 (2)
+  85- 86  I2    min       RAm       Right Ascension for J2000 (2)
+  88- 92  F5.2  s         RAs       Right Ascension for J2000 (2)
+      94  A1    ---       DE-       Declination for J2000 (2)
+  95- 96  I2    deg       DEd       Declination for J2000 (2)
+  98- 99  I2    arcmin    DEm       Declination for J2000 (2)
+ 101-104  F4.1  arcsec    DEs       Declination for J2000 (2)
+--------------------------------------------------------------------------------
+
+Note (1): Origin of the position:
+    Ac,Sk (1996): Acker A., Skiff B., 1996, priv. communication (S1 to SECGPN).
+    Ja,St (1997): Jacoby G.H., Van de Steene G.C.M., 1997, in preparation
+                  (see S1 to SECGPN).
+    Ko,Ku (1999): Kohoutek L., Kuehl D., 1999, priv. communication.
+    Li,Tw (1996): Liebert J., Tweedy R.W., Napiwotzki R., Fulbright M.S., 1996,
+                  priv. comm. (S1 to SECGPN).
+       Na (1996): Nakano S., 1996IAUC.6323Q...1N (determined by Y. Kushida).
+    St,Sa (1977): Stephenson C.B., Sanduleak N., 1977PW&SO...2...71S
+       We (1978): Weinberger R., 1978Obs....98..137W
+       We (1996): Weinberger R., 1996, priv. comm.
+                  (see also IAU Symp. No.180, 22).
+       Wr (1966): Wray J.D., 1966, PhD thesis: A Study of H-alpha
+                  Emission Objects in the Southern Milky Way, Illinois,
+                  U.S.A. (Tables 15,16,17,19 -  some objects)
+         AC-Cat.: Urban, Corbin & Wycoff, 1997, Cat. <I/247>, AC 2000:
+                  The Astrographic Catalogue on The Hipparcos System,
+                  U.S. Naval Observatory, Washington, D.C.
+                  (coordinates at the epochs of observations.)
+       AGK2-Cat.: Schorr R., Kohlschuetter A., 1951, Zweiter Katalog der
+                  Astronomischen Gesellschaft, Hamburg-Bergedorf.
+       AGK3-Cat.: Heckmann & Dieckvoss, 1975, Cat. <I/61>, Star Catalogue
+                  of Positions and Proper Motions North of -2.5{deg}
+                  Declination, Hamburg-Bergedorf.
+        GSC-Cat.: Lasker B.M., Russell J.L., Jenkner H. et al., 1989,
+                  The Guide Star Catalog I.,II.,III., Space Telescope
+                  Science Institut, Baltimore (Cat. <I/220>, <I/254>)
+                  (coordinates originally in equinox 2000.0 but calculated
+                  for 1950.0).
+        HIP-Cat.: ESA team, 1997, Cat. <I/239>, The Hipparcos and Tycho
+                  Catalogues, European Space Agency,
+        TYC-Cat.: SP-1136 and SP-1200., Cat. <I/239>
+       IRAS-Cat.: Beichman C.A., Neugebauer G., Habing H.J. et al., 1985,
+                  Cat. <II/125>, Infrared Astronomical Satellite: Catalog
+                  and Atlases - PSC catalog, U.S. Government Printing Office.
+       LSII-Cat.: Stock J., Nassau J.J., Stephenson C.B., 1960,
+                  Luminous Stars in the Northern Milky Way II.,
+                  Hamburg-Bergedorf., Cat. <III/76>
+      LSIII-Cat.: Hardorp J., Theile I., Voigt H.H., 1964, Luminous Stars
+                  in the Northern Milky Way III., Hamburg-Bergedorf.,
+                  Cat. <III/76>
+       LSIV-Cat.: Nassau J.J., Stephenson C.B., 1963, Luminous Stars in
+                  the Northern Milky Way IV., Hamburg-Bergedorf., Cat. <III/76>
+        LSV-Cat.: Hardorp J., Theile I., Voigt H.H., 1965, Luminous Stars
+                  in the Northern Milky Way V., Hamburg-Bergedorf, Cat. <III/76>
+        LSS-Cat.: Stephenson & Sanduleak, 1971, Cat. <III/43>
+        PPM-Cat.: Roeser & Bastian, 1988, Cat. <I/146>, <I/194>, <I/208>:
+                  Catalogue of Positions and Proper Motions (Version 1994).
+        SAO-Cat.: Smithsonian Astrophysical Observatory, 1971, Cambridge,
+                  Mass.: Star Catalogue. Cat. <I/131>
+
+Note (2): Position computed from the position at Equinox Eq, not part
+     of the original data.
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: table5.dat table6.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units   Label     Explanations
+--------------------------------------------------------------------------------
+   1- 15  A15   ---     Name      Name of the object
+  17- 18  I2    h       RAh       Right Ascension B1950 (hours)
+  20- 21  I2    min     RAm       Right Ascension B1950 (minutes)
+  23- 26  F4.1  s       RAs       Right Ascension B1950 (seconds)
+      28  A1    ---     DE-       Declination B1950 (sign)
+  29- 30  I2    deg     DEd       Declination B1950 (degrees)
+  32- 33  I2    arcmin  DEm       Declination B1950 (minutes)
+  35- 36  I2    arcsec  DEs       ? Declination B1950 (seconds)
+      37  A1    ---   u_Pos       Uncertainty flag (:) on Position
+  39- 93  A55   ---     Text      Text of note
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: table7.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units   Label     Explanations
+--------------------------------------------------------------------------------
+   1-  7  A7    ---     Acro      Acronym used
+   9- 74  A66   ---     Text      Authors and references
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: table8.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units     Label     Explanations
+--------------------------------------------------------------------------------
+   1-  9  A9    ---       PK        Designation
+      10  A1    ---     f_PK        [*] for Possible PN
+  12- 26  A15   ---       Name      Name of the PN
+  29- 30  I2    h         RAh       Right Ascension B1950 (hours)
+  32- 35  F4.1  min       RAm       Right Ascension B1950 (minutes)
+      38  A1    ---       DE-       Declination B1950 (sign)
+  39- 40  I2    deg       DEd       Declination B1950 (degrees)
+  42- 43  I2    arcmin    DEm       Declination B1950 (minutes)
+  47- 51  A5    ---       Disc      Catalogue with discovery
+  53- 55  I3    ---       FC        Number of Finding Chart
+      57  A1    ---       ---       [C]
+  60- 67  A8 "DD/MM/YY"   Date      Date of observation
+  70- 76  A7    ---       pLabel
+      80  A1    ---       Note      [*] indicates a note
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: notes1.dat notes2.dat notes4.dat notes8.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units   Label     Explanations
+--------------------------------------------------------------------------------
+   1-  9  A9    ---     PK        [0-9. +-] PK designation, as in CGPN
+      10  A1    ---   f_PK        [*M] * for Possible PN, M for Misclassified
+  11- 24  A14   ---     Name      Name of the PN
+  26- 80  A55   ---     Note      Text of the note
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: refs.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units   Label     Explanations
+--------------------------------------------------------------------------------
+   1- 19  A19   ---     BibCode   BibCode
+  21- 47  A27   ---     Aut       Author's name
+  49- 84  A36   ---     PN        Name or list denomination of concerned
+                                   planetary nebulae
+  86-197  A112  ---     Com       Commnents
+--------------------------------------------------------------------------------
+
+Acknowledgements:
+    The catalogue was kindly supplied by L. Kohoutek on a CD-ROM.
+
+History:
+  * 07-Jan-2003: table4 and note4 indicated PK 130-03.1 instead of PK 130+03.1
+  * 14-Oct-2009: table5 indicated He 3-1031 instead of He 3-1013
+  * 26-Oct-2009: table5 indicated No.31-WSRT 1 instead of No.32-WSRT 1
+================================================================================
+(End)                                   Francois Ochsenbein [CDS]    18-May-2001

@@ -13,6 +13,9 @@ def _create_local_driver(browser: str):
     """Create a local WebDriver instance for the given browser."""
     if browser == "chrome":
         options = ChromeOptions()
+        chrome_binary = os.environ.get("CHROME_BINARY")
+        if chrome_binary:
+            options.binary_location = chrome_binary
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
@@ -36,6 +39,9 @@ def _create_grid_driver(selenium_grid_url: str, browser: str):
     """Create a remote WebDriver via Selenium Grid."""
     if browser == "chrome":
         options = ChromeOptions()
+        chrome_binary = os.environ.get("CHROME_BINARY")
+        if chrome_binary:
+            options.binary_location = chrome_binary
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")

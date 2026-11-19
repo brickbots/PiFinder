@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import Mock
+from unittest.mock import patch
 from PiFinder.ui.radec_entry import (
     CoordinateState,
     CoordinateEntryLogic,
@@ -71,68 +71,68 @@ class TestCoordinateState:
 
 
 class TestBlinkingCursor:
-    """Test the BlinkingCursor with time injection"""
+    """Test the BlinkingCursor against a controlled clock."""
 
     def test_blinking_cursor_visibility(self):
         """Test cursor blinking with mocked time"""
-        mock_time = Mock()
-        mock_time.return_value = 0.0
+        with patch("PiFinder.ui.radec_entry.time") as mock_time:
+            # Cursor records start_time at construction.
+            mock_time.time.return_value = 0.0
+            cursor = BlinkingCursor(blink_interval=1.0)
 
-        cursor = BlinkingCursor(blink_interval=1.0, time_provider=mock_time)
+            # At start (t=0), cursor should be visible
+            mock_time.time.return_value = 0.0
+            assert cursor.is_visible()
 
-        # At start (t=0), cursor should be visible
-        mock_time.return_value = 0.0
-        assert cursor.is_visible()
+            # At t=0.5, still visible (within first half of cycle)
+            mock_time.time.return_value = 0.5
+            assert cursor.is_visible()
 
-        # At t=0.5, still visible (within first half of cycle)
-        mock_time.return_value = 0.5
-        assert cursor.is_visible()
+            # At t=1.0, should be invisible (second half of cycle)
+            mock_time.time.return_value = 1.0
+            assert not cursor.is_visible()
 
-        # At t=1.0, should be invisible (second half of cycle)
-        mock_time.return_value = 1.0
-        assert not cursor.is_visible()
+            # At t=1.5, still invisible
+            mock_time.time.return_value = 1.5
+            assert not cursor.is_visible()
 
-        # At t=1.5, still invisible
-        mock_time.return_value = 1.5
-        assert not cursor.is_visible()
-
-        # At t=2.0, visible again (new cycle)
-        mock_time.return_value = 2.0
-        assert cursor.is_visible()
+            # At t=2.0, visible again (new cycle)
+            mock_time.time.return_value = 2.0
+            assert cursor.is_visible()
 
 
 class TestCoordinateConverter:
-    """Test coordinate conversion with dependency injection"""
+    """Test coordinate conversion, with calc_utils patched at the module level."""
 
     def test_hms_dms_conversion(self):
         """Test HMS/DMS to decimal degree conversion"""
-        mock_calc_utils = Mock()
-        mock_calc_utils.ra_to_deg.return_value = 150.0  # 10h 0m 0s
-        mock_calc_utils.dec_to_deg.return_value = 30.0  # +30d 0m 0s
+        with patch("PiFinder.ui.radec_entry.calc_utils") as mock_calc_utils:
+            mock_calc_utils.ra_to_deg.return_value = 150.0  # 10h 0m 0s
+            mock_calc_utils.dec_to_deg.return_value = 30.0  # +30d 0m 0s
 
-        converter = CoordinateConverter(mock_calc_utils)
-        ra_deg, dec_deg = converter.hms_dms_to_degrees(
-            ["10", "0", "0", "30", "0", "0"], "+"
-        )
+            converter = CoordinateConverter()
+            ra_deg, dec_deg = converter.hms_dms_to_degrees(
+                ["10", "0", "0", "30", "0", "0"], "+"
+            )
 
-        assert ra_deg == 150.0
-        assert dec_deg == 30.0
-        mock_calc_utils.ra_to_deg.assert_called_with(10, 0, 0)
-        mock_calc_utils.dec_to_deg.assert_called_with(30, 0, 0)
+            assert ra_deg == 150.0
+            assert dec_deg == 30.0
+            mock_calc_utils.ra_to_deg.assert_called_with(10, 0, 0)
+            mock_calc_utils.dec_to_deg.assert_called_with(30, 0, 0)
 
     def test_hms_dms_negative_dec(self):
         """Test HMS/DMS with negative declination"""
-        mock_calc_utils = Mock()
-        mock_calc_utils.ra_to_deg.return_value = 150.0
-        mock_calc_utils.dec_to_deg.return_value = 30.0
+        with patch("PiFinder.ui.radec_entry.calc_utils") as mock_calc_utils:
+            mock_calc_utils.ra_to_deg.return_value = 150.0
+            mock_calc_utils.dec_to_deg.return_value = 30.0
 
-        converter = CoordinateConverter(mock_calc_utils)
-        ra_deg, dec_deg = converter.hms_dms_to_degrees(
-            ["10", "0", "0", "30", "0", "0"], "-"
-        )
+            converter = CoordinateConverter()
+            ra_deg, dec_deg = converter.hms_dms_to_degrees(
+                ["10", "0", "0", "30", "0", "0"], "-"
+            )
 
-        assert ra_deg == 150.0
-        assert dec_deg == -30.0
+            assert ra_deg == 150.0
+            assert dec_deg == -30.0
 
     def test_mixed_format_conversion(self):
         """Test Mixed format (hours/degrees) conversion"""
@@ -315,24 +315,24 @@ class TestCoordinateEntryLogic:
 
     def test_coordinate_conversion_integration(self):
         """Test coordinate conversion through the logic"""
-        mock_calc_utils = Mock()
-        mock_calc_utils.ra_to_deg.return_value = 150.0
-        mock_calc_utils.dec_to_deg.return_value = 30.0
+        with patch("PiFinder.ui.radec_entry.calc_utils") as mock_calc_utils:
+            mock_calc_utils.ra_to_deg.return_value = 150.0
+            mock_calc_utils.dec_to_deg.return_value = 30.0
 
-        logic = CoordinateEntryLogic(calc_utils_provider=mock_calc_utils)
+            logic = CoordinateEntryLogic()
 
-        # Set up some coordinates manually for testing
-        logic._state = logic._state.with_field_updated(0, "10")
-        logic._state = logic._state.with_field_updated(1, "0")
-        logic._state = logic._state.with_field_updated(2, "0")
-        logic._state = logic._state.with_field_updated(3, "30")
-        logic._state = logic._state.with_field_updated(4, "0")
-        logic._state = logic._state.with_field_updated(5, "0")
+            # Set up some coordinates manually for testing
+            logic._state = logic._state.with_field_updated(0, "10")
+            logic._state = logic._state.with_field_updated(1, "0")
+            logic._state = logic._state.with_field_updated(2, "0")
+            logic._state = logic._state.with_field_updated(3, "30")
+            logic._state = logic._state.with_field_updated(4, "0")
+            logic._state = logic._state.with_field_updated(5, "0")
 
-        ra_deg, dec_deg = logic.get_coordinates()
+            ra_deg, dec_deg = logic.get_coordinates()
 
-        assert ra_deg == 150.0
-        assert dec_deg == 30.0
+            assert ra_deg == 150.0
+            assert dec_deg == 30.0
 
 
 class TestFormatConfig:
@@ -406,12 +406,23 @@ class TestCoordinateFormats:
         assert len(decimal_fields) == 2
 
 
+class _FakeDisplay:
+    """Minimal display_class stub: LayoutConfig only reads these three."""
+
+    class fonts:
+        class base:
+            height = 11  # base font height on the 128 panel
+
+    titlebar_height = 16
+    resX = 128
+
+
 class TestLayoutConfig:
     """Test layout configuration constants"""
 
     def test_layout_constants(self):
         """Test that layout constants are defined"""
-        layout = LayoutConfig()
+        layout = LayoutConfig(_FakeDisplay())
 
         assert hasattr(layout, "FIELD_HEIGHT")
         assert hasattr(layout, "FIELD_WIDTH")
@@ -431,44 +442,44 @@ class TestIntegration:
 
     def test_full_coordinate_entry_workflow(self):
         """Test complete workflow from input to coordinate conversion"""
-        mock_calc_utils = Mock()
-        mock_calc_utils.ra_to_deg.return_value = 150.0  # 10h
-        mock_calc_utils.dec_to_deg.return_value = 45.0  # +45d
+        with patch("PiFinder.ui.radec_entry.calc_utils") as mock_calc_utils:
+            mock_calc_utils.ra_to_deg.return_value = 150.0  # 10h
+            mock_calc_utils.dec_to_deg.return_value = 45.0  # +45d
 
-        logic = CoordinateEntryLogic(calc_utils_provider=mock_calc_utils)
+            logic = CoordinateEntryLogic()
 
-        # Enter coordinates: 10h 30m 0s, +45d 15m 0s
+            # Enter coordinates: 10h 30m 0s, +45d 15m 0s
 
-        # RA hours
-        logic.handle_numeric_input(1)
-        logic.handle_numeric_input(0)  # Auto-advances to next field
+            # RA hours
+            logic.handle_numeric_input(1)
+            logic.handle_numeric_input(0)  # Auto-advances to next field
 
-        # RA minutes
-        logic.handle_numeric_input(3)
-        logic.handle_numeric_input(0)  # Auto-advances
+            # RA minutes
+            logic.handle_numeric_input(3)
+            logic.handle_numeric_input(0)  # Auto-advances
 
-        # RA seconds (skip - leave as 0)
-        logic.move_to_next_field()  # Move to DEC degrees
+            # RA seconds (skip - leave as 0)
+            logic.move_to_next_field()  # Move to DEC degrees
 
-        # DEC degrees
-        logic.handle_numeric_input(4)
-        logic.handle_numeric_input(5)  # Auto-advances
+            # DEC degrees
+            logic.handle_numeric_input(4)
+            logic.handle_numeric_input(5)  # Auto-advances
 
-        # DEC minutes
-        logic.handle_numeric_input(1)
-        logic.handle_numeric_input(5)  # Auto-advances
+            # DEC minutes
+            logic.handle_numeric_input(1)
+            logic.handle_numeric_input(5)  # Auto-advances
 
-        # Skip DEC seconds
+            # Skip DEC seconds
 
-        # Get final coordinates
-        ra_deg, dec_deg = logic.get_coordinates()
+            # Get final coordinates
+            ra_deg, dec_deg = logic.get_coordinates()
 
-        # Verify mock was called correctly
-        mock_calc_utils.ra_to_deg.assert_called_with(10, 30, 0)
-        mock_calc_utils.dec_to_deg.assert_called_with(45, 15, 0)
+            # Verify mock was called correctly
+            mock_calc_utils.ra_to_deg.assert_called_with(10, 30, 0)
+            mock_calc_utils.dec_to_deg.assert_called_with(45, 15, 0)
 
-        assert ra_deg == 150.0
-        assert dec_deg == 45.0
+            assert ra_deg == 150.0
+            assert dec_deg == 45.0
 
     def test_format_switching_preserves_state(self):
         """Test that switching formats and back preserves state where possible"""

@@ -369,3 +369,42 @@ class TestSkyfieldUtilsRadecToAltaz:
             )
             # Az unchanged by refraction (atmosphere is symmetric in az).
             assert az_app == pytest.approx(az_geo, abs=1e-6)
+
+
+class _CountingState:
+    """Shared-state stand-in that counts the reads aim_degrees makes."""
+
+    def __init__(self):
+        self.reads = 0
+
+    def _read(self, value):
+        self.reads += 1
+        return value
+
+    def solution(self):
+        return self._read(None)
+
+    def location(self):
+        return self._read(type("Loc", (), {"lock": False})())
+
+    def datetime(self):
+        return self._read(None)
+
+
+@pytest.mark.unit
+def test_aim_degrees_uses_the_snapshot_without_reads():
+    state = _CountingState()
+    snapshot = calc_utils.pointing_snapshot(state)
+    assert state.reads == 3
+    target = type("T", (), {"ra": 10.0, "dec": 20.0})()
+    for _ in range(9):
+        calc_utils.aim_degrees(state, "Alt/Az", "left", target, snapshot=snapshot)
+    assert state.reads == 3
+
+
+@pytest.mark.unit
+def test_aim_degrees_reads_once_without_a_snapshot():
+    state = _CountingState()
+    target = type("T", (), {"ra": 10.0, "dec": 20.0})()
+    assert calc_utils.aim_degrees(state, "Alt/Az", "left", target) == (None, None)
+    assert state.reads == 3

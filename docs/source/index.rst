@@ -81,6 +81,7 @@ Join the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ for support 
    catalogs
    connectivity
    skysafari
+   mount_control
    troubleshooting
 
 .. toctree::

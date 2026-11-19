@@ -1,7 +1,8 @@
 import pytest
 
 import PiFinder.i18n  # noqa: F401
-from PiFinder.ui import menu_structure
+from PiFinder import mount_settings
+from PiFinder.ui import callbacks, menu_structure
 
 
 @pytest.mark.smoke
@@ -45,10 +46,30 @@ def test_important_catalog_entries_exist():
 
     catalog_names = [item["name"] for item in by_catalog_menu["items"]]
 
-    assert "Planets" in catalog_names
-    assert "Comets" in catalog_names
-    assert "NGC" in catalog_names
-    assert "Messier" in catalog_names
+    assert catalog_names == [
+        "Messier",
+        "NGC",
+        "Planets",
+        "DSO...",
+        "Stars...",
+        "Small bodies...",
+        "Satellites...",
+    ]
+    submenus = {item["name"]: item for item in by_catalog_menu["items"]}
+    small_bodies = submenus["Small bodies..."]["items"]
+    assert [(i["name"], i["value"]) for i in small_bodies] == [
+        ("Comets", "CM"),
+        ("Asteroids", "MP"),
+    ]
+    satellite_items = submenus["Satellites..."]["items"]
+    assert [i["name"] for i in satellite_items] == ["Satellites", "Sat groups"]
+    assert satellite_items[0]["value"] == "SA"
+    # "Update now" is the first item of Sat groups.
+    update_now = satellite_items[1]["items"][0]
+    assert update_now["name"] == "Update now"
+    assert callable(update_now["callback"])
+    values = {i.get("value") for i in by_catalog_menu["items"]}
+    assert {"M", "NGC", "PL"} <= values
 
     stars_menu = None
     for item in by_catalog_menu["items"]:
@@ -92,3 +113,26 @@ def test_status_and_restart_menu_entries_exist():
     power_menu_names = [item["name"] for item in power_menu["items"]]
 
     assert "Restart" in power_menu_names
+
+
+@pytest.mark.smoke
+def test_mount_control_menu_has_the_max_wait_setting():
+    """Tools > Experimental > Mount Control > Max wait sets the longest wait
+    of a satellite follow at its meet point."""
+    menu = menu_structure.pifinder_menu
+    for name in ("Tools", "Experimental", "Mount Control"):
+        menu = next(item for item in menu["items"] if item["name"] == name)
+    names = [item["name"] for item in menu["items"]]
+    assert names.index("Max wait") == names.index("Track Rate") + 1
+    max_wait = menu["items"][names.index("Max wait")]
+    assert max_wait["config_option"] == mount_settings.MAX_WAIT_OPTION
+    assert [(i["name"], i["value"]) for i in max_wait["items"]] == [
+        ("15 min", 15),
+        ("30 min", 30),
+        ("1 h", 60),
+        ("2 h", 120),
+    ]
+    assert tuple(i["value"] for i in max_wait["items"]) == (
+        mount_settings.MAX_WAIT_CHOICES_MIN
+    )
+    assert max_wait["post_callback"] is callbacks.mount_settings_changed

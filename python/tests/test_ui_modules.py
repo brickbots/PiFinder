@@ -50,13 +50,17 @@ import copy
 import datetime
 import importlib
 import io
+import math
 import pkgutil
 import queue
 import shutil
-from typing import Iterator, cast
+import threading
+import time
+from typing import Iterator
 from unittest import mock
+from unittest.mock import Mock
 
-import numpy as np
+
 import pytest
 from PIL import Image
 
@@ -86,11 +90,21 @@ from PiFinder.ui.menu_manager import MenuManager
 from PiFinder.ui.object_details import UIObjectDetails
 from PiFinder.ui.object_list import SortOrder, UIObjectList
 from PiFinder.nearby import NEAREST_LIST_CAP
+from PiFinder.object_sequence import ObjectSequence
+from PiFinder.state_snapshot import StateSnapshot
+from PiFinder.mountcontrol_interface import local_sidereal_deg
+from PiFinder.types.mount import (
+    ROTATION_DONE,
+    ROTATION_REFUSED,
+    ROTATION_TURNING,
+    MountStatus,
+)
+from PiFinder.ui import polar_align
 from PiFinder.ui.log import UILog
+from PiFinder.ui.polar_align import PAState, UIPolarAlign
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
 from PiFinder.ui.sqm_sweep import UISQMSweep
-from PiFinder.ui.software import UIMigrationConfirm, UIMigrationProgress
 
 
 # --------------------------------------------------------------------------- #
@@ -105,6 +119,7 @@ _COMMAND_QUEUE_KEYS = (
     "align_command",
     "align_response",
     "gps",
+    "mountcontrol",
 )
 
 # Modules that need the Hipparcos catalogue to construct (build plot.Starfield)
@@ -124,7 +139,11 @@ _SWEEP_SKIP: dict[str, str] = {
 # UIModule subclasses that are intentionally *not* exercised, with the reason.
 # Keeps the completeness guard (test_all_ui_modules_covered) honest.
 _COVERAGE_SKIP: dict[str, str] = {
-    "UIReleaseNotes": "fetches markdown via HTTP in active(); needs a network mock",
+    "UIReleaseNotes": (
+        "Pushed onto the stack by UISoftware's Notes action with a "
+        "notes-payload item_definition; not reachable from the menu tree "
+        "and needs live update-channel state to construct."
+    ),
 }
 
 # Bound on the auto-sweep so a handler that keeps pushing modules
@@ -185,8 +204,6 @@ _DYNAMIC_IDS = [
     "UIDateEntry",
     "UISQMCalibration",
     "UISQMSweep",
-    "UIMigrationConfirm",
-    "UIMigrationProgress",
 ]
 
 
@@ -222,23 +239,6 @@ def _build_dynamic_item_definition(spec_id: str, sample_object) -> dict:
     if spec_id == "UISQMSweep":
         # sqm.py:302
         return {"name": "SQM Sweep", "class": UISQMSweep, "label": "sqm_sweep"}
-    if spec_id == "UIMigrationConfirm":
-        # Pushed by UISoftware.key_square() after a 7x-square unlock.
-        return {
-            "name": "Confirm Migration",
-            "class": UIMigrationConfirm,
-            "version_info": {"version": "2.5.0"},
-            "current_version": "2.4.0",
-            "label": "migration_confirm",
-        }
-    if spec_id == "UIMigrationProgress":
-        # Pushed by UIMigrationConfirm after the user confirms.
-        return {
-            "name": "Migration Progress",
-            "class": UIMigrationProgress,
-            "version_info": {"version": "2.5.0"},
-            "label": "migration_progress",
-        }
     raise KeyError(spec_id)  # pragma: no cover
 
 
@@ -251,7 +251,11 @@ def _all_uimodule_subclasses() -> set[str]:
 
     def _recurse(cls):
         for sub in cls.__subclasses__():
-            found.add(sub.__name__)
+            # Only classes that live in the UI package count — test helpers
+            # subclassing UIModule elsewhere (e.g. test_battery_titlebar_icon's
+            # _BareModule) must not trip the coverage guard.
+            if sub.__module__.startswith("PiFinder.ui"):
+                found.add(sub.__name__)
             _recurse(sub)
 
     _recurse(UIModule)
@@ -294,6 +298,7 @@ def _sandbox_data_dir(tmp_path_factory):
         mock.patch.object(utils, "data_dir", sandbox),
         mock.patch.object(utils, "observations_db", sandbox / "observations.db"),
         mock.patch.object(utils, "debug_dump_dir", sandbox / "solver_debug_dumps"),
+        mock.patch.object(utils, "satellite_data_dir", sandbox / "satellites"),
     ):
         yield sandbox
 
@@ -316,13 +321,13 @@ def _fast_timezonefinder():
     Timezone resolution is irrelevant to UI crash-smoke,
     so a constant-"UTC" stub is fine.
     """
-    with mock.patch("PiFinder.state.TimezoneFinder", _StubTimezoneFinder):
+    with mock.patch("timezonefinder.TimezoneFinder", _StubTimezoneFinder):
         yield
 
 
 @pytest.fixture(scope="session", autouse=True)
 def _fast_sleep():
-    """No-op time.sleep for the whole harness.
+    """No-op time.sleep for the key sweep in the main thread.
 
     Several wizards (SQM calibration/sweep/correction) are per-update state
     machines that sleep 0.2-0.5s on every frame while driving the real camera.
@@ -330,8 +335,20 @@ def _fast_sleep():
     minutes of pure wall-clock waiting. None of these modules busy-loop on a
     condition (no ``while``+sleep), so removing the waits is safe and changes
     no logic -- we only care that nothing raises.
+
+    Background threads keep the real sleep. Some of them loop with a sleep,
+    for example the comet download retry, which waits 60 s while comets.txt
+    is missing. A no-op sleep would turn that loop into a busy loop that
+    logs without a pause.
     """
-    with mock.patch("time.sleep", lambda *a, **k: None):
+    real_sleep = time.sleep
+    main_thread = threading.main_thread()
+
+    def main_thread_only_sleep(seconds):
+        if threading.current_thread() is not main_thread:
+            real_sleep(seconds)
+
+    with mock.patch("time.sleep", main_thread_only_sleep):
         yield
 
 
@@ -368,9 +385,45 @@ def _no_comet_download():
 
     with (
         mock.patch.object(
+            comets,
+            "check_if_comet_download_needed",
+            return_value=(False, "test environment"),
+        ),
+        mock.patch.object(
             comets, "comet_data_download", return_value=(False, None, None)
         ),
         mock.patch.object(CometCatalog, "_start_background_retry", lambda self: None),
+    ):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_asteroid_download():
+    """Keep the UI harness hermetic while building AsteroidCatalog."""
+    import PiFinder.asteroids as asteroids
+
+    with (
+        mock.patch.object(
+            asteroids,
+            "check_asteroid_download_needed",
+            return_value=(False, "test environment"),
+        ),
+        mock.patch.object(asteroids, "download_asteroid_year"),
+    ):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_satellite_download():
+    """Stop the "Sat groups" menu from downloading a CelesTrak group.
+
+    The key sweep selects a group, and a selected group without a file
+    starts a download thread.
+    """
+    import PiFinder.satellites as satellites
+
+    with mock.patch.object(
+        satellites, "refresh_groups", return_value=satellites.GroupRefresh("failed")
     ):
         yield
 
@@ -442,15 +495,8 @@ def camera_image():
 
 
 @pytest.fixture(scope="session")
-def catalogs(_no_comet_download) -> Iterator[Catalogs]:
+def catalogs(_sandbox_data_dir, _no_comet_download) -> Iterator[Catalogs]:
     """Build the real catalogs once from the bundled DB.
-
-    Without a catalog cache (always so in CI), the build hands the deferred
-    objects to a background CatalogLoader thread. Wait for it before any test
-    runs, so every test sees fully loaded catalogs: its completion callback
-    adds objects to the live catalogs, re-filters them and writes the cache
-    from that thread, and `_fast_sleep` removes its per-batch yield, so it
-    would otherwise compete flat out with the first tests.
 
     Teardown stops the perpetual catalog timers. The planet and comet catalogs
     run a self-rescheduling, *non-daemon* threading.Timer (via TimerMixin);
@@ -460,21 +506,13 @@ def catalogs(_no_comet_download) -> Iterator[Catalogs]:
     """
     boot_state = SharedStateObj()
     boot_state.set_ui_state(UIState())
-    built = CatalogBuilder().build(boot_state, queue.Queue())
-    loader = getattr(built, "_background_loader", None)
-    thread = getattr(loader, "_thread", None)
-    if thread is not None:
-        thread.join(timeout=600)
-        assert not thread.is_alive(), "background catalog loading did not finish"
+    built = CatalogBuilder().build(boot_state)
     yield built
 
     for catalog in built.get_catalogs(only_selected=False):
         timer = getattr(catalog, "_timer", None)
         if timer is not None:
             timer.stop()
-    loader = getattr(built, "_background_loader", None)
-    if loader is not None:
-        loader.stop()
 
 
 @pytest.fixture(scope="session")
@@ -541,6 +579,9 @@ def _make_shared_state(state: str) -> SharedStateObj:
         )
         # set_solution derives solve_state from has_pointing() (True here).
         shared_state.set_solution(solved)
+    # Screens read the frame's snapshot, which the main loop reads once per
+    # frame; here it is taken from the shared state directly.
+    UIModule.snapshot = StateSnapshot.from_state(shared_state)
     return shared_state
 
 
@@ -585,10 +626,7 @@ def _sweep_stack(menu_manager: MenuManager, seen: set) -> None:
     """
     count = 0
     while count < _MAX_SWEEP_MODULES:
-        # MenuManager.stack is annotated list[type[UIModule]] upstream
-        # but holds instances; cast so the sweep sees them
-        # as the UIModule instances they are.
-        pending = [cast(UIModule, m) for m in menu_manager.stack if id(m) not in seen]
+        pending = [m for m in menu_manager.stack if id(m) not in seen]
         if not pending:
             break
         for module in pending:
@@ -754,6 +792,157 @@ def test_object_details_scrolls_past_a_sibling_listing(display, camera_image, ca
 
 
 @pytest.mark.integration
+def test_object_details_mount_keys(display, camera_image, catalogs, sample_object):
+    """With mount control on, the number keys send mount commands, and the
+    square key reaches the mount key page."""
+    from PiFinder.ui import object_details
+
+    cfg = Config()
+    shared_state = _make_shared_state("warm")
+    command_queues = _make_command_queues()
+    item_definition = _build_dynamic_item_definition("UIObjectDetails", sample_object)
+    module = UIObjectDetails(
+        display,
+        camera_image,
+        shared_state,
+        command_queues,
+        cfg,
+        catalogs,
+        item_definition=item_definition,
+    )
+    mount_queue = command_queues["mountcontrol"]
+    # The menu sweep of other tests can turn mount control on in the
+    # sandbox config; the module then sends the step size at construction.
+    while not mount_queue.empty():
+        mount_queue.get_nowait()
+
+    # Off: no commands.
+    cfg.set_option("mount_control", False)
+    module.key_number(5)
+    assert mount_queue.empty()
+
+    cfg.set_option("mount_control", True)
+    # The menu sweep of other tests can change the track rate setting too.
+    cfg.set_option("mount_control_track_rate", "auto")
+    # 5 (GOTO) last: it opens the mount page.
+    for number in (0, 1, 2, 3, 4, 6, 7, 8, 9, 5):
+        module.key_number(number)
+    commands = []
+    while not mount_queue.empty():
+        commands.append(mount_queue.get_nowait())
+    by_type = {c["type"]: c for c in commands}
+    assert by_type["goto_target"] == {
+        "type": "goto_target",
+        "ra": sample_object.ra,
+        "dec": sample_object.dec,
+        "epoch": "J2000",
+        "track_rate": "sidereal",
+    }
+    assert by_type["sync"] == {"type": "sync"}
+    assert {"init", "stop_movement", "reduce_step_size", "increase_step_size"} <= set(
+        by_type
+    )
+    moves = [c["label"] for c in commands if c["type"] == "manual_movement"]
+    assert sorted(moves) == ["E", "N", "S", "W"]
+
+    # GOTO (5) opens the mount page to watch the slew.
+    module.object_display_mode = object_details.DM_LOCATE
+    module.key_number(5)
+    assert module.object_display_mode == object_details.DM_MOUNT
+    module.cycle_display_mode()
+    assert module.object_display_mode == object_details.DM_LOCATE
+    assert module.marking_menu is module._default_marking_menu
+
+    # The square key reaches the mount key page, and it renders.
+    for _step in range(6):
+        module.cycle_display_mode()
+        if module.object_display_mode == object_details.DM_MOUNT:
+            break
+    assert module.object_display_mode == object_details.DM_MOUNT
+    module.update()
+    assert module.serialize_ui_state()["display_mode"] == "mount"
+
+    # The key page draws with a live status and with none.
+    UIModule.snapshot = StateSnapshot(
+        {
+            "mount_status": MountStatus(
+                "MOUNT_TARGET_ACQUISITION_MOVE",
+                "Slewing",
+                3.2,
+                0.25,
+                "SAL-33",
+                time.time(),
+            )
+        }
+    )
+    module.update()
+    UIModule.snapshot = StateSnapshot()
+    module.update()
+
+    # Without a connected mount the page is the connection screen: 5 does
+    # nothing, 1 connects, 2 opens the mount settings.
+    command_queues["mountcontrol"].queue.clear()
+    module.key_number(5)
+    assert command_queues["mountcontrol"].empty()
+    module.key_number(1)
+    assert command_queues["mountcontrol"].get_nowait() == {"type": "init"}
+    module.jump_to_label = Mock()
+    module.key_number(2)
+    module.jump_to_label.assert_called_once_with("mount_settings")
+
+    # On the mount page a key flashes in the key map, with no message box.
+    UIModule.snapshot = StateSnapshot(
+        {
+            "mount_status": MountStatus(
+                "MOUNT_TRACKING", "Tracking", None, 0.25, "SAL-33", time.time()
+            )
+        }
+    )
+    module.message = Mock()
+    module.key_number(8)
+    assert module._mount_page_state.pressed_key == 8
+    module.message.assert_not_called()
+    assert module.shows_mount_status
+
+    # On the mount page the arrows move the mount; LEFT does not go back.
+    mount_queue.queue.clear()
+    module.key_up()
+    module.key_right()
+    assert module.key_left() is False
+    module.key_down()
+    sent = [c for c in mount_queue.queue if c["type"] == "manual_movement"]
+    assert len(sent) == 4
+    # A held arrow starts a continuous move; repeats and the release key
+    # during the hold are not steps; the release stops it.
+    mount_queue.queue.clear()
+    assert module.holds_arrows
+    module.arrow_hold("up")
+    module.key_up()
+    module.key_up()
+    assert module.key_left() is False
+    module.arrow_hold_end()
+    sent = [c["type"] for c in mount_queue.queue]
+    assert sent == ["motion_start", "motion_stop"]
+    # The menu manager leaves long LEFT/RIGHT to the mount page.
+    fake_manager = Mock(stack=[module], help_images=None, marking_menu_stack=[])
+    MenuManager.key_long_left(fake_manager)
+    MenuManager.key_long_right(fake_manager)
+    fake_manager.remove_from_stack.assert_not_called()
+
+    # The mount page has its own marking menu with the quick settings.
+    assert module.marking_menu.right.menu_jump == "mount_settings"
+    left = module.marking_menu.left
+    before = cfg.get_option("mount_control_arrows", "eyepiece")
+    left.callback(module.marking_menu, left)
+    assert cfg.get_option("mount_control_arrows") != before
+
+    # Mount control turned off while the page is open: back to LOCATE.
+    cfg.set_option("mount_control", False)
+    module.update()
+    assert module.object_display_mode == object_details.DM_LOCATE
+
+
+@pytest.mark.integration
 def test_nearby_sort_navigation_bounded_by_ranked_window(
     display, camera_image, catalogs
 ):
@@ -821,11 +1010,10 @@ def test_object_details_serialises_from_a_nearby_sorted_list(
 ):
     """Object details opened from a Nearby list serialise as state, not an error.
 
-    The Nearby sort hands ``show_object_details`` the NumPy object array
+    The Nearby sort hands ``show_object_details`` the ObjectSequence
     ``get_closest_objects`` returns, not a Python list. Anything in
-    ``serialize_ui_state`` that tests that array for truthiness raises
-    ("truth value of an array with more than one element is ambiguous"), and
-    the raise is swallowed by the method's own except clause -- so the whole
+    ``serialize_ui_state`` that needs a real list must still work on it; an
+    error there is swallowed by the method's own except clause -- so the whole
     remote state degrades to {"error": ...} for every object reached this way.
     """
     cfg = Config()
@@ -853,8 +1041,8 @@ def test_object_details_serialises_from_a_nearby_sorted_list(
     object_list.sort()
 
     ranked = object_list._menu_items_sorted
-    # The precondition the bug needs: a multi-element array, not a list.
-    assert isinstance(ranked, np.ndarray)
+    # The precondition: a multi-element ObjectSequence, not a list.
+    assert isinstance(ranked, ObjectSequence)
     assert len(ranked) > 1
 
     details = UIObjectDetails(
@@ -897,3 +1085,290 @@ def test_all_ui_modules_covered():
         f"{sorted(uncovered)}. Wire them into the menu tree, add a fixture"
         " to _DYNAMIC_IDS, or document an exception in _COVERAGE_SKIP."
     )
+
+
+class _CameraSolve:
+    """The part of a solution that the polar alignment wizard reads."""
+
+    def __init__(self, ra: float, dec: float, roll: float, solve_time: float):
+        pointing = Mock()
+        pointing.RA, pointing.Dec, pointing.Roll = ra, dec, roll
+        self.pointing = Mock()
+        self.pointing.camera.solve = pointing
+        self.last_solve_success = solve_time
+
+    def has_pointing(self) -> bool:
+        return True
+
+
+POLAR_DT = datetime.datetime(2026, 11, 12, 22, 0, tzinfo=datetime.timezone.utc)
+# Sidereal rate in degrees per second.
+SIDEREAL_DEG_S = 360.0 / 86164.0905
+
+
+class _PolarRig:
+    """The wizard with a mount status and a camera solve that the test
+    sets. The clock of the wizard is POLAR_DT plus `later` seconds."""
+
+    def __init__(self, display, camera_image, catalogs, mount_control=True):
+        self.cfg = Config()
+        self.cfg.set_option("mount_control", mount_control)
+        shared_state = _make_shared_state("warm")
+        self.location = shared_state.location()
+        command_queues = _make_command_queues()
+        self.mount_queue = command_queues["mountcontrol"]
+        while not self.mount_queue.empty():
+            self.mount_queue.get_nowait()
+        self.module = UIPolarAlign(
+            display,
+            camera_image,
+            shared_state,
+            command_queues,
+            self.cfg,
+            catalogs,
+            item_definition={"name": "Polar Align", "class": UIPolarAlign},
+        )
+        self.lst_deg = local_sidereal_deg(POLAR_DT, self.location.lon)
+
+    def show(
+        self,
+        ra,
+        dec=30.0,
+        rotation="",
+        rotation_id=0,
+        mount_ra=None,
+        fresh=True,
+        later=0.0,
+        altaz=False,
+        phase="MOUNT_TRACKING",
+    ) -> None:
+        """Give the wizard a frame: the camera solve at (ra, dec), and the
+        mount at mount_ra (the default is the camera RA)."""
+        now = time.time()
+        status = MountStatus(
+            phase,
+            "",
+            None,
+            1.0,
+            "Simulator",
+            now,
+            ra_deg=ra if mount_ra is None else mount_ra,
+            dec_deg=dec,
+            rotation_id=rotation_id,
+            rotation=rotation,
+            altaz=altaz,
+        )
+        solve_time = now + 0.1 if fresh else now - 10
+        UIModule.snapshot = StateSnapshot(
+            {
+                "mount_status": status,
+                "solution": _CameraSolve(ra, dec, 10.0, solve_time),
+                "location": self.location,
+                "datetime": (POLAR_DT + datetime.timedelta(seconds=later), now),
+            }
+        )
+        self.module.update()
+
+    def sent(self) -> dict:
+        return self.mount_queue.get_nowait()
+
+    def close(self) -> None:
+        UIModule.snapshot = StateSnapshot()
+        self.cfg.set_option("mount_control", False)
+
+
+@pytest.fixture
+def polar_rig(display, camera_image, catalogs):
+    rig = _PolarRig(display, camera_image, catalogs)
+    yield rig
+    rig.close()
+
+
+def _capture_three_points(rig: _PolarRig, monkeypatch) -> float:
+    """Run the mount mode from hour angle 30° west to the result. Return
+    the RA of the last point."""
+    module = rig.module
+    monkeypatch.setattr(polar_align, "MOUNT_SETTLE_SECS", 0.0)
+    ra = (rig.lst_deg - 30.0) % 360.0
+    rig.show(ra, fresh=False)
+    assert module._mount_mode()
+    module.key_square()  # intro -> aim
+    module.key_square()  # capture point 1
+    assert module.state == PAState.WAIT_SOLVE
+    rig.show(ra)
+    assert len(module.solves) == 1
+    assert module.state == PAState.ROTATE
+    first = rig.sent()
+    # Hour angle 30° has no room toward the meridian: the mount turns west
+    # (RA falls), by less than the 30° that it prefers.
+    assert first["type"] == "rotate_ra"
+    assert first["angle_deg"] == pytest.approx(-21.5)
+
+    # The wizard waits for the result of its own command.
+    rig.show(ra, rotation=ROTATION_DONE, rotation_id=first["id"] - 1, fresh=False)
+    assert module.state == PAState.ROTATE
+    rig.show(ra, rotation=ROTATION_TURNING, rotation_id=first["id"], fresh=False)
+    assert module.state == PAState.ROTATE
+    ra += first["angle_deg"]
+    rig.show(ra, rotation=ROTATION_DONE, rotation_id=first["id"], fresh=False)
+    assert module.state == PAState.WAIT_SOLVE
+    assert len(module.solves) == 1
+
+    rig.show(ra, rotation=ROTATION_DONE, rotation_id=first["id"])
+    assert len(module.solves) == 2
+    second = rig.sent()
+    # The second rotation has the direction and the angle of the first.
+    assert second["angle_deg"] == first["angle_deg"]
+    assert second["id"] != first["id"]
+    ra += second["angle_deg"]
+    rig.show(ra, rotation=ROTATION_DONE, rotation_id=second["id"], fresh=False)
+    assert module.state == PAState.WAIT_SOLVE
+    rig.show(ra, rotation=ROTATION_DONE, rotation_id=second["id"])
+    assert rig.mount_queue.empty()
+    return ra
+
+
+@pytest.mark.integration
+def test_polar_align_mount_mode_computes_from_three_solves(polar_rig, monkeypatch):
+    """With a connected mount, the wizard captures point 1 on SQUARE, turns
+    the RA axis two times in one direction, and computes the result from
+    three different solves."""
+    module = polar_rig.module
+    _capture_three_points(polar_rig, monkeypatch)
+    assert module.state == PAState.ADJUST
+    assert len({solve[0] for solve in module.solves}) == 3
+    assert module.result["n_points"] == 3
+    assert module.result["sweep"] == pytest.approx(43.0, abs=0.5)
+    # The camera turned about the pole of the sky: the error is small.
+    assert abs(module.result["dAlt"]) < 0.5
+    assert abs(module.result["dAz"]) < 0.5
+
+
+@pytest.mark.integration
+def test_polar_align_waits_for_the_settle_time(polar_rig):
+    module = polar_rig.module
+    ra = (polar_rig.lst_deg - 30.0) % 360.0
+    polar_rig.show(ra, fresh=False)
+    module.key_square()
+    module.key_square()
+    polar_rig.show(ra)
+    command = polar_rig.sent()
+    polar_rig.show(ra, rotation=ROTATION_DONE, rotation_id=command["id"])
+    # A solve from before the end of the settle time is not a capture.
+    assert module.state == PAState.WAIT_SOLVE
+    assert module.capture_request_time > time.time() + 1.0
+    assert len(module.solves) == 1
+
+
+@pytest.mark.integration
+def test_polar_align_does_not_capture_after_a_failed_rotation(polar_rig):
+    """A rotation that the mount refused or stopped gives no capture.
+    SQUARE sends the same rotation again."""
+    module = polar_rig.module
+    ra = (polar_rig.lst_deg - 30.0) % 360.0
+    polar_rig.show(ra, fresh=False)
+    module.key_square()
+    module.key_square()
+    polar_rig.show(ra)
+    first = polar_rig.sent()
+
+    polar_rig.show(ra, rotation=ROTATION_REFUSED, rotation_id=first["id"])
+    assert module.state == PAState.AIM
+    assert len(module.solves) == 1
+
+    module.key_square()
+    assert module.state == PAState.ROTATE
+    again = polar_rig.sent()
+    assert again["angle_deg"] == first["angle_deg"]
+    assert len(module.solves) == 1
+
+    # MINUS while the mount turns stops the mount. The rotation stays open.
+    module.key_minus()
+    assert polar_rig.sent() == {"type": "stop_movement"}
+    assert module.state == PAState.AIM
+    module.key_square()
+    assert polar_rig.sent()["type"] == "rotate_ra"
+
+    # A mount that goes away ends the wait.
+    polar_rig.show(ra, phase="MOUNT_UNKNOWN", fresh=False)
+    assert module.state == PAState.AIM
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("hour_angle", [100.0, -100.0, 150.0])
+def test_polar_align_refuses_a_start_far_from_the_meridian(polar_rig, hour_angle):
+    module = polar_rig.module
+    module.message = Mock()
+    polar_rig.show((polar_rig.lst_deg - hour_angle) % 360.0)
+    module.key_square()
+    module.key_square()
+    assert module.state == PAState.AIM
+    module.message.assert_called_once_with("Start nearer the meridian", 3)
+    assert module.solves == []
+    assert polar_rig.mount_queue.empty()
+
+
+@pytest.mark.integration
+def test_polar_align_does_not_turn_an_altaz_mount(polar_rig):
+    """An alt-az mount gets a message and the capture by hand."""
+    module = polar_rig.module
+    module.message = Mock()
+    ra = (polar_rig.lst_deg - 30.0) % 360.0
+    polar_rig.show(ra, altaz=True, fresh=False)
+    assert not module._mount_mode()
+    module.key_square()
+    module.message.assert_called_once_with("Alt-az mount: turn by hand", 3)
+    module.key_square()
+    polar_rig.show(ra, altaz=True)
+    assert len(module.solves) == 1
+    assert module.state == PAState.AIM
+    assert polar_rig.mount_queue.empty()
+
+
+@pytest.mark.integration
+def test_polar_align_target_follows_a_mount_that_tracks(polar_rig, monkeypatch):
+    """During the adjustment the mount tracks: the camera stays on the same
+    sky position, and the offset to the target must stay the same."""
+    module = polar_rig.module
+    ra = _capture_three_points(polar_rig, monkeypatch)
+    start = module._current_offset()
+    polar_rig.show(ra, later=600.0)
+    tracked = module._current_offset()
+    assert tracked[0] == pytest.approx(start[0], abs=0.03)
+    assert tracked[1] == pytest.approx(start[1], abs=0.03)
+
+    # A mount that does not track: the camera stays on the same ground
+    # position, and the mount reports the same change of the RA.
+    drift = 600.0 * SIDEREAL_DEG_S
+    polar_rig.show(ra + drift, later=600.0)
+    stopped = module._current_offset()
+    assert stopped[0] == pytest.approx(start[0], abs=0.03)
+    assert stopped[1] == pytest.approx(start[1], abs=0.03)
+
+    # The user moves the mount 1° in RA: the target moves with it.
+    polar_rig.show(ra + 1.0, later=600.0)
+    moved = module._current_offset()
+    assert moved[0] == pytest.approx(start[0], abs=0.03)
+    assert moved[1] == pytest.approx(start[1], abs=0.03)
+
+    # The adjusters move the camera and not the RA axis: the offset shows.
+    polar_rig.show(ra + 1.0, mount_ra=ra, later=600.0)
+    adjusted = module._current_offset()
+    assert math.hypot(adjusted[0] - start[0], adjusted[1] - start[1]) > 0.5
+
+
+@pytest.mark.integration
+def test_polar_align_target_is_fixed_to_the_ground_without_a_mount(
+    polar_rig, monkeypatch
+):
+    """Without mount control the target stays a fixed ground direction, as
+    for a platform that the user turns by hand."""
+    module = polar_rig.module
+    ra = _capture_three_points(polar_rig, monkeypatch)
+    start = module._current_offset()
+    polar_rig.cfg.set_option("mount_control", False)
+    drift = 600.0 * SIDEREAL_DEG_S
+    polar_rig.show(ra + drift, later=600.0)
+    fixed = module._current_offset()
+    assert fixed[0] == pytest.approx(start[0], abs=0.03)
+    assert fixed[1] == pytest.approx(start[1], abs=0.03)

@@ -1,8 +1,8 @@
 """Tests for the object list's NAME mode (#408).
 
 A list of one catalog opens in its catalog's default display mode: NAME for
-catalogs whose objects go by name (planets, comets, stars, doubles), LOCATE
-for the others. SQUARE then cycles on from there in the usual order. Lists
+catalogs whose objects go by name (planets, comets, stars, doubles), INFO for
+satellites, LOCATE for the others. SQUARE then cycles on from there in the usual order. Lists
 that mix catalogs keep the LOCATE start. The NAME-mode text puts real names
 before catalog designations.
 """
@@ -10,6 +10,7 @@ before catalog designations.
 import pytest
 
 from PiFinder.catalogs import (
+    INFO_MODE_CATALOGS,
     NAME_MODE_CATALOGS,
     Catalog,
     Catalogs,
@@ -18,9 +19,11 @@ from PiFinder.catalogs import (
 )
 from PiFinder.comet_catalog import CometCatalog
 from PiFinder.composite_object import CompositeObject
+from PiFinder.satellite_catalog import SatelliteCatalog
 from PiFinder.ui.object_list import DisplayModes, UIObjectList, _name_group
 
 NAME_MODE = ["PL", "CM", "Str", "Nam", "SaA", "SaR", "TLK", "SaM", "RDS", "WDS"]
+INFO_MODE = ["SA"]
 LOCATE_MODE = [
     "M",
     "NGC",
@@ -58,12 +61,18 @@ def _object_list(item_definition: dict, catalogs: Catalogs) -> UIObjectList:
 
 @pytest.fixture
 def catalogs() -> Catalogs:
-    return Catalogs([Catalog(code, code) for code in NAME_MODE + LOCATE_MODE])
+    return Catalogs(
+        [Catalog(code, code) for code in NAME_MODE + INFO_MODE + LOCATE_MODE]
+    )
 
 
 @pytest.mark.unit
 def test_registry():
     assert NAME_MODE_CATALOGS == frozenset(NAME_MODE)
+    assert INFO_MODE_CATALOGS == frozenset(INFO_MODE)
+    for code in INFO_MODE:
+        assert default_display_mode_for(code) == "INFO"
+        assert Catalog(code, code).default_display_mode == "INFO"
     for code in NAME_MODE:
         assert default_display_mode_for(code) == "NAME"
         assert Catalog(code, code).default_display_mode == "NAME"
@@ -84,6 +93,7 @@ def test_dynamic_catalogs_inherit_the_default():
     # registry as every other Catalog.
     assert PlanetCatalog.default_display_mode is Catalog.default_display_mode
     assert CometCatalog.default_display_mode is Catalog.default_display_mode
+    assert SatelliteCatalog.default_display_mode is Catalog.default_display_mode
 
 
 @pytest.mark.unit
@@ -98,6 +108,32 @@ def test_names_catalog_opens_in_name_mode(catalog_code, catalogs):
 def test_deep_sky_catalog_opens_in_locate_mode(catalog_code, catalogs):
     module = _object_list({"objects": "catalog", "value": catalog_code}, catalogs)
     assert module.current_mode is DisplayModes.LOCATE
+
+
+@pytest.mark.unit
+def test_satellite_list_opens_in_info_mode():
+    # The menu item of Satellites... > Satellites. The satellite catalog is
+    # built at run time; before and after, its list opens in INFO mode.
+    item = {"objects": "catalog", "value": "SA"}
+    before = _object_list(item, Catalogs([]))
+    assert before.current_mode is DisplayModes.INFO
+    after = _object_list(item, Catalogs([Catalog("SA", "Satellites")]))
+    assert after.current_mode is DisplayModes.INFO
+
+
+@pytest.mark.unit
+def test_square_cycles_on_from_the_satellite_start():
+    module = _object_list({"objects": "catalog", "value": "SA"}, Catalogs([]))
+    seen = [module.current_mode]
+    for _ in range(3):
+        module.key_square()
+        seen.append(module.current_mode)
+    assert seen == [
+        DisplayModes.INFO,
+        DisplayModes.LOCATE,
+        DisplayModes.NAME,
+        DisplayModes.INFO,
+    ]
 
 
 @pytest.mark.unit

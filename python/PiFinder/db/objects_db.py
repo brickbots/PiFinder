@@ -11,20 +11,7 @@ class ObjectsDatabase(Database):
     def __init__(self, db_path=utils.pifinder_db):
         conn, cursor = self.get_database(db_path)
         super().__init__(conn, cursor, db_path)
-
-        # Performance optimizations for Pi/SD card environments
-        logging.info("Applying database performance optimizations...")
-        self.cursor.execute("PRAGMA foreign_keys = ON;")
-        self.cursor.execute("PRAGMA mmap_size = 268435456;")  # 256MB memory mapping
-        self.cursor.execute("PRAGMA cache_size = -64000;")  # 64MB cache (negative = KB)
-        self.cursor.execute("PRAGMA temp_store = MEMORY;")  # Keep temporary data in RAM
-        self.cursor.execute(
-            "PRAGMA synchronous = NORMAL;"
-        )  # Balanced safety/performance
-        logging.info("Database optimizations applied")
-
-        self.conn.commit()
-        self.bulk_mode = False  # Flag to disable commits during bulk operations
+        self.bulk_mode = False
 
         self._ensure_catalog_object_indexes()
 
@@ -259,6 +246,23 @@ class ObjectsDatabase(Database):
         self.cursor.execute("SELECT * FROM names WHERE object_id = ?;", (object_id,))
         return self.cursor.fetchone()
 
+    def get_names_by_object_id(self, object_id) -> List[str]:
+        """
+        Every common name for one object, in insertion order and
+        deduplicated -- the "also known as" list for a single object,
+        without building the map of every object's names.
+        """
+        self.cursor.execute(
+            "SELECT common_name FROM names WHERE object_id = ? ORDER BY rowid;",
+            (object_id,),
+        )
+        names: List[str] = []
+        for row in self.cursor.fetchall():
+            name = row["common_name"]
+            if name and name not in names:
+                names.append(name)
+        return names
+
     def get_object_id_to_names(self) -> DefaultDict[int, List[str]]:
         """
         Returns a dictionary of object_id: [common_name, common_name, ...]
@@ -434,6 +438,53 @@ class ObjectsDatabase(Database):
             f"get_catalog_objects took {total_time:.2f}s, returned {len(results)} rows"
         )
         return results
+
+    def get_priority_catalog_joined(self, priority_codes=("NGC", "IC", "M")):
+        """Combined JOIN query: catalog_objects + objects for priority catalogs only."""
+        start_time = time.time()
+        placeholders = ",".join("?" * len(priority_codes))
+        self.cursor.execute(
+            f"""
+            SELECT co.id, co.object_id, co.catalog_code, co.sequence, co.description,
+                   o.ra, o.dec, o.obj_type, o.const, o.size, o.mag, o.surface_brightness
+            FROM catalog_objects co
+            JOIN objects o ON co.object_id = o.id
+            WHERE co.catalog_code IN ({placeholders})
+            """,
+            priority_codes,
+        )
+        rows = self.cursor.fetchall()
+        elapsed = time.time() - start_time
+        logging.info(
+            f"get_priority_catalog_joined took {elapsed:.2f}s, returned {len(rows)} rows"
+        )
+        return rows
+
+    def get_priority_names(self, priority_codes=("NGC", "IC", "M")):
+        """Get names only for objects in priority catalogs (much smaller than full names table)."""
+        start_time = time.time()
+        placeholders = ",".join("?" * len(priority_codes))
+        self.cursor.execute(
+            f"""
+            SELECT n.object_id, n.common_name FROM names n
+            WHERE n.object_id IN (
+                SELECT DISTINCT co.object_id FROM catalog_objects co
+                WHERE co.catalog_code IN ({placeholders})
+            )
+            """,
+            priority_codes,
+        )
+        results = self.cursor.fetchall()
+        name_dict = defaultdict(list)
+        for object_id, common_name in results:
+            name_dict[object_id].append(common_name.strip())
+        for object_id in name_dict:
+            name_dict[object_id] = list(set(name_dict[object_id]))
+        elapsed = time.time() - start_time
+        logging.info(
+            f"get_priority_names took {elapsed:.2f}s, {len(results)} rows for {len(name_dict)} objects"
+        )
+        return name_dict
 
     # ---- IMAGES_OBJECTS methods ----
     def insert_image_object(self, object_id, image_name):

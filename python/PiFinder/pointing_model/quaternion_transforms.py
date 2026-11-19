@@ -20,8 +20,18 @@ computational overhead. Normalization should be done manually as and when
 necessary.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
-import quaternion
+
+from PiFinder.lazy_import import lazy_module
+
+if TYPE_CHECKING:
+    import quaternion
+else:
+    quaternion = lazy_module("quaternion")
 
 
 def axis_angle2quat(axis, theta: float) -> quaternion.quaternion:

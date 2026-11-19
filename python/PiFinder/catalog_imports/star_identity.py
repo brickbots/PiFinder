@@ -251,8 +251,10 @@ def load_hipparcos(path: Optional[Path] = None) -> Hipparcos:
         skipinitialspace=True,
         dtype={43: str, 48: str, 71: str, 72: str, 73: str, 74: str},
     ).rename(columns=_HIP_FIELDS)
-    ra = frame["ra"].to_numpy(dtype=float)
-    dec = frame["dec"].to_numpy(dtype=float)
+    # Copies: the unsolved positions are filled in place below, and pandas
+    # with copy-on-write gives a read-only view without copy=True.
+    ra = frame["ra"].to_numpy(dtype=float, copy=True)
+    dec = frame["dec"].to_numpy(dtype=float, copy=True)
     unsolved = np.isnan(ra)
     ra[unsolved] = [15 * _sexagesimal(text) for text in frame["ra_hms"][unsolved]]
     dec[unsolved] = [_sexagesimal(text) for text in frame["dec_dms"][unsolved]]

@@ -160,7 +160,7 @@ class UILog(UIModule):
             fill=(0, 0, 0, 100),
         )
 
-        if not self.shared_state.solve_state():
+        if not self.snapshot.solve_state():
             self.draw.text(
                 (0, self.display_class.titlebar_height + 3),
                 _("No Solve Yet"),
@@ -261,7 +261,7 @@ class UILog(UIModule):
             log_eyepiece = f"{log_eyepiece.focal_length_mm}mm {log_eyepiece.name}"
 
         notes = {
-            "schema_ver": 2,
+            "schema_ver": 3,
             "transparency": self.config_object.get_option(
                 "session.log_transparency", "NA"
             ),
@@ -270,6 +270,11 @@ class UILog(UIModule):
             "observability": self.log_observability,
             "appeal": self.log_appeal,
         }
+        # Measured sky brightness at the moment of logging; absent when the
+        # radiometer has not produced a reading (see obslog.sqm_note).
+        sqm = obslog.sqm_note(self.snapshot.sqm(), self.snapshot.sqm_details())
+        if sqm is not None:
+            notes["sqm"] = sqm
         self._observing_session = obslog.Observation_session(
             self.shared_state, self.__uuid__
         )
@@ -277,7 +282,7 @@ class UILog(UIModule):
         self._observing_session.log_object(
             catalog=self.object.catalog_code,
             sequence=self.object.sequence,
-            solution=self.shared_state.solution(),
+            solution=self.snapshot.solution(),
             notes=notes,
         )
         self.catalogs.mark_logged(self.object)

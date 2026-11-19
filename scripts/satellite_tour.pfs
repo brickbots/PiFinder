@@ -1,0 +1,108 @@
+# Key script for the satellite tour video. Run it with the sky simulator:
+#   python/scripts/record_demo.sh --script satellite_tour --sky-sim default \
+#       --record satellite_tour.mp4
+# Mount control must be on, with the Telescope Simulator as the mount and an
+# indiserver running (see docs/source/mount_control.rst).
+# The groups visual, stations and amateur must be selected and on the
+# PiFinder. The clock must be about 13:29:10 UTC on 19 Nov 2026 at the start
+# (the fake GPS puts the PiFinder at 34.22 N, 118.22 W). Then the Chinese
+# space station CSS (TIANHE) rises at 13:30:30 and meets the mount at
+# 13:33:39, 20 degrees high in the SW. See docs/demo-movie-style.md.
+# Wait for the start-up and the mount to connect.
+wait 12
+# Objects > By Catalog > Satellites...
+RIGHT
+wait 1
+DOWN
+wait 1
+RIGHT
+wait 1
+DOWN
+DOWN
+DOWN
+DOWN
+DOWN
+DOWN
+wait 1
+RIGHT
+wait 2
+# A first look at the satellite list.
+RIGHT
+wait 4
+LEFT
+wait 1
+# Sat groups: Update now, then the list of groups.
+DOWN
+wait 1
+RIGHT
+wait 3
+RIGHT
+wait 6
+DOWN
+wait 1
+DOWN
+wait 3
+LEFT
+wait 1
+UP
+wait 2
+# The satellite list, sorted by next pass. Down to CSS (TIANHE).
+RIGHT
+wait 4
+DOWN
+DOWN
+DOWN
+DOWN
+DOWN
+DOWN
+DOWN
+DOWN
+DOWN
+wait 4
+# Marking menu > ID: NORAD, COSPAR, name.
+LNG_SQUARE
+wait 2
+DOWN
+wait 2
+UP
+wait 4
+LNG_SQUARE
+wait 1
+DOWN
+wait 2
+RIGHT
+wait 4
+LNG_SQUARE
+wait 1
+DOWN
+wait 2
+LEFT
+wait 3
+# Open CSS (TIANHE) and press 5: the mount goes to the meet point.
+RIGHT
+wait 5
+5
+wait 141
+# The chart during the wait: the satellite comes to the meet point.
+SQUARE
+wait 1
+LEFT
+wait 1
+LNG_LEFT
+wait 1
+UP
+wait 1
+RIGHT
+wait 11
+# Back to CSS (TIANHE): the description, then the mount page.
+LNG_RIGHT
+wait 2
+SQUARE
+SQUARE
+wait 2
+SQUARE
+SQUARE
+wait 1
+# An arrow: "Seen". The follow starts now.
+RIGHT
+wait 16

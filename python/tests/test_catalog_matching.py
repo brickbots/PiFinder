@@ -11,6 +11,8 @@ import importlib
 import logging
 import sqlite3
 
+from pathlib import Path
+
 import pytest
 
 import PiFinder.catalog_imports.caldwell_loader as caldwell_loader
@@ -604,6 +606,17 @@ def test_harris_keeps_the_sign_of_a_declination_just_south_of_the_equator(tmp_pa
     assert decs == pytest.approx(
         [-(72 + 4 / 60 + 51 / 3600), -(17 / 60 + 49 / 3600), -(49 / 60 + 23 / 3600)]
     )
+
+
+def test_harris_magnitudes_keep_their_two_decimals():
+    from PiFinder.catalog_imports.harris_loader import read_harris_catalog
+
+    catalog = Path(__file__).parents[2] / "astro_data" / "harris" / "catalog"
+    entries = {str(entry["ID"]): entry for entry in read_harris_catalog(catalog)}
+    m2 = entries["NGC 7089"]
+    # The catalog gives V = 6.47; a float32 gives 6.46999979019165.
+    assert m2["Vt"].item() == 6.47
+    assert repr(m2["Vt"].item()) == "6.47"
 
 
 def test_lynga_keeps_the_sign_of_a_declination_just_south_of_the_equator(tmp_path):

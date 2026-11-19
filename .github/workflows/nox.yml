@@ -1,31 +1,70 @@
 name: nox
+# The nixos branch manages the Python environment with uv2nix (pyproject.toml +
+# uv.lock) instead of nox + requirements*.txt. This runs the ruff, mypy and
+# pytest checks in the flake dev shell, the same Nix environment that
+# developers and the PiFinder use. The workflow keeps upstream's "nox" name so
+# PR check wiring stays identical across branches.
+#
 # Run on pushes to the long-lived branches and on pull requests. Restricting
-# `push` to main/release means a push to a feature branch with an open PR only
+# `push` to those branches means a push to a feature branch with an open PR only
 # triggers the `pull_request` run (not also a `push` run), so a PR gets a single
 # run per push instead of two.
+#
+# On a push, a job that passes puts its dev shell in the PiFinder cache, so
+# developers and later jobs download the shell and do not build it.
 on:
   push:
     branches:
       - main
+      - nixos
       - release
   pull_request:
+permissions:
+  contents: read
 jobs:
   nox:
-    # Pinned: ubuntu-latest moved to Ubuntu 26.04 (2026-11), for which
-    # actions/setup-python has no Python 3.9 build, the version the device runs.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # aarch64, like the PiFinder.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: ./python
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-nix
         with:
-          submodules: true
-      # python/tetra3 -> PiFinder/tetra3/tetra3 is untracked (see ADR 0035),
-      # and `import tetra3` resolves the package through it.
-      - run: ln -sfn PiFinder/tetra3/tetra3 tetra3
-      - uses: wntrblm/nox@2024.04.15
+          attic-token: ${{ github.event_name == 'push' && secrets.ATTIC_TOKEN || '' }}
+      - name: Build dev shell
+        run: nix develop ..#default -c true
+      - name: Lint and format check
+        run: scripts/check.sh lint
+      - name: Type check
+        run: scripts/check.sh types
+      - name: Smoke tests
+        run: scripts/check.sh smoke
+      - name: Unit tests
+        run: scripts/check.sh unit
+      - name: Integration tests
+        run: scripts/check.sh integration
+      - name: Push dev shell to the cache
+        if: github.event_name == 'push'
+        working-directory: .
+        run: .github/scripts/push_dev_shell.sh aarch64-linux
+
+  # Developer desktops are x86. This job puts the x86 dev shells in the cache
+  # after the checks pass, so a desktop downloads libcamera and the Python
+  # environment and does not build them.
+  dev-shell-x86:
+    needs: nox
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-nix
         with:
-          python-versions: "3.9"
-      - run: nox -s lint format type_hints smoke_tests unit_tests ui_tests
+          attic-token: ${{ secrets.ATTIC_TOKEN }}
+      - name: Push dev shells to the cache
+        run: |
+          .github/scripts/push_dev_shell.sh x86_64-linux
+          .github/scripts/push_dev_shell.sh x86_64-linux web
