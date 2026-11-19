@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% import "obs_macros.html" as obs %}
+
+{% block head %}
+<link href="/css/observations.css" type="text/css" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="obs-page">
+
+  <header class="obs-head">
+    <h1>{{ object.display_name }}</h1>
+    <div class="obs-stat">
+      <span class="obs-stat__value">{{ logs | length }}</span>
+      <span class="obs-stat__label">{{ _('Observations') }}</span>
+    </div>
+  </header>
+
+  {% if has_image or has_chart %}
+  <div class="obs-object__hero">
+    {% if has_image %}
+    <figure class="obs-figure">
+      <img src="/observations/object/{{ object.catalog_code }}/{{ object.sequence }}/image.jpg"
+           alt="{{ _('Survey image of') }} {{ object.display_name }}" loading="lazy">
+      <figcaption>{{ _('Sky survey') }}</figcaption>
+    </figure>
+    {% endif %}
+    {% if has_chart %}
+    <figure class="obs-figure">
+      <img src="/observations/object/{{ object.catalog_code }}/{{ object.sequence }}/chart.png"
+           alt="{{ _('Star chart of') }} {{ object.display_name }}" loading="lazy">
+      <figcaption>{{ _('Gaia chart') }}</figcaption>
+    </figure>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="obs-facts">
+    {% if object.obj_type %}
+    <span class="obs-chip"><span class="obs-chip__label">{{ _('type') }}</span>{{ object.obj_type }}</span>
+    {% endif %}
+    {% if object.const %}
+    <span class="obs-chip"><span class="obs-chip__label">{{ _('constellation') }}</span>{{ object.const }}</span>
+    {% endif %}
+    {% if object.mag_str %}
+    <span class="obs-chip"><span class="obs-chip__label">{{ _('magnitude') }}</span>{{ object.mag_str }}</span>
+    {% endif %}
+    {% if object.size and object.size.to_display_string() %}
+    <span class="obs-chip"><span class="obs-chip__label">{{ _('size') }}</span>{{ object.size.to_display_string() }}</span>
+    {% endif %}
+  </div>
+
+  {% if object.names %}
+  <p class="obs-aka">{{ object.names | join(' · ') }}</p>
+  {% endif %}
+
+  {% if object.description %}
+  <div class="obs-desc">
+    <h3>{{ object.catalog_code }} {{ object.sequence }}</h3>
+    {{ object.description }}
+  </div>
+  {% endif %}
+
+  {# Catalogs describe the same object differently; the second description
+     often says what the first left out. #}
+  {% for listing in listings %}
+  {% if listing["description"] %}
+  <div class="obs-desc">
+    <h3>{{ listing["catalog"] }} {{ listing["sequence"] }}</h3>
+    {{ listing["description"] }}
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  <h2 class="obs-section-title">{{ _('Observation history') }}</h2>
+  <ul class="obs-log">
+    {% for log in logs %}
+    <li class="obs-log__entry">
+      <div class="obs-log__head">
+        <a class="obs-log__name" href="/observations/night/{{ log['night_key'] }}">
+          {{ log["local_time"].strftime('%d %b %Y') }}
+        </a>
+        <span class="obs-log__time">{{ log["local_time"].strftime('%H:%M') }}</span>
+        <span class="obs-log__where">
+          {%- if log["catalog"] != object.catalog_code %}{{ _('logged as') }} {{ log["catalog"] }} {{ log["sequence"] }} · {% endif %}
+          {%- if log["solution"]["altitude"] is defined %}{{ log["solution"]["altitude"] }}° {{ _('alt') }}{% endif %}
+        </span>
+      </div>
+      {{ obs.note_block(log["notes"]) }}
+    </li>
+    {% endfor %}
+  </ul>
+
+  <p><a href="/observations">← {{ _('All nights') }}</a></p>
+
+</div>
+{% endblock %}

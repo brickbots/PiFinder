@@ -1,0 +1,31 @@
+# Example key script for a demo video. Run it with:
+#   python/scripts/record_demo.sh --script demo_tour --record demo_tour.mp4
+# Wait for the start-up to end. Then open Objects > By Catalog > Messier,
+# open an object, show the marking menu and go back to the top.
+wait 15
+RIGHT
+wait 1
+DOWN
+wait 1
+RIGHT
+wait 1
+DOWN
+wait 1
+DOWN
+wait 1
+DOWN
+wait 1
+RIGHT
+wait 2
+DOWN
+wait 1
+DOWN
+wait 1
+RIGHT
+wait 3
+LNG_SQUARE
+wait 2
+LEFT
+wait 1
+LNG_LEFT
+wait 2

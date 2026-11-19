@@ -85,10 +85,6 @@ class UIStatus(UIModule):
             "CPU TMP": "--",
         }
 
-        with open(f"{utils.pifinder_dir}/wifi_status.txt", "r") as wfs:
-            wifi_mode = wfs.read()
-        self.status_dict["WIFI"] = "Client" if wifi_mode == "Client" else "AP"
-
         self.last_temp_time = 0
         self.last_IP_time = 0
         self.net = sys_utils.Network()
@@ -107,8 +103,8 @@ class UIStatus(UIModule):
         """
         Updates all the status dict values
         """
-        if self.shared_state.solve_state():
-            solution = self.shared_state.solution()
+        if self.snapshot.solve_state():
+            solution = self.snapshot.solution()
 
             # Time since last solve
             if solution.last_solve_success:
@@ -141,19 +137,17 @@ class UIStatus(UIModule):
                 self.status_dict["RA/DEC"] = "--/--"
             else:
                 hh, mm, _ = calc_utils.ra_to_hms(aligned.RA)
-                self.status_dict["RA/DEC"] = (
-                    f"{hh:02.0f}h{mm:02.0f}m/{aligned.Dec :.2f}"
-                )
+                self.status_dict["RA/DEC"] = f"{hh:02.0f}h{mm:02.0f}m/{aligned.Dec:.2f}"
 
             # AZ/ALT
             if solution.Az is None or solution.Alt is None:
                 self.status_dict["AZ/ALT"] = "--/--"
             else:
                 self.status_dict["AZ/ALT"] = (
-                    f"{solution.Az : >6.2f}/{solution.Alt : >6.2f}"
+                    f"{solution.Az: >6.2f}/{solution.Alt: >6.2f}"
                 )
 
-        imu = self.shared_state.imu()
+        imu = self.snapshot.imu()
         # IMU Status & reading
         if imu:
             if imu.quat is not None:
@@ -161,17 +155,17 @@ class UIStatus(UIModule):
                     mtext = "Moving"
                 else:
                     mtext = "Static"
-                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu.status)
+                self.status_dict["IMU"] = f"{mtext: >11}" + " " + str(imu.status)
 
-                self.status_dict["IMU qw,qx"] = f"{imu.quat.w:>.2f},{imu.quat.x : >.2f}"
-                self.status_dict["IMU qy,qz"] = f"{imu.quat.y:>.2f},{imu.quat.z : >.2f}"
+                self.status_dict["IMU qw,qx"] = f"{imu.quat.w:>.2f},{imu.quat.x: >.2f}"
+                self.status_dict["IMU qy,qz"] = f"{imu.quat.y:>.2f},{imu.quat.z: >.2f}"
         else:
             self.status_dict["IMU"] = "--"
             self.status_dict["IMU qw,qx"] = "--"
             self.status_dict["IMU qy,qz"] = "--"
 
-        location = self.shared_state.location()
-        sats = self.shared_state.sats()
+        location = self.snapshot.location()
+        sats = self.snapshot.sats()
         self.status_dict["GPS"] = [
             f"GPS {sats[0]}/{sats[1]}" if sats else "GPS 0/0",
             f"{location.lat:.2f}/{location.lon:.2f}",
@@ -180,12 +174,12 @@ class UIStatus(UIModule):
         self.status_dict["GPS ALT"] = f"{location.altitude:.1f}m"
         last_lock = location.last_gps_lock
         self.status_dict["GPS LCK"] = last_lock if last_lock else "--"
-        self.status_dict["GPS MSG"] = _format_gps_comms(self.shared_state.gps_comms())
+        self.status_dict["GPS MSG"] = _format_gps_comms(self.snapshot.gps_comms())
 
         # use datetimes explictly converted to the timezone we want to print
         # datetime() can be in any timezone and time() will just ignore TZ
-        utc_dt = self.shared_state.utc_datetime()
-        local_dt = self.shared_state.local_datetime()
+        utc_dt = self.snapshot.utc_datetime()
+        local_dt = self.snapshot.local_datetime()
         if utc_dt:
             self.status_dict["UTC TM"] = utc_dt.time().isoformat()[:8]
         if local_dt:
@@ -198,18 +192,17 @@ class UIStatus(UIModule):
             try:
                 with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
                     raw_temp = int(f.read().strip())
-                self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
+                self.status_dict["CPU TMP"] = f"{raw_temp / 1000: >13.1f}"
             except FileNotFoundError:
                 self.status_dict["CPU TMP"] = "Error"
 
         if time.time() - self.last_IP_time > 20:
             self.last_IP_time = time.time()
-            # IP address
+            # Live network state: WIFI radio mode, the reachable IP, and the
+            # active-uplink label (Ethernet when wired, else SSID / AP name).
+            self.status_dict["WIFI"] = self.net.wifi_mode()
             self.status_dict["IP"] = self.net.local_ip()
-            if self.net.wifi_mode() == "AP":
-                self.status_dict["SSID"] = self.net.get_ap_name()
-            else:
-                self.status_dict["SSID"] = self.net.get_connected_ssid()
+            self.status_dict["SSID"] = self.net.get_active_label()
 
     def update(self, force=False):
         self.update_status_dict()

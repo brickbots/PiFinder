@@ -182,6 +182,8 @@ DISPLAY_NAMES = (
     "pg_128",
     "pg_176",
     "pg_320",
+    "pg_demo",
+    "pg_demo_176",
     "headless",
     "headless_176",
     "headless_320",

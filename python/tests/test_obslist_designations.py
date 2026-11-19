@@ -77,6 +77,12 @@ class FakeCatalogs:
                 objects.append(obj)
         return objects
 
+    def iter_names(self):
+        """(name, resolve) for every name of every object, as Catalogs does."""
+        for obj in self.get_objects(only_selected=False, filtered=False):
+            for name in obj.names:
+                yield name, (lambda obj=obj: obj)
+
 
 def _resolve(tmp_path, monkeypatch, filename, text):
     """Load one observing list file and return the labels it resolved to."""

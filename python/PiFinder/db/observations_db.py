@@ -1,17 +1,64 @@
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
 from sqlite3 import Connection, Cursor
-from PiFinder.db.db import Database
-import PiFinder.utils as utils
+from threading import RLock
+from typing import Dict, Iterable, List, Optional, Tuple
+
 from PiFinder.composite_object import CompositeObject
+from PiFinder.db.db import Database
+from PiFinder.db.objects_db import ObjectsDatabase
+from PiFinder.observing_nights import (
+    coerce_epoch,
+    group_into_nights,
+    local_datetime,
+    night_key as night_key_for,
+)
+import PiFinder.utils as utils
 
 logger = logging.getLogger("Observations_DB")
 
+TSV_HEADERS = [
+    "Session_ID",
+    "Session_Start_Time",
+    "Session_Time_Zone",
+    "Session_Lat",
+    "Session_Lon",
+    "Observation_Time",
+    "Catalog",
+    "Sequence",
+    "Notes",
+]
+TSV_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+@dataclass
+class _ObservedIdentityCache:
+    fingerprint: tuple[tuple[int, int], tuple[int, int]]
+    listings: set[tuple[str, int]]
+    object_ids: set[int]
+
+
+_observed_identity_caches: dict[tuple[Path, Path], _ObservedIdentityCache] = {}
+_observed_identity_cache_lock = RLock()
+
+
+def _database_fingerprint(path: Path) -> tuple[int, int]:
+    try:
+        stat = path.stat()
+    except OSError:
+        return 0, 0
+    return stat.st_mtime_ns, stat.st_size
+
 
 class ObservationsDatabase(Database):
-    def __init__(self, db_path: Path = utils.observations_db):
+    def __init__(self, db_path: Optional[Path] = None):
+        # Resolved at call time, not as a default argument: an import-time
+        # default captures utils.observations_db before the test sandbox
+        # patches it, sending writes to the real ~/PiFinder_data.
+        if db_path is None:
+            db_path = utils.observations_db
         self._objects_db = None
         new_db = False
         if not db_path.exists():
@@ -31,10 +78,48 @@ class ObservationsDatabase(Database):
         it. Opened lazily and kept for the life of this instance.
         """
         if self._objects_db is None:
-            from PiFinder.db.objects_db import ObjectsDatabase
-
             self._objects_db = ObjectsDatabase()
         return self._objects_db
+
+    def _identity_cache_key(self) -> tuple[Path, Path]:
+        return self.db_path.resolve(), Path(utils.pifinder_db).resolve()
+
+    def _identity_cache_fingerprint(self) -> tuple[tuple[int, int], tuple[int, int]]:
+        observations_path, objects_path = self._identity_cache_key()
+        return (
+            _database_fingerprint(observations_path),
+            _database_fingerprint(objects_path),
+        )
+
+    def _query_observed_identities(
+        self,
+    ) -> tuple[set[tuple[str, int]], set[int]]:
+        """Load listing and sky-object identities with one indexed query."""
+        alias = "catalog_identity"
+        self.cursor.execute(
+            f"ATTACH DATABASE ? AS {alias}", (str(Path(utils.pifinder_db)),)
+        )
+        try:
+            rows = self.cursor.execute(
+                f"""
+                SELECT DISTINCT observed.catalog, observed.sequence,
+                                catalog_object.object_id
+                FROM obs_objects AS observed
+                LEFT JOIN {alias}.catalog_objects AS catalog_object
+                  ON catalog_object.catalog_code = observed.catalog
+                 AND catalog_object.sequence = observed.sequence
+                """
+            ).fetchall()
+        finally:
+            self.cursor.execute(f"DETACH DATABASE {alias}")
+
+        listings = {(row["catalog"], row["sequence"]) for row in rows}
+        object_ids = {
+            row["object_id"]
+            for row in rows
+            if row["object_id"] is not None and row["object_id"] >= 0
+        }
+        return listings, object_ids
 
     def _resolve_object_id(self, catalog: str, sequence: int) -> Optional[int]:
         """
@@ -190,11 +275,17 @@ class ObservationsDatabase(Database):
         )
         self.conn.commit()
 
-        # Update caches so filters reflect the new observation immediately
-        self.observed_objects_cache.add((catalog, sequence))
-        object_id = self._resolve_object_id(catalog, sequence)
-        if object_id is not None and object_id >= 0:
-            self.observed_object_ids.add(object_id)
+        # Update the process-wide cache so every existing view reflects the
+        # new observation immediately.
+        with _observed_identity_cache_lock:
+            self.observed_objects_cache.add((catalog, sequence))
+            object_id = self._resolve_object_id(catalog, sequence)
+            if object_id is not None and object_id >= 0:
+                self.observed_object_ids.add(object_id)
+
+            cache = _observed_identity_caches.get(self._identity_cache_key())
+            if cache is not None:
+                cache.fingerprint = self._identity_cache_fingerprint()
 
         observation_id = self.cursor.execute(
             "select last_insert_rowid() as id"
@@ -224,15 +315,39 @@ class ObservationsDatabase(Database):
         entries. Listings that don't resolve to an object id (virtual
         objects, removed catalogs) stay listing-keyed only.
         """
-        self.observed_objects_cache: set[tuple[str, int]] = {
-            (x["catalog"], x["sequence"]) for x in self.get_observed_objects()
-        }
-        resolved = self._resolve_object_ids(self.observed_objects_cache)
-        self.observed_object_ids: set[int] = {
-            object_id
-            for object_id in resolved.values()
-            if object_id is not None and object_id >= 0
-        }
+        with _observed_identity_cache_lock:
+            key = self._identity_cache_key()
+            fingerprint = self._identity_cache_fingerprint()
+            cache = _observed_identity_caches.get(key)
+            if cache is None or cache.fingerprint != fingerprint:
+                try:
+                    listings, object_ids = self._query_observed_identities()
+                except Exception:
+                    logger.warning(
+                        "Could not resolve observed object identities; "
+                        "observed status stays per listing",
+                        exc_info=True,
+                    )
+                    listings = {
+                        (row["catalog"], row["sequence"])
+                        for row in self.get_observed_objects()
+                    }
+                    object_ids = set()
+
+                if cache is None:
+                    cache = _ObservedIdentityCache(fingerprint, listings, object_ids)
+                    _observed_identity_caches[key] = cache
+                else:
+                    # Existing database instances retain these set objects, so
+                    # refresh them in place rather than stranding stale readers.
+                    cache.listings.clear()
+                    cache.listings.update(listings)
+                    cache.object_ids.clear()
+                    cache.object_ids.update(object_ids)
+                    cache.fingerprint = fingerprint
+
+            self.observed_objects_cache = cache.listings
+            self.observed_object_ids = cache.object_ids
 
     def check_logged(self, obj_record: CompositeObject):
         """
@@ -348,12 +463,15 @@ class ObservationsDatabase(Database):
     def get_logs_by_session(self, session_uid):
         """
         returns a list of observed objects for session
+
+        Times come back as the raw stored value; rendering them needs the
+        session's timezone, which sqlite has no database for.
         """
         objects = self.cursor.execute(
             """
                 Select
                     session_uid,
-                    ifnull(datetime(obs_time_local, "unixepoch"), datetime(obs_time_local)) as obs_time_local,
+                    obs_time_local,
                     catalog,
                     sequence,
                     notes
@@ -365,24 +483,170 @@ class ObservationsDatabase(Database):
 
         return objects
 
-    def observations_as_tsv(self, session_uid=None):
+    def get_observations_with_session(self):
         """
-        Returns all observations for a session
-        or all sessions
+        Every observation with the session context needed to place it in a
+        night: the timezone its clock ran in, and where it was made.
+
+        Times come back as raw epochs. Rendering them needs the timezone,
+        which sqlite has no database for, so formatting happens in Python
+        (see PiFinder.observing_nights).
+
+        A historical bug wrote duplicate obs_sessions rows for one run --
+        the same sanitizing get_sessions() does -- so the session context
+        is aggregated rather than joined row-for-row, which would multiply
+        each observation by the number of duplicates.
         """
-        rows_list = []
-        headers_list = [
-            "Session_ID",
-            "Session_Start_Time",
-            "Session_Time_Zone",
-            "Session_Lat",
-            "Session_Lon",
-            "Observation_Time",
-            "Catalog",
-            "Sequence",
-            "Notes",
-        ]
-        rows_list.append("\t".join(headers_list))
+        return self.cursor.execute(
+            """
+                select
+                    o.session_uid,
+                    o.obs_time_local,
+                    o.catalog,
+                    o.sequence,
+                    o.notes,
+                    s.timezone,
+                    s.lat,
+                    s.lon
+                from obs_objects o
+                left join (
+                    select
+                        uid,
+                        max(timezone) as timezone,
+                        avg(lat) as lat,
+                        avg(lon) as lon
+                    from obs_sessions
+                    group by uid
+                ) s on s.uid = o.session_uid
+                order by o.obs_time_local
+            """
+        ).fetchall()
+
+    def get_nights(self):
+        """
+        Observing nights, most recent first. See PiFinder.observing_nights
+        for what counts as a night and why it isn't a session.
+        """
+        return group_into_nights(self.get_observations_with_session())
+
+    def get_logs_by_night(self, night_key):
+        """
+        Observations belonging to one night, in the order they were made.
+
+        Includes the stored solution, which carries the constellation and
+        the object's Alt/Az at the moment it was logged.
+        """
+        rows = self.cursor.execute(
+            """
+                select
+                    o.session_uid,
+                    o.obs_time_local,
+                    o.catalog,
+                    o.sequence,
+                    o.solution,
+                    o.notes,
+                    s.timezone,
+                    s.lat,
+                    s.lon
+                from obs_objects o
+                left join (
+                    select
+                        uid,
+                        max(timezone) as timezone,
+                        avg(lat) as lat,
+                        avg(lon) as lon
+                    from obs_sessions
+                    group by uid
+                ) s on s.uid = o.session_uid
+                order by o.obs_time_local
+            """
+        ).fetchall()
+
+        logs = []
+        for row in rows:
+            record = dict(row)
+            epoch = coerce_epoch(record["obs_time_local"])
+            if epoch is None or night_key_for(epoch, record["timezone"]) != night_key:
+                continue
+            record["epoch"] = epoch
+            record["local_time"] = local_datetime(epoch, record["timezone"])
+            logs.append(record)
+
+        return logs
+
+    def get_session_timezones(self):
+        """
+        Each session's timezone, keyed by session uid.
+
+        Aggregated for the same reason the night join is: a historical bug
+        wrote a session's row more than once.
+        """
+        rows = self.cursor.execute(
+            """
+                select uid, max(timezone) as timezone
+                from obs_sessions
+                group by uid
+            """
+        ).fetchall()
+        return {row["UID"]: row["timezone"] for row in rows}
+
+    def night_key_for_session(self, session_uid):
+        """
+        The night a software run belongs to, from its first observation.
+
+        A run that produced nothing has no night to point at.
+        """
+        row = self.cursor.execute(
+            """
+                select min(obs_time_local) as first_observation
+                from obs_objects
+                where session_uid = :session_uid
+            """,
+            {"session_uid": session_uid},
+        ).fetchone()
+
+        epoch = coerce_epoch(row["first_observation"]) if row else None
+        if epoch is None:
+            return None
+        timezone = self.get_session_timezones().get(session_uid)
+        return night_key_for(epoch, timezone)
+
+    def get_object_history(self, obj_record: CompositeObject):
+        """
+        Every observation of one sky object, most recent first.
+
+        Built on get_logs_for_object, so an object logged under one of its
+        designations shows that entry under all of them (M 31 / NGC 224),
+        with each entry placed in the night it belongs to.
+        """
+        timezones = self.get_session_timezones()
+
+        history = []
+        for row in self.get_logs_for_object(obj_record):
+            record = dict(row)
+            epoch = coerce_epoch(record["obs_time_local"])
+            if epoch is None:
+                continue
+            timezone = timezones.get(record["session_uid"])
+            record["epoch"] = epoch
+            record["timezone"] = timezone
+            record["local_time"] = local_datetime(epoch, timezone)
+            record["night_key"] = night_key_for(epoch, timezone)
+            history.append(record)
+
+        return sorted(history, key=lambda record: record["epoch"], reverse=True)
+
+    def observations_as_tsv(self, session_uid=None, night_key=None):
+        """
+        Returns all observations for a session, a night, or everything.
+
+        Observation times are written in the timezone the session ran in,
+        the same as the night-scoped export -- both describe the same
+        instants and must not disagree about what the clock read.
+        """
+        if night_key is not None:
+            return self._night_as_tsv(night_key)
+        rows_list = ["\t".join(TSV_HEADERS)]
 
         sessions = self.get_sessions(session_uid=session_uid)
         for session in sessions:
@@ -396,11 +660,48 @@ class ObservationsDatabase(Database):
             objects = self.get_logs_by_session(session["UID"])
             for obj in objects:
                 object_row = base_row + [
-                    obj["obs_time_local"],
+                    self._local_time_string(obj["obs_time_local"], session["timezone"]),
                     obj["catalog"],
                     str(obj["sequence"]),
                     obj["notes"],
                 ]
                 rows_list.append("\t".join(object_row))
+
+        return "\n".join(rows_list)
+
+    @staticmethod
+    def _local_time_string(value, timezone):
+        """
+        A stored observation time as the observer's wall clock, falling
+        back to the raw value when it can't be read as an instant.
+        """
+        epoch = coerce_epoch(value)
+        if epoch is None:
+            return str(value)
+        return local_datetime(epoch, timezone).strftime(TSV_TIME_FORMAT)
+
+    def _night_as_tsv(self, night_key):
+        """
+        One night's observations, in the same column shape as the
+        session-scoped export so both downloads parse identically.
+        """
+        rows_list = ["\t".join(TSV_HEADERS)]
+
+        for log in self.get_logs_by_night(night_key):
+            rows_list.append(
+                "\t".join(
+                    [
+                        str(log["session_uid"]),
+                        night_key,
+                        str(log["timezone"] or ""),
+                        str(log["lat"]),
+                        str(log["lon"]),
+                        log["local_time"].strftime(TSV_TIME_FORMAT),
+                        log["catalog"],
+                        str(log["sequence"]),
+                        log["notes"],
+                    ]
+                )
+            )
 
         return "\n".join(rows_list)

@@ -609,7 +609,7 @@ def load_arp():
             for additional in parts[1:]:
                 if additional.isdigit():
                     # If the additional part is a number, add it directly
-                    expanded_list.append(f"{base_part[:-len(additional)]}{additional}")
+                    expanded_list.append(f"{base_part[: -len(additional)]}{additional}")
                 else:
                     expanded_list.append(additional)
         else:
@@ -663,7 +663,10 @@ def load_arp():
                 aka_names = [row["name"]]  # Start with the first name
                 mag = row["magnitude"]
                 if utils.is_number(mag):
-                    mag = MagnitudeObject([float(mag)])
+                    # arp.sqlite stores the magnitudes as float32 values
+                    # (13.800000190734863), so round to the two decimals of a
+                    # catalog magnitude.
+                    mag = MagnitudeObject([round(float(mag), 2)])
                 else:
                     logging.warning(
                         f"Invalid magnitude for Arp {row['catalog_identifier']}"

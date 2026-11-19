@@ -14,9 +14,8 @@ import datetime
 
 logger = logging.getLogger("GPS.parser")
 
-# u-blox quality indicator (qualityInd / flags bits 0-2) value at which the
-# signal is code locked; below this the receiver is still searching and any
-# reported C/N0 is an unconfirmed acquisition candidate.
+# u-blox quality indicator (qualityInd / flags bits 0-2) thresholds.
+QUALITY_SIGNAL_ACQUIRED = 2
 QUALITY_CODE_LOCKED = 4
 
 # Prefix reserved for markers: synthesised events standing in for a frame that
@@ -384,13 +383,13 @@ class UBXParser:
 
             is_used = bool(flags & 0x01)
 
-            # During cold-start acquisition the receiver reports estimated
-            # C/N0 for candidates it is still searching for; counting those
-            # makes the seen count start high and sink as they fail to
-            # confirm. Only quality >= 4 (code locked) is really tracked.
-            # uSat is counted over this same set so it can never exceed nSat:
-            # svUsed implies code lock, so restricting it drops nothing real.
-            if quality >= QUALITY_CODE_LOCKED:
+            # Include signals the receiver has acquired, but not idle channels
+            # or candidates which are still only being searched. A used flag
+            # below code lock is internally inconsistent and is ignored.
+            if cno > 0 and (
+                quality >= QUALITY_CODE_LOCKED
+                or (quality >= QUALITY_SIGNAL_ACQUIRED and not is_used)
+            ):
                 if is_used:
                     used_sats += 1
                 satellites.append(
