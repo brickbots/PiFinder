@@ -436,16 +436,13 @@ without committing the data (9.7), copy the result out and restore the
 tracked file with `git checkout -- astro_data/pifinder_objects.db`
 before the next build.
 
-> **Status (2026-11-08).** Parts of this section describe the import as
-> the catalog-audit fixes leave it, not as `main` has it today. The
-> supplementary sources (9.4) — Hipparcos, WGSN, Bica and RC3 — are in
-> `catalog_imports/supplementary_sources.py`.
-> The designation allowlist, the match guard (9.3) and precedence (9.1)
-> are in `catalog_imports/catalog_import_utils.py`, the star cross-match
-> (9.3) in `catalog_imports/star_identity.py`. The correction pass
-> (9.5) is in `catalog_imports/corrections.py`, and
-> `astro_data/corrections/` holds no corrections yet.
-> The decision record is [ADR 0046](../adr/0046-catalog-corrections-cited-checked-applied-last.md).
+The committed database is a build of the import this section describes.
+The designation allowlist, the match guard (9.3) and precedence (9.1)
+are in `catalog_imports/catalog_import_utils.py`, the star cross-match
+(9.3) in `catalog_imports/star_identity.py`, the supplementary sources
+(9.4) in `catalog_imports/supplementary_sources.py`, and the correction
+pass (9.5) in `catalog_imports/corrections.py`. The decision record is
+[ADR 0046](../adr/0046-catalog-corrections-cited-checked-applied-last.md).
 
 ### 9.1 Pipeline
 
@@ -586,6 +583,24 @@ Arp 79's NGC 5490C, a galaxy of its own 4.8′ from NGC 5490, does not. A
 source can mean either by the letter, so every other loader keeps the
 strict default, where "NGC 4676A" is a plain name.
 
+**A loader writes its source's designations out before they are akas.**
+The allowlist reads "NGC 581", not the "581 (M103)" of `collinder.txt`,
+which would stay a plain name and leave Col 14 a second sky object beside
+M 103. So the Collinder loader reads its two name columns
+(`collinder_names`):
+
+- `collinder.txt`'s "NGC/Other Cat." holds a designation, often with a
+  second one in parentheses: "581 (M103)" is "NGC 581" and "M 103",
+  "IC4725 (M25)" is "IC 4725" and "M 25", "Tr.9" is "Trumpler 9". A part of
+  an NGC object ("2384a") is the name "NGC 2384a", which joins nothing.
+- A cross-reference that the source marks wrong ("(incorrectly) 3247")
+  gives no aka, so it can never join. Nor does a placeholder ("nl"), the
+  Flamsteed numbers of a cluster's stars ("4-5 Vul."), or text in
+  parentheses that is not one designation ("(Mel 72 per A/H)").
+- `collinder2.txt`'s "Other names" is a comma-separated list, and each
+  item is a name: Col 399 is "Al Sufi's Cluster", "Brocchi's Cluster" and
+  "Coathanger".
+
 **Stars are identified by Hipparcos number.** The star-identity stage
 cross-matches every sky object that carries a listing of a star catalog
 (Str, SaM, SaR, TLK, RDS, WDS) to `hip_main.dat`, and merges the sky
@@ -724,20 +739,20 @@ RASC's doubles (RDS), or a WDS pair that is a double star lists it;
 otherwise `*`. Each loader types its own listings by the rule — SaM and
 RDS `D*`; Str, SaR and TLK `*`; a WDS listing `D*` when one of its pairs
 is a double star — and a merged star is `D*` if any of its sky objects
-was. A WDS pair is a double star if WDS flags it neither optical
-(S, U, Y, L) nor dubious (X), it includes the primary (its components
-are blank or start with A), and its companion is one an observer would
-look for: between 0.5″ and 60″ from the primary and within 5 mag of it
-(Rich's choice, 2026-10; the limits are named constants in
-`wds_loader.py`). Closer pairs are interferometric, split by no observer
-(Capella, Algol, Dschubba). WDS lists every pair
-ever measured, and many it has never flagged are faint field stars:
-without those limits nearly every bright star would be a double
-(Alphard's 9.7 mag companion at 284″, Vega's 12 mag survey stars).
-Hipparcos's CCDM letter is blank for wide pairs and for pairs it could
-not resolve (Sirius, Polaris, Antares), so neither decides by itself.
-SAC lists Vega and Fomalhaut, so the rule makes them `D*`; their
-companions are field stars, and corrections make them `*`.
+was. A WDS pair is a double star unless WDS notes it as dubious (X) or
+gives no magnitude for its companion: optical pairs (S, U, Y, L) count,
+and so do pairs without the primary (BC), and pairs however close, wide
+or unequal. WDS lists a pair because someone measured it as one, so the
+type says what the object is; whether an observer can see the companion
+is for the filters (a double filters by its brighter star, 2.2) and for
+the separation and both magnitudes the entry shows. This follows
+mrosseel's review of #697 (2026-11). The earlier rule kept only
+unflagged pairs with the primary, 0.5″ to 60″ apart and within 5 mag,
+and typed 40,788 of WDS's 131,303 listings `*`; the rule now types
+10,597 `*`, nearly all because their only pairs are flagged X. Vega
+(optical companions) and Fomalhaut (SHY 106, its wide companion TW PsA)
+are `D*` by WDS, as SAC lists them. ζ Scl, which SAC lists but whose only
+WDS pair (B 631) is flagged X, has a correction that makes it `*`.
 
 A **not-found** NGC/IC number (Steinicke's status 10, about 300 of
 them) keeps its listing, its nominal position and type `?`, and its
@@ -939,7 +954,7 @@ of strings is ordered by Python's per-process hash seed and is not.
 
 ### 9.7 Committing the database
 
-The committed `pifinder_objects.db` is about 23 MB compressed, and a
+The committed `pifinder_objects.db` is about 24 MB compressed, and a
 fielded unit's update downloads every version of it that was committed
 since its last one. Commit a rebuilt database only in a pull request
 that means to change the data, and batch import changes so one rebuild

@@ -372,13 +372,17 @@ def test_load_wds_keeps_a_missing_companion_magnitude_out(wds):
 
 
 def test_load_wds_types_a_listing_by_its_pairs(wds):
-    # Vega's pairs are all flagged optical; Propus's BU 1008 is a double.
-    assert listing(wds, "WDS", 1)["obj_type"] == "*"
+    # Every pair WDS lists is a double: Vega's, all flagged optical, and
+    # each a companion more than 5 mag fainter or wider than 60".
+    assert listing(wds, "WDS", 1)["obj_type"] == "D*"
+    # Propus's BU 1008.
     assert listing(wds, "WDS", 5)["obj_type"] == "D*"
-    # SHN 45 is 0.16" wide, too close to split.
-    assert listing(wds, "WDS", 2)["obj_type"] == "*"
-    # No companion magnitude, or a companion 1234" away: no double star.
-    assert listing(wds, "WDS", 3)["obj_type"] == "*"
+    # SHN 45 is 0.16" wide.
+    assert listing(wds, "WDS", 2)["obj_type"] == "D*"
+    # One pair has no companion magnitude; the other is 1234" wide.
+    assert listing(wds, "WDS", 3)["obj_type"] == "D*"
+    # LDS 2101's only pair is flagged dubious (X).
+    assert listing(wds, "WDS", 4)["obj_type"] == "*"
 
 
 def test_load_wds_records_a_row_placed_by_its_identifier(wds):
