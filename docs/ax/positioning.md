@@ -362,8 +362,9 @@ both selection paths push `Config.active_target_pixel()` into
 The switch is silent and takes effect on the next solve. Until then the
 IMU-only estimate still uses the old `q_cam2aligned`; it is re-derived from
 the next (camera, aligned) pair, so nothing needs resetting. The solve-based
-Align screen is preloaded, so it re-reads the active point each time align
-mode starts rather than once at boot.
+Align screen is preloaded, so each time align mode starts it re-reads the
+active point and clears any star left from an earlier alignment; otherwise
+the marker would jump back to that star, and SQUARE would re-align on it.
 
 ### 5.5 Why alignment doesn't disturb IMU tracking
 

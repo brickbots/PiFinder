@@ -65,10 +65,11 @@ already per-telescope in fact; only the storage was global.
 
 ## Consequences
 
-- **Load stays tolerant (ADR 0033).** A malformed stored point is dropped with a
-  warning before `Equipment.from_dict` runs — that telescope falls back to the
-  global point — rather than letting the decode fail and replace every
-  telescope and eyepiece with the shipped defaults.
+- **Load stays tolerant (ADR 0033).** A stored point that is not a usable
+  pixel — wrong shape, not numbers, a bool, NaN/inf, or off the 512×512
+  frame — is dropped with a warning before `Equipment.from_dict` runs. That
+  telescope falls back to the global point, rather than the decode failing
+  and every telescope and eyepiece being replaced with the shipped defaults.
 - **A web edit keeps the point.** The instrument form has no alignment field;
   `server.replace_telescope` carries the old record's point onto the edited one.
 - **The web page does not show or reset alignment.** Alignment is done on the
@@ -77,9 +78,22 @@ already per-telescope in fact; only the storage was global.
   with no telescope selected. That state is rare in practice: `load_config`
   restores the default telescope when the list is empty, and an
   `active_telescope_index` of `-1` selects the last telescope.
-- **The active telescope is still chosen by index.** Deleting a telescope above
-  the active one moves the selection to a different telescope — an existing
-  defect, but now it moves the alignment point with it.
+- **Deleting a telescope keeps the active one.** The active telescope is
+  stored by index, and the web delete route used a bare `pop`, so deleting a
+  telescope listed above it selected a different one. That only swapped
+  flip/flop before; with this change it would also move the alignment point.
+  `Equipment.remove_telescope` now re-finds the active record (by identity,
+  because equality ignores the point); deleting the active telescope itself
+  selects the first one.
+- **Alignment needs every process's save to survive.** Each process holds its
+  own `Config`, and saving used to write that whole boot-time copy back, so
+  the camera process saving an exposure reverted an alignment saved by the
+  UI. That was already true of the global key; it is fixed separately in
+  [ADR 0048](0048-config-saves-write-only-their-own-keys.md).
+- **The Align screen starts from the active telescope's point.** It is
+  preloaded once, so align mode re-reads the point on entry and clears any
+  star left from an earlier alignment; otherwise SQUARE could re-align on
+  that old star onto the telescope now active.
 - **Between a switch and the next solve**, the IMU-only estimate still uses the
   old point; `q_cam2aligned` is re-derived on the next solve, so no reset is
   needed.

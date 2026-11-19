@@ -199,7 +199,20 @@ class TestActiveTargetPixel:
 
         assert config.Config().active_target_pixel() == (256.0, 256.0)
 
-    @pytest.mark.parametrize("bad", ["garbage", 5, [1.0], [1.0, "x"], {"y": 1}])
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "garbage",
+            5,
+            [1.0],
+            [1.0, 2.0, 3.0],
+            [1.0, "x"],
+            {"y": 1},
+            [True, False],  # float() would make this (1.0, 0.0)
+            [-50.0, 100.0],  # off the 512x512 frame
+            [100.0, 9999.0],
+        ],
+    )
     def test_an_unusable_point_does_not_cost_the_equipment(
         self, config_dir, caplog, bad
     ):
@@ -234,6 +247,89 @@ class TestActiveTargetPixel:
         )
 
         assert config.Config().active_target_pixel() == (310.0, 190.0)
+
+
+# ── deleting a telescope ───────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestRemoveTelescope:
+    """The active telescope is an index; deleting must not move it."""
+
+    def three(self, active):
+        return Equipment(
+            telescopes=[
+                a_telescope("A", [10.0, 10.0]),
+                a_telescope("B", [20.0, 20.0]),
+                a_telescope("C", [30.0, 30.0]),
+            ],
+            eyepieces=[],
+            active_telescope_index=active,
+        )
+
+    def test_deleting_one_above_keeps_the_active_telescope(self):
+        equipment = self.three(active=1)
+
+        equipment.remove_telescope(0)
+
+        assert equipment.active_telescope.name == "B"
+        assert equipment.active_telescope.target_pixel == [20.0, 20.0]
+
+    def test_deleting_one_below_keeps_the_active_telescope(self):
+        equipment = self.three(active=1)
+
+        equipment.remove_telescope(2)
+
+        assert equipment.active_telescope.name == "B"
+
+    def test_deleting_the_active_telescope_selects_the_first(self):
+        equipment = self.three(active=1)
+
+        equipment.remove_telescope(1)
+
+        assert equipment.active_telescope.name == "A"
+
+    def test_minus_one_means_the_last_and_stays_on_it(self):
+        equipment = self.three(active=-1)
+
+        equipment.remove_telescope(0)
+
+        assert equipment.active_telescope.name == "C"
+        assert equipment.active_telescope_index == 1
+
+    def test_deleting_the_only_telescope_leaves_none_active(self):
+        equipment = Equipment(
+            telescopes=[a_telescope("A")], eyepieces=[], active_telescope_index=0
+        )
+
+        equipment.remove_telescope(0)
+
+        assert equipment.active_telescope is None
+
+    def test_identical_records_are_told_apart(self):
+        """Equality ignores the point, so index() would find the wrong twin."""
+        equipment = Equipment(
+            telescopes=[
+                a_telescope("Gone"),
+                a_telescope("Twin", [1.0, 1.0]),
+                a_telescope("Twin", [2.0, 2.0]),
+            ],
+            eyepieces=[],
+            active_telescope_index=2,
+        )
+
+        equipment.remove_telescope(0)
+
+        assert equipment.active_telescope.target_pixel == [2.0, 2.0]
+
+    def test_a_bad_index_raises_and_changes_nothing(self):
+        equipment = self.three(active=1)
+
+        with pytest.raises(IndexError):
+            equipment.remove_telescope(5)
+
+        assert equipment.active_telescope.name == "B"
+        assert len(equipment.telescopes) == 3
 
 
 # ── saving a point ─────────────────────────────────────────────────

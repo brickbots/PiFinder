@@ -155,6 +155,28 @@ class Equipment:
         self.sort_eyepieces()
         return eyepiece
 
+    def remove_telescope(self, index: int) -> Telescope:
+        """Delete the telescope at ``index``, keeping the active one active.
+
+        The active telescope is stored as an index, so a bare ``pop`` of a
+        telescope listed above it silently selects the next one -- and with
+        it that telescope's flip/flop and alignment point.  When the active
+        telescope itself is deleted, the first remaining one becomes active.
+        Raises IndexError for a bad index.
+        """
+        active = self.active_telescope
+        telescope = self.telescopes.pop(index)
+        if active is None or active is telescope:
+            self.active_telescope_index = 0 if self.telescopes else -1
+        else:
+            # Find the surviving record by identity: equality ignores the
+            # alignment point, so two otherwise-identical telescopes would
+            # compare equal and index() could pick the wrong one.
+            self.active_telescope_index = next(
+                i for i, t in enumerate(self.telescopes) if t is active
+            )
+        return telescope
+
     def update_eyepiece(self, index: int, eyepiece: Eyepiece) -> None:
         self.eyepieces[index] = eyepiece
         self.sort_eyepieces()

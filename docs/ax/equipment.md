@@ -153,7 +153,8 @@ always reads the repo-root `default_config.json` into
 
 `save_equipment()` (`config.py:88`) is the *only* writer of the `equipment`
 key; it serialises `self.equipment.to_dict()` and calls `set_option`, which
-ultimately `dump_config()`s the whole `_config_dict` to disk.
+writes that one key into `config.json` and leaves the others as they are on
+disk ([ADR 0048](../adr/0048-config-saves-write-only-their-own-keys.md)).
 
 Critically, **`save_equipment()` runs only on an explicit equipment
 action**:
@@ -187,7 +188,8 @@ Before constructing the dataclass, `load_config` repairs a few states:
   *over*-range indices; an explicit `-1` is preserved — and, because it is a
   Python index, `-1` selects the **last** telescope/eyepiece rather than
   none. "Nothing selected" only really happens with an empty list.
-- A telescope's `target_pixel` that is not a finite `(Y, X)` pair is
+- A telescope's `target_pixel` that is not a usable `(Y, X)` pixel (wrong
+  shape, not numbers, a bool, NaN/inf, or off the 512×512 frame) is
   dropped (with a warning) before `from_dict`, so a broken alignment point
   costs that telescope its alignment, not the whole equipment section.
 
@@ -383,7 +385,7 @@ list/table page) and `views/edit_instrument.html` / `views/edit_eyepiece.html`
 | `GET /equipment/set_active_eyepiece/<id>` | Set active eyepiece, save. |
 | `GET /equipment/edit_instrument/<id>` | Edit form (id `< 0` = add new, blank fields). |
 | `POST /equipment/add_instrument/<id>` | Create or update a telescope, save. |
-| `GET /equipment/delete_instrument/<id>` | Remove a telescope, save. |
+| `GET /equipment/delete_instrument/<id>` | Remove a telescope (`Equipment.remove_telescope`, which keeps the active telescope active), save. |
 | `GET /equipment/edit_eyepiece/<id>` | Edit form (id `< 0` = add new). |
 | `POST /equipment/add_eyepiece/<id>` | Create or update an eyepiece, save. |
 | `GET /equipment/delete_eyepiece/<id>` | Remove an eyepiece, save. |
@@ -465,9 +467,12 @@ in the current handler new items are appended/deduped rather than wiped.
   naming the axis. The web form labels ("upside down" / "left right") match
   this.
 
-- **Deleting a telescope can move the alignment.** The active telescope is
-  stored by index, so deleting one listed above it shifts the selection to a
-  different telescope — and with it, that telescope's alignment point.
+- **Delete telescopes through `remove_telescope`.** The active telescope is
+  stored by index, so a bare `telescopes.pop()` of one listed above it
+  shifts the selection to a different telescope — and with it, that
+  telescope's flip/flop and alignment point. `remove_telescope` re-finds the
+  active record. (Eyepiece deletion still uses a bare `pop` in the web
+  route.)
 
 - **flip/flop are not arrow reversal.** They orient the *object image*;
   `reverse_arrow_*` orient the push-to *chart arrows*. Different concerns —

@@ -4,12 +4,13 @@
 This module handles non-volatile config options
 """
 
+import fcntl
 import json
-import math
 import os
+import tempfile
 from pathlib import Path
 from PiFinder import utils, equipment, locations
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 import logging
 
 logger = logging.getLogger("config")
@@ -21,20 +22,30 @@ _LEGACY_SCREEN_DIRECTIONS = {
 }
 
 
-# (Y, X) centre of the 512x512 camera image: "no alignment offset known".
-IMAGE_CENTER_PIXEL = (256.0, 256.0)
+# The target pixel lives in the square native camera frame the solver works
+# in (see SharedStateObj.target_pixel); (Y, X) centre means "no alignment
+# offset known".
+CAMERA_NATIVE_RES = 512
+IMAGE_CENTER_PIXEL = (CAMERA_NATIVE_RES / 2, CAMERA_NATIVE_RES / 2)
 
 
 def _as_target_pixel(value) -> Optional[tuple[float, float]]:
-    """``value`` as a finite (Y, X) float pair, or None if it is not one."""
-    if not isinstance(value, (list, tuple)):
+    """``value`` as a (Y, X) float pair inside the camera frame, or None.
+
+    Anything else -- the wrong shape, a non-number, a bool (which float()
+    would happily turn into 0 or 1), NaN/inf, or a pixel off the frame -- is
+    not a point the solver can use.
+    """
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        return None
+    if any(isinstance(v, bool) for v in value):
         return None
     try:
         y, x = (float(v) for v in value)
     except (TypeError, ValueError):
         return None
-    if not (math.isfinite(y) and math.isfinite(x)):
-        return None
+    if not all(0.0 <= v <= CAMERA_NATIVE_RES for v in (y, x)):
+        return None  # also rejects NaN, which fails every comparison
     return (y, x)
 
 
@@ -158,12 +169,74 @@ class Config:
         """
         self.set_option("locations", self.locations.to_dict())
 
-    def dump_config(self):
+    def _persist(
+        self,
+        changes: Optional[dict] = None,
+        remove: Optional[Callable[[str], bool]] = None,
+    ) -> None:
+        """Write ``changes`` into config.json, leaving every other key as is.
+
+        Each process (UI, camera, web server, integrator...) holds its own
+        Config, read when it started.  Writing that whole dict back would
+        revert everything other processes have saved since -- the camera
+        process saving an exposure used to wipe an alignment made in the UI
+        moments before.  So a save re-reads the file and changes only its
+        own keys.  ``remove`` drops every on-disk key it returns True for.
+
+        The read-modify-write runs under an exclusive lock, so two processes
+        saving at once cannot drop each other's key, and the file is
+        replaced atomically, so a reader never sees half of it.
         """
-        Write config to config file
-        """
-        with open(self.config_file_path, "w") as config_file:
-            json.dump(self._config_dict, config_file, indent=4)
+        changes = changes or {}
+        lock_path = self.config_file_path.with_name(
+            "." + self.config_file_path.name + ".lock"
+        )
+        with open(lock_path, "a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            on_disk = self._read_config_file()
+            if on_disk is None:
+                # Missing or unreadable: what this process knows is the best
+                # available copy of everything else.
+                on_disk = dict(self._config_dict)
+            if remove is not None:
+                for key in [k for k in on_disk if remove(k)]:
+                    del on_disk[key]
+            on_disk.update(changes)
+            self._write_config_file(on_disk)
+
+    def _read_config_file(self) -> Optional[dict]:
+        """The settings currently on disk, or None if there are none."""
+        try:
+            with open(self.config_file_path, "r") as config_file:
+                on_disk = json.load(config_file)
+        except FileNotFoundError:
+            return None
+        except (OSError, ValueError):
+            logger.exception("Could not read %s before saving", self.config_file_path)
+            return None
+        return on_disk if isinstance(on_disk, dict) else None
+
+    def _write_config_file(self, settings: dict) -> None:
+        """Replace config.json with ``settings`` in one atomic step."""
+        directory = self.config_file_path.parent
+        try:
+            mode = os.stat(self.config_file_path).st_mode & 0o777
+        except FileNotFoundError:
+            mode = 0o644
+        fd, tmp_path = tempfile.mkstemp(
+            dir=directory, prefix=".config.", suffix=".json.tmp"
+        )
+        try:
+            with os.fdopen(fd, "w") as tmp_file:
+                json.dump(settings, tmp_file, indent=4)
+            os.chmod(tmp_path, mode)  # mkstemp creates the file 0600
+            os.replace(tmp_path, self.config_file_path)
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except FileNotFoundError:
+                pass
+            raise
 
     def set_option(self, option, value):
         if option.startswith("session."):
@@ -183,7 +256,7 @@ class Config:
 
         else:
             self._config_dict[option] = value
-            self.dump_config()
+            self._persist({option: value})
 
     def get_option(self, option, default: Any = None):
         if option.startswith("session."):
@@ -245,15 +318,14 @@ class Config:
         config dict and writes it out.
         Effectively resetting filters to default
         """
-        keys_to_remove = []
-        for _k in self._config_dict:
-            if _k.startswith("filter."):
-                keys_to_remove.append(_k)
 
-        for _k in keys_to_remove:
+        def is_filter(key: str) -> bool:
+            return key.startswith("filter.")
+
+        for _k in [k for k in self._config_dict if is_filter(k)]:
             self._config_dict.pop(_k)
 
-        self.dump_config()
+        self._persist(remove=is_filter)
 
     def __str__(self):
         return str(self._config_dict)

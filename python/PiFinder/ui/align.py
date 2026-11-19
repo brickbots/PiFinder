@@ -429,6 +429,12 @@ class UIAlign(UIModule):
                     self.message(_("Alignment failed"), 2)
         else:
             self.align_mode = True
+            # Start from the active telescope's point with no star chosen.
+            # A star left over from an earlier alignment would pull the
+            # marker back to it in draw_marker(), and SQUARE would then
+            # re-align on that old star -- onto whichever telescope is now
+            # active.
+            self.alignment_star = None
             self.marker_position = self._target_pixel_marker()
         self.update(force=True)
 

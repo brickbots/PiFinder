@@ -1094,7 +1094,7 @@ class Server:
             cfg = config.Config()
             if not 0 <= instrument_id < len(cfg.equipment.telescopes):
                 return equipment_page_error(_("No such instrument"))
-            cfg.equipment.telescopes.pop(instrument_id)
+            cfg.equipment.remove_telescope(instrument_id)
             cfg.save_equipment()
             self.ui_queue.put("reload_config")
             return app.jinja_env.get_template("equipment.html").render(
