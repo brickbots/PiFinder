@@ -110,6 +110,7 @@ def collect_radiometer_sample(
     border_fraction: float = 0.10,
     stride: int = 4,
     optical_black_pedestal: Optional[float] = None,
+    analogue_gain: Optional[float] = None,
 ) -> Optional[dict]:
     """Reduce a raw frame to a robust sky-background sample.
 
@@ -117,9 +118,19 @@ def collect_radiometer_sample(
     The outer ten percent is excluded to reduce corner-vignetting bias. Stars
     occupy far below half the grid, so the median rejects them without building
     a source mask. Four quadrant medians provide a cheap gradient diagnostic.
+
+    ``raw`` may be either a crop or a whole sensor frame. Live capture hands
+    over the crop, but sweeps archive the full sensor, so anything replaying
+    one would otherwise measure a frame the calibration never saw: a taller
+    frame spans more sky than ``radiometric_fov_degrees`` describes, and every
+    pixel would be credited with too little of it. ``ensure_cropped`` reduces
+    it through the ordinary crop path first, which is a no-op on a crop.
+
     """
     if not exposure_sec or exposure_sec <= 0 or stride < 1:
         return None
+    if raw is not None and hasattr(profile, "ensure_cropped"):
+        raw = profile.ensure_cropped(np.asarray(raw))
     image = extract_photometry_image(raw, profile)
     if image is None or min(image.shape) < 32:
         return None
@@ -161,7 +172,39 @@ def collect_radiometer_sample(
         sample["background_green"] = green
     if optical_black_pedestal is not None and np.isfinite(optical_black_pedestal):
         sample["optical_black_pedestal"] = float(optical_black_pedestal)
+    gain = _usable_gain(analogue_gain)
+    if gain is not None:
+        sample["analogue_gain"] = gain
     return sample
+
+
+def _usable_gain(reported) -> Optional[float]:
+    """The reported gain as a positive finite float, or None.
+
+    Drivers mistype metadata keys, and this runs in the capture loop with no
+    caller-side try, so a bad value must cost one frame's gain, not captures.
+    """
+    if reported is None:
+        return None
+    try:
+        value = float(reported)
+    except (TypeError, ValueError):
+        return None
+    return value if math.isfinite(value) and value > 0 else None
+
+
+def analogue_gain_ratio(sample: dict, profile) -> float:
+    """Reported analogue gain over the gain the zero point was fitted at.
+
+    1.0 when the frame reports no gain or the profile states no calibration
+    gain. The reported DigitalGain is deliberately not used: the ISP applies it
+    after the raw stream, which a same-unit test confirms (ADR 0022 §3.2).
+    """
+    calibrated = getattr(profile, "calibration_analogue_gain", None)
+    reported = _usable_gain(sample.get("analogue_gain"))
+    if reported is None or not calibrated or calibrated <= 0:
+        return 1.0
+    return reported / float(calibrated)
 
 
 def radiometric_sqm(
@@ -181,6 +224,7 @@ def radiometric_sqm(
     so callers that know the live optical train should pass its field of view;
     an error here biases every radiometric SQM, and one lens step is worth
     ~0.6 mag. Omitting it assumes the sensor's shipped lens.
+
     """
     exposure_sec = float(sample["exposure_sec"])
     background = float(sample["background_per_pixel"])
@@ -189,6 +233,8 @@ def radiometric_sqm(
     if field_width_degrees is None:
         field_width_degrees = optical_train_for_profile(profile).fov_degrees
     signal = background - pedestal - floor * exposure_sec
+    gain_ratio = analogue_gain_ratio(sample, profile)
+    signal /= gain_ratio
     effective_zero_point = (
         float(zero_point)
         if zero_point is not None
@@ -197,6 +243,7 @@ def radiometric_sqm(
     details = {
         **sample,
         "pedestal": pedestal,
+        "analogue_gain_ratio": gain_ratio,
         "skyglow_floor": floor,
         "background_corrected": signal,
         "radiometric_zero_point": effective_zero_point,
