@@ -157,6 +157,7 @@ class CameraPI(CameraInterface):
                 sequence=self._radiometer_sequence,
                 captured_at=time.time(),
                 optical_black_pedestal=frame_optical_black,
+                analogue_gain=metadata.get("AnalogueGain"),
             )
             if sample is not None:
                 self.shared_state.set_sqm_radiometer_sample(sample)
