@@ -86,6 +86,7 @@ class BlackLevelTracker:
         exposure_sec: float,
         background_per_pixel: float,
         stable: bool = True,
+        gain_ratio: float = 1.0,
     ) -> None:
         """Record one frame's raw (pre-pedestal) background and refit.
 
@@ -95,6 +96,11 @@ class BlackLevelTracker:
                 pedestal subtraction (``details['background_per_pixel']``).
             stable: False when transmission is changing (cloud) — the sample
                 is dropped so a moving sky cannot corrupt the intercept.
+            gain_ratio: this frame's analogue gain over the profile's
+                calibration gain. Analogue gain multiplies the sky signal but
+                not the pedestal, so a window that mixes gains is a set of
+                lines with a shared intercept. Fitting against
+                ``gain_ratio · exposure`` keeps the intercept the pedestal.
         """
         if (
             not stable
@@ -104,7 +110,11 @@ class BlackLevelTracker:
             or not np.isfinite(background_per_pixel)
         ):
             return
-        self._samples.append((float(exposure_sec), float(background_per_pixel)))
+        if gain_ratio is None or not np.isfinite(gain_ratio) or gain_ratio <= 0:
+            gain_ratio = 1.0
+        self._samples.append(
+            (float(exposure_sec) * float(gain_ratio), float(background_per_pixel))
+        )
         self._refit()
 
     def _refit(self) -> None:
