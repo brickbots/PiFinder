@@ -181,6 +181,17 @@ def eyepiece_from_form(form) -> Eyepiece:
     )
 
 
+def replace_telescope(equipment, index: int, telescope: Telescope) -> None:
+    """Overwrite the telescope at ``index`` with an edited record.
+
+    The edit form has no alignment field, so the record it builds has no
+    alignment point; carry the existing one over, or saving an edit would
+    silently un-align the telescope.  Raises IndexError for a bad index.
+    """
+    telescope.target_pixel = equipment.telescopes[index].target_pixel
+    equipment.telescopes[index] = telescope
+
+
 def telescope_from_form(form) -> Telescope:
     """Build a Telescope from submitted form values.
 
@@ -1053,11 +1064,11 @@ class Server:
 
             try:
                 if instrument_id >= 0:
-                    cfg.equipment.telescopes[instrument_id] = instrument
+                    replace_telescope(cfg.equipment, instrument_id, instrument)
                 else:
                     try:
                         index = cfg.equipment.telescopes.index(instrument)
-                        cfg.equipment.telescopes[index] = instrument
+                        replace_telescope(cfg.equipment, index, instrument)
                     except ValueError:
                         cfg.equipment.telescopes.append(instrument)
 
@@ -1083,7 +1094,7 @@ class Server:
             cfg = config.Config()
             if not 0 <= instrument_id < len(cfg.equipment.telescopes):
                 return equipment_page_error(_("No such instrument"))
-            cfg.equipment.telescopes.pop(instrument_id)
+            cfg.equipment.remove_telescope(instrument_id)
             cfg.save_equipment()
             self.ui_queue.put("reload_config")
             return app.jinja_env.get_template("equipment.html").render(

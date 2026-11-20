@@ -104,6 +104,18 @@ def apply_sound_volume(ui_module: UIModule) -> None:
     ui_module.command_queues["ui_queue"].put("set_volume")
 
 
+def apply_target_pixel(ui_module: UIModule) -> None:
+    """Hand the solver the active telescope's alignment point.
+
+    The alignment point belongs to the telescope, so selecting a different
+    one must move the point the solver reports ``pointing.aligned`` at.
+    Takes effect on the next solve.
+    """
+    ui_module.shared_state.set_target_pixel(
+        ui_module.config_object.active_target_pixel()
+    )
+
+
 def capture_exposure_sweep(ui_module: UIModule) -> None:
     """
     Captures 100 images at different exposures for PID testing/calibration.
