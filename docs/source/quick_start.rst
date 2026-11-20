@@ -9,9 +9,9 @@ Quick Start
    Not sure which you have? See
    :ref:`Which PiFinder do I have? <quick_start:which pifinder do i have?>` below.
 
-   If you need docs for a previous version please see `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
-   , `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_
-   or `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_
+   This manual follows the current release. Manuals for three earlier releases are kept:
+   `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_, `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_ and
+   `2.6.3 <https://pifinder.readthedocs.io/en/v2.6.3/index.html>`_.
 
 Congratulations on getting your hands on a PiFinder™! Whether you built it yourself or
 ordered a ready-built one from BBLabs, you're on your way to a new level of accuracy and
