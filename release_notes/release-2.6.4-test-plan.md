@@ -419,6 +419,8 @@ Reset `language` to `en` in `~/PiFinder_data/config.json` before the web suite.
 1. **The migration is reachable while the gate is closed.** Seven presses of SQUARE
    ignore the gate by design. It lands on a beta that expires 90 days after it was built.
    Accepted for 2.6.4 (playbook, "Decided for 2.6.4"); G3.1–G3.7 are the condition.
+   The 2.6.4 release notes do not mention the migration at all, by Rich's decision
+   (2026-11-19). Testers get their own instructions.
 2. **With the gate open, a later 2.x cannot be offered in the app** to units on 2.6.4
    (the Software screen offers the migration before it reads `version.txt`). Read from
    code, not seen on a device. Close the gate before any 2.x hotfix.
