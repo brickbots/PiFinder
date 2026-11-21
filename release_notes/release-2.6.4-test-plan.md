@@ -13,7 +13,7 @@ merge; gates 4–6 must pass before the update is offered. The process behind it
 Items marked **(carried)** come from `release-2.6.3-test-plan.md` and are not re-derived
 here. That plan remains the reference for why they exist.
 
-**Status as of 2026-11-20** (`main` @ `b709c6f5a`): Gate 1 green (G1.7 not run). Gate 2 passed on a rev4 (G2.9 and G2.40 not run). Pre-flight below.
+**Status as of 2026-11-21** (`main` @ `66673d2a2`): Gate 1 green at `b709c6f5a` (G1.7 not run); since then only #706 landed, a change to `nixos_migration_init.sh` that no Gate 1 check covers. Gate 2 passed on a rev4 (G2.9 and G2.40 not run). Pre-flight below.
 
 **Shape of this release, and what that means for testing.** Three kinds of change, with
 different evidence:
@@ -311,6 +311,9 @@ observing list, a non-default camera type where possible, and a changed access-p
 - [ ] **G3.4** Run the migration to the end on both units. Progress screen: the bar
   shows only for steps with a measure; the elapsed time updates; the screen does not dim.
   Record the total time.
+  On rev4, the card-conversion screens fill the 176 px panel the right way up. Before
+  #706 they were drawn small and turned (the progress server started before it knew the
+  panel type); the rev4 run of 2026-11-20 used the script without #706.
 - [ ] **G3.5** First NixOS boot on both units: camera type, hostname, AP name, password
   and SSH keys carried; observations and images present; the unit solves.
 - [ ] **G3.6** **rev4: power on, reboot, power off** after the migration, each at least
