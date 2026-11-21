@@ -13,7 +13,7 @@ merge; gates 4–6 must pass before the update is offered. The process behind it
 Items marked **(carried)** come from `release-2.6.3-test-plan.md` and are not re-derived
 here. That plan remains the reference for why they exist.
 
-**Status as of 2026-11-19** (`main` @ `b709c6f5a`): Gate 1 green (G1.7 not run). Pre-flight below.
+**Status as of 2026-11-20** (`main` @ `b709c6f5a`): Gate 1 green (G1.7 not run). Gate 2 passed on a rev4 (G2.9 and G2.40 not run). Pre-flight below.
 
 **Shape of this release, and what that means for testing.** Three kinds of change, with
 different evidence:
@@ -206,50 +206,52 @@ the notes say it changes?*
 
 ### Catalog, first start and the cache (R1)
 
-- [ ] **G2.1** First start after the update: main menu in a normal time, then
+- [x] **G2.1** First start after the update: main menu in a normal time, then
   **Catalogs Fully Loaded** appears. Record both times on this unit (rev4 reference:
   13 s and about 1 min 55 s). Messier, NGC and IC work before the message.
-- [ ] **G2.2** Second start: no cache rebuild, no message delay beyond normal. Record the
+- [x] **G2.2** Second start: no cache rebuild, no message delay beyond normal. Record the
   time to the main menu. **No second-start baseline exists yet.**
-- [ ] **G2.3** Power off during the cache rebuild (before the message). Next start
+- [x] **G2.3** Power off during the cache rebuild (before the message). Next start
   rebuilds again and completes; nothing is corrupted.
-- [ ] **G2.4** An observation logged before the update still shows as observed, under
+- [x] **G2.4** An observation logged before the update still shows as observed, under
   its own designation and under the other entries of the same object (log M 103, see
   Col 14 marked).
-- [ ] **G2.5** A saved observing list from before the update loads with the same count
+- [x] **G2.5** A saved observing list from before the update loads with the same count
   of objects as on 2.6.3. One that names Collinder 399 opens the Coathanger.
-- [ ] **G2.6** Star lists (Named Stars, SAC Doubles, WDS, Planets) open in the names
+- [x] **G2.6** Star lists (Named Stars, SAC Doubles, WDS, Planets) open in the names
   view; NGC and M open in the distance view; SQUARE cycles NAME → INFO → LOCATE → NAME.
-- [ ] **G2.7** In a list that holds both M 31 and NGC 224 (name search "great n", or All
+- [x] **G2.7** In a list that holds both M 31 and NGC 224 (name search "great n", or All
   Filtered with M and NGC), UP/DOWN in object details visits each entry once and holds at
   the ends.
-- [ ] **G2.8** Jump-to-number with 5 and 6 digits in WDS (for example 131303).
+- [x] **G2.8** Jump-to-number with 5 and 6 digits in WDS (for example 131303).
 - [ ] **G2.9** Catalog images still open for objects that have them (file names are by
   catalog code and sequence, unchanged).
 
 ### Settings and alignment (R2, R4)
 
-- [ ] **G2.20** On the updated 2.6.3 unit, before any alignment: pointing matches 2.6.3
+- [x] **G2.20** On the updated 2.6.3 unit, before any alignment: pointing matches 2.6.3
   (the global `target_pixel` is the fallback). `config.json` has no `target_pixel` in any
   telescope record.
-- [ ] **G2.21** Align on telescope A. `config.json` gains `target_pixel` in A's record
+- [x] **G2.21** Align on telescope A. `config.json` gains `target_pixel` in A's record
   only; the global key is unchanged. Select B: B uses the old global point. Align on B,
   select A again: A's point is back. (#703's hardware check, repeated on the release
   build.)
-- [ ] **G2.22** The clobber fix: align, then leave **Align (Day)** with a manual
+- [x] **G2.22** The clobber fix: align, then leave **Align (Day)** with a manual
   exposure; restart; the alignment is still there. Same after choosing a manual value in
   **Camera Exp**.
-- [ ] **G2.23** Change settings from three places in one session (a menu setting, a
+- [x] **G2.23** Change settings from three places in one session (a menu setting, a
   manual exposure, an equipment edit on the web page), restart, and confirm all three
   survived. `config.json` keeps its owner (`pifinder`) and mode.
   `.config.json.lock` exists in `PiFinder_data`.
-- [ ] **G2.24** Edit `config.json` by hand over the network share while the PiFinder is
+- [x] **G2.24** Edit `config.json` by hand over the network share while the PiFinder is
   off; boot; the edit is read. (Atomic replace swaps the file; check nothing about the
   share breaks.)
-- [ ] **G2.25** Hand-edit one telescope's `target_pixel` to garbage (`[9999, "x"]`) and
-  restart: a warning in the log, that telescope falls back to the global point, and the
-  rest of the equipment list loads (not replaced by defaults).
-- [ ] **G2.26** On a 2.6.3 unit that had self-healed its lens: `camera_lens` survives a
+- [x] **G2.25** Hand-edit one telescope's `target_pixel` to garbage (`[9999, "x"]`) and
+  restart: that telescope falls back to the global point, and the rest of the equipment
+  list loads (not replaced by defaults). The warning ("Ignoring unusable alignment
+  point") does not reach `~/PiFinder_data/pifinder.log` at the default log level: the
+  `config` logger inherits the root level, `ERROR`, from `logconf_default.json`.
+- [x] **G2.26** On a 2.6.3 unit that had self-healed its lens: `camera_lens` survives a
   menu change and a restart (#626).
 
 ### SQM, display and the rest (R7, R8, R10)
@@ -257,14 +259,34 @@ the notes say it changes?*
 - [ ] **G2.40** SQM before and after the update, same conditions: moves less than
   ~0.05 mag (claim: no change at the calibration gain). With debug logging on, the
   delivered gain in the capture log matches the profile's `calibration_analogue_gain`.
-- [ ] **G2.41** Obs Lists picker at 128 px: same look as the Objects menu; a long name
+- [x] **G2.41** Obs Lists picker at 128 px: same look as the Objects menu; a long name
   scrolls on the selected line; a folder opens.
-- [ ] **G2.42** Full boot → GPS lock → solve → object details → push-to, nothing
+- [x] **G2.42** Full boot → GPS lock → solve → object details → push-to, nothing
   configured **(carried)**.
-- [ ] **G2.43** Focus screen hold, LEFT releases it; the burying-route leak is unchanged
+- [x] **G2.43** Focus screen hold, LEFT releases it; the burying-route leak is unchanged
   **(carried, still open)**.
 
 **Blocks:** the cut. G2.1–G2.5 and G2.20–G2.23 are the update the field takes.
+
+**Result, 2026-11-20 (Rich):** passed on a rev4, on a new SD card written with the 2.6.3
+image and updated by hand to `release-2.6.4-prep` (`git checkout`, then
+`pifinder_post_update.sh`). The `python/tetra3` link was removed by the checkout and made
+again by the script, as expected.
+
+- **Times** (stopwatch from `systemctl restart` or `start`, so they include more than the
+  app's own start). First start: 23 s to the main menu, Catalogs Fully Loaded at 2:18.
+  Second start: 24 s, no message, Named Stars at once. Clean start with the cache deleted:
+  20 s. The same rev4 on its usual card gave 13 s with almost the same code, so we do not
+  count the difference as a regression. The app log has no "Menus" line, so it cannot
+  give a baseline.
+- **G2.3:** power cut during the rebuild. The next start rebuilt the cache (2:10); nothing
+  was lost.
+- **G2.4:** M 101, logged on 2.6.3, shows logged under M 101, NGC 5457 and Arp 26.
+- **G2.22, before and after:** on 2.6.3 this card lost its alignment (no `target_pixel`
+  in `config.json` after aligning and using the camera exposure). On 2.6.4 both
+  telescopes' points survived a manual Camera Exp, an Align (Day) exposure change and a
+  restart.
+- **Not run:** G2.9 (a new card has no catalog images), G2.40 (no SQM reading on 2.6.3).
 
 ---
 
