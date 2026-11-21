@@ -10,10 +10,9 @@ PiFinder™ User Manual
    :ref:`Which PiFinder do I have? <quick_start:which pifinder do i have?>` in the Quick
    Start.
 
-   For docs covering a previous version, see
-   `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_,
-   `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_ or
-   `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_.
+   This manual follows the current release. Manuals for three earlier releases are kept:
+   `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_, `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_ and
+   `2.6.3 <https://pifinder.readthedocs.io/en/v2.6.3/index.html>`_.
 
 Thanks for your interest in the PiFinder!  This guide describes how to use one.  To build
 one, see the :doc:`Build Guide <build_guide>` and the :doc:`Bill of Materials <BOM>`.
