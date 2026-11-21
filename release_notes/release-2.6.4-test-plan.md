@@ -300,13 +300,13 @@ Run on two units: **one Pi 4 (rev3)** and **one rev4 (CM4)**. Each starts from a
 2.6.4 (`main` at the cut commit), WiFi in client mode, with an observation log, an
 observing list, a non-default camera type where possible, and a changed access-point name.
 
-- [ ] **G3.1** On the Software screen, with the gate closed, confirm the screen offers
+- [x] **G3.1** On the Software screen, with the gate closed, confirm the screen offers
   nothing (or the normal "No Update needed"). Then press SQUARE seven times: the UPGRADE
   confirm screen appears with the newest beta from the manifest. **Cancel** returns with
   nothing changed.
-- [ ] **G3.2** rev4 only: on battery, the confirm screen shows **Plug in USB-C power** and
+- [x] **G3.2** rev4 only: on battery, the confirm screen shows **Plug in USB-C power** and
   offers only Cancel. Plug in USB-C: **Confirm** appears.
-- [ ] **G3.3** Pre-flight refusal: with WiFi in access-point mode, the screen names the
+- [x] **G3.3** Pre-flight refusal: with WiFi in access-point mode, the screen names the
   cause (**WiFi must be in client mode**) and LEFT goes back.
 - [ ] **G3.4** Run the migration to the end on both units. Progress screen: the bar
   shows only for steps with a measure; the elapsed time updates; the screen does not dim.
@@ -314,15 +314,34 @@ observing list, a non-default camera type where possible, and a changed access-p
   On rev4, the card-conversion screens fill the 176 px panel the right way up. Before
   #706 they were drawn small and turned (the progress server started before it knew the
   panel type); the rev4 run of 2026-11-20 used the script without #706.
-- [ ] **G3.5** First NixOS boot on both units: camera type, hostname, AP name, password
+- [x] **G3.5** First NixOS boot on both units: camera type, hostname, AP name, password
   and SSH keys carried; observations and images present; the unit solves.
-- [ ] **G3.6** **rev4: power on, reboot, power off** after the migration, each at least
+- [x] **G3.6** **rev4: power on, reboot, power off** after the migration, each at least
   twice. GPIO14 is the power-off line; one byte of serial output on it cuts the power.
   This failed on 2026-10-09 from 2.6.3; confirm the beta in the manifest carries the
   NixOS-side fix and does not need the `gpio=14=ip,pu` workaround.
 - [ ] **G3.7** Failure path, on a spare card if one is available: pull WiFi during the
   download. The script reports FAILED, **LEFT** closes the progress screen, and the unit
   still boots Pi OS 2.6.4.
+
+**Result, rev4 (CM4), 2026-11-20/21 (Rich):** from the Gate 2 card (2.6.4 candidate,
+before #706) to **3.1.3-beta**.
+
+- G3.1–G3.3 pass: SQUARE ×7 offers 3.1.3; on battery only Cancel; in access-point mode the
+  Software screen says WiFi must be in client mode and SQUARE ×7 does not reach UPGRADE.
+- G3.4 partly: the card converted and NixOS booted. The conversion screens were small and
+  turned (fixed since by #706, not yet re-checked). The first-boot download ("DOWNLOADING
+  NIXOS", `pifinder-first-boot`) is slow and its bar counts store paths, so it can stand
+  still for minutes; it completed. Total time not measured.
+- G3.5 pass: observations (M 101, also under NGC 5457 and Arp 26), the observing list, both
+  telescopes and their points, the web edit, `camera_lens`, `camera_exp`, hostname, SSH host
+  keys and both WiFi connections carried; Test Mode solves. **The AP name was the default,
+  so its carry-over is not proven.**
+- G3.6 pass: no power cut at first boot (the 2026-10-09 failure did not happen), and two
+  reboots, two power-ons and two power-offs completed normally.
+
+**Still to do in this section:** the Pi 4 run, with a changed AP name and #706 in the card;
+a rev4 run with #706 for the conversion screens; G3.7.
 
 **Blocks:** the cut. The migration is reachable on release day. If G3.4–G3.6 fail on
 either unit, do not ship until the NixOS side is fixed or the seven-press path is closed
