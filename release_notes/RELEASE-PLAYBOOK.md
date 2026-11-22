@@ -290,8 +290,14 @@ updated in place and cleaned. Written down from Rich's 2.6.4 build (2026-11-22).
         `cache/catalogs/` (it spares a new owner the 2-minute first catalog load; a stale
         cache is simply rebuilt);
       - outside the data folder, clear `~/.bash_history`.
-- [ ] Shut the PiFinder down, remove the card, dump it to an image file and shrink it. That
-      file is `PiFinder_X.Y.Z.img`. TODO: the dump and shrink tools.
+- [ ] Shut the PiFinder down, remove the card, dump it to an image file and shrink it with
+      [PiShrink](https://github.com/Drewsif/PiShrink). That file is `PiFinder_X.Y.Z.img`.
+      On Linux, with the card at `/dev/sdb` (check with `lsblk` first: `dd` overwrites
+      whatever `of=` names):
+      ```bash
+      dd bs=4M if=/dev/sdb of=PiFinder_X.Y.Z.img conv=fsync status=progress
+      ./pishrink.sh PiFinder_X.Y.Z.img
+      ```
 - [ ] Upload it to the S3 bucket behind `https://ddbeeedxfpnp0.cloudfront.net/software/` with
       `s3cmd`, which uploads in chunks and can resume. TODO: the bucket path, and whether
       CloudFront needs an invalidation.
@@ -526,7 +532,7 @@ release is one workflow run, so that is the way to publish one.
 
 ## Still open
 
-- Phase 6 has two TODOs: the dump and shrink tools, and the CloudFront step.
+- Phase 6 has one TODO: whether CloudFront needs an invalidation after an upload.
 - Phase 7's three announcement channels need their specifics filled in.
 - The Software screen's behaviour with the gate open is read from code, not seen on a device.
 - The two items under "Not decided" in the transition plan.
