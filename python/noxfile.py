@@ -135,6 +135,10 @@ def babel(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
+    # Babel 2.16 on Python 3.9 finds the jinja2 extractor through
+    # pkg_resources, which setuptools 81 removed. Without this pin, a fresh
+    # venv fails with "Unknown extraction method 'jinja2'".
+    session.install("setuptools<81")
 
     session.run(
         "pybabel",
