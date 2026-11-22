@@ -340,8 +340,17 @@ before #706) to **3.1.3-beta**.
 - G3.6 pass: no power cut at first boot (the 2026-10-09 failure did not happen), and two
   reboots, two power-ons and two power-offs completed normally.
 
-**Still to do in this section:** the Pi 4 run, with a changed AP name and #706 in the card;
-a rev4 run with #706 for the conversion screens; G3.7.
+**Result, rev3 (Pi 4), 2026-11-21 (Rich):** from 2.6.4 (`release-2.6.4-prep`, with #706)
+to **3.1.3-beta**, with a non-default hostname (`pifinder-test`), AP name (`PiFiAP`) and
+camera (imx462). The card converted; the conversion screens drew correctly on 128 px.
+**The newer 1.5" OLED is blank on NixOS:** 3.1.3-beta (2026-10-23) predates #701. The
+`nixos` branch has #701 in `displays.py` since 2026-11-19, but `nixos/pkgs/boot-splash.c`
+and `python/scripts/migration_progress.c` (on `main`, ships in 2.6.4) still drive the
+SSD1351 at 40 MHz. Not a 2.6.4 blocker (gate closed, notes silent), but **the NixOS
+release behind an opened gate must include #701 and a 20 MHz splash.** Reported to
+mrosseel on Discord. Carry-over and power checks: see G3.5/G3.6 below this note when done.
+
+**Still to do in this section:** a rev4 run with #706 for the conversion screens; G3.7.
 
 **Blocks:** the cut. The migration is reachable on release day. If G3.4–G3.6 fail on
 either unit, do not ship until the NixOS side is fixed or the seven-press path is closed
