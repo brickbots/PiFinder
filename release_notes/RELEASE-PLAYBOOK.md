@@ -260,12 +260,35 @@ otherwise (see one-time tasks).
 
 ## Phase 6, build and publish the image
 
-TODO. The GitHub release for 2.6.3 points at
-`https://ddbeeedxfpnp0.cloudfront.net/software/PiFinder_2.6.3.img`, so the 2.x image is built
-and uploaded outside this repo. Nothing here describes how. Needs: how the image is built, what
-gets baked in (preconfigured hardware settings were documented in #637), how it's uploaded, and
-whether anything verifies the upload before the release body links to it. Write this section
-while doing it for 2.6.4.
+The 2.x image is not built from scratch. Each release image is the previous release image,
+updated in place and cleaned. Written down from Rich's 2.6.4 build (2026-11-22).
+
+- [ ] Write the previous release image to a card and boot it.
+- [ ] Add a local WiFi network and restart in client mode.
+- [ ] Update with the normal in-app update (Settings → Software). This is also a run of the
+      upgrade path from the previous release (G4.1).
+- [ ] Validate the image: the version, a solve in Test Mode, the first start's catalog load.
+- [ ] **Check the boot setup by hand.** An update never runs `pifinder_setup.sh` and never
+      changes `/boot/config.txt`, so a fix that only `pifinder_setup.sh` makes (for example
+      #639, the `[cm4]`-gated `gpio-poweroff` block) does not reach an image built this way.
+      Compare `/boot/config.txt` with what `pifinder_setup.sh` writes, and edit it to match.
+      For 2.6.4 Rich added the gated block by hand:
+      ```
+      [cm4]
+      dtoverlay=gpio-poweroff,gpiopin=14,active_low
+      [all]
+      ```
+- [ ] Delete the WiFi network you added, and switch to access-point mode.
+- [ ] Remove what the validation left behind (test observations, logs) if any. TODO: list what
+      to remove.
+- [ ] Shut the PiFinder down, remove the card, dump it to an image file and shrink it. That
+      file is `PiFinder_X.Y.Z.img`. TODO: the dump and shrink tools.
+- [ ] Upload it to the S3 bucket behind `https://ddbeeedxfpnp0.cloudfront.net/software/` with
+      `s3cmd`, which uploads in chunks and can resume. TODO: the bucket path, and whether
+      CloudFront needs an invalidation.
+- [ ] Before the release body links it, check that the URL answers with the right size
+      (`curl -sI <url>`), and test-boot a card written from the published file on a rev3 and
+      a rev4: power off must go dark on both (test plan G3.40, G3.41).
 
 ## Phase 7, announce
 
@@ -494,8 +517,8 @@ release is one workflow run, so that is the way to publish one.
 
 ## Still open
 
-- Phase 6 is a stub. How does the SD image get built, what goes into it, and how does it reach
-  CloudFront?
+- Phase 6 has three TODOs: what to clean before imaging, the dump and shrink tools, and the
+  CloudFront step.
 - Phase 7's three announcement channels need their specifics filled in.
 - The Software screen's behaviour with the gate open is read from code, not seen on a device.
 - The two items under "Not decided" in the transition plan.
