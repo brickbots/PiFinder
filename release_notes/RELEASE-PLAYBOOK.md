@@ -179,9 +179,12 @@ them for no reason.
 
 Tag by hand for Track A only. Expect to see NixOS tags on this branch all the same:
 `v3.1.1-beta` to `v3.1.3-beta` sit on `release` commits, and `v3.1.3-beta` is on the case fix.
-Those betas were built from `mrosseel/PiFinder`. The workflow tags the source commit only when
-the source is this repo, and the release step then creates the tag on the default branch. So
-`git describe` on `release` names a 3.x beta. That is noise, not a release of that commit.
+Those betas were built from `mrosseel/PiFinder`. Before #708 (2026-11-22) the workflow tagged the
+source commit only when the source was this repo, and the release step then created the tag on
+the default branch. So `git describe` on `release` names a 3.x beta. That is noise, not a
+release of that commit. Since #708 a build from the fork tags the commit it built, through the
+API (a fork shares its objects with this repo). If that step fails it only warns, and the old
+behaviour returns, so check where a new 3.x tag points.
 
 ## Phase 5, snapshot the docs
 
@@ -374,8 +377,8 @@ own pull requests, the way #657 and #658 landed, so the final merge is small.
       its own tag on `release`. Phases 2 to 4 of this file shrink to that.
 - [ ] Rewrite the branch model in `CLAUDE.md`, which today forbids pull requests to `release`.
 - [ ] Move `nixos/RELEASE.md` under this file's Track B, or point each at the other.
-- [ ] Build NixOS releases from this repo from now on, so the workflow tags the commit it
-      built. Step 3 depends on that.
+- [ ] Check that the newest 3.x tag is on the NixOS source commit it was built from. #708
+      makes that true for builds from the fork too; step 3 depends on it.
 
 ### Step 3, docs follow the product
 
@@ -389,7 +392,7 @@ way to retire a version:
       that is not a pre-release, so it skips `v3.x-beta` tags and moves to each new stable
       release by itself.
 - [ ] Check that `/en/stable/` shows the 3.x manual. It builds from the tag, so the tag must
-      be on the NixOS source commit (step 2, last item).
+      be on the NixOS source commit (step 2, last item; #708).
 - [ ] Make `stable` the default version, so the bare address lands there.
 - [ ] Deactivate the `release` version and add one exact redirect:
       `/en/release/*` to `/en/stable/:splat`. The redirect works only once the old version is
@@ -431,14 +434,14 @@ release is one workflow run, so that is the way to publish one.
 
 ## One-time tasks, not yet done
 
-- [ ] Reword the "previous versions" note in `docs/source/index.rst`,
+- [x] Reword the "previous versions" note in `docs/source/index.rst`,
       `docs/source/user_guide.rst` and `docs/source/quick_start.rst`. It currently offers 1.x,
       2.0.x and 2.1.x as if that were the full set, which reads as coverage rather than a
       three-version archive. We're not backfilling 2.2 to 2.6.1, so the wording should say
       what it is. Do it in the 2.6.4 prep PR, together with adding `/en/v2.6.3/`.
 - [ ] `nixos/RELEASE.md` on the `nixos` branch still starts releases from
       `ci/btrfs-migration-release`, lists the old workflow on `main` as a known fault (#658
-      fixed it), says a release built from the fork makes no tag (it makes one, on `release`),
+      fixed it), says a release built from the fork makes no tag (since #708 it tags the built commit),
       and points at the root `RELEASE.md` this PR removes.
 - [ ] `CONTEXT-MAP.md` on `main` links to `docs/ax/nixos/CONTEXT.md` and `docs/ax/nixos.md`.
       Both exist only on the `nixos` branch, so the links are dead until #379 or #497 lands.

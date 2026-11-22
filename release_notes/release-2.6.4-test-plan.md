@@ -499,6 +499,11 @@ Reset `language` to `en` in `~/PiFinder_data/config.json` before the web suite.
 
 ## 9. Known gaps and accepted risk
 
+0. **The rev4 conversion screens are turned** (decided by Rich, 2026-11-22). With #706 the
+   progress screen fills the 176 px panel, but `migration_progress.c` never rotates the
+   SSD1333 (the app uses `rotate=3`). It is on `main` and ships in 2.6.4. Tell testers;
+   fix it before the cut-over release that opens the gate. #707 (the SSD1351 at 20 MHz)
+   passed a bench check on a rev3 with a newer panel and is in 2.6.4.
 1. **The migration is reachable while the gate is closed.** Seven presses of SQUARE
    ignore the gate by design. It lands on a beta that expires 90 days after it was built.
    Accepted for 2.6.4 (playbook, "Decided for 2.6.4"); G3.1–G3.7 are the condition.
