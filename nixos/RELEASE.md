@@ -8,15 +8,18 @@ Decisions: [ADR 0037](../docs/adr/0037-nixos-builds-cache-and-update-channels.md
 (cache and channels), [ADR 0039](../docs/adr/0039-card-layout-and-migration.md)
 (card layout and migration). Terms: [NixOS CONTEXT](../docs/ax/nixos/CONTEXT.md).
 
-> The repo-root `RELEASE.md` holds the release notes of one version. This
-> file is about the release process.
+> The Pi OS (2.x) release process, the migration gate and the plan for the
+> `release` branch are in
+> [`release_notes/RELEASE-PLAYBOOK.md`](../release_notes/RELEASE-PLAYBOOK.md).
+> The release notes of each version are in `release_notes/`. This file is about
+> the NixOS release process.
 
 ## Where things are
 
 | Item | Place | Note |
 | --- | --- | --- |
 | NixOS source | `mrosseel/PiFinder`, branch `nixos` | Releases are built from here. |
-| Release workflow | `brickbots/PiFinder`, branch `ci/btrfs-migration-release` | Its `release.yml` and `.github/scripts/` are copies of the files on `nixos`. |
+| Release workflow | `brickbots/PiFinder`, branch `main` | Its `release.yml` and `.github/scripts/` must be the same as the files on `nixos`. |
 | Update manifest | `brickbots/PiFinder`, branch `nixos-manifest`, `update-manifest.json` | Devices read only this file. A build that is only in the `mrosseel` manifest does not show on a device. |
 | Migration gate | `brickbots/PiFinder`, branch `release`, `migration_gate.json` | Flag `nixos_migration`. |
 | Release assets | GitHub releases on `brickbots/PiFinder` | SD images, migration tarball, `.sha256` files. |
@@ -35,7 +38,7 @@ Devices also use `cache.nixos.org` for paths that nixpkgs builds.
 | `pifinder-vX.Y.Z[-beta].img.zst` | Release asset | People who flash a new card (lean image). |
 | `pifinder-full-vX.Y.Z[-beta].img.zst` | Release asset | Only when `flake.nix` has catalog images. |
 | `pifinder-migration-vX.Y.Z[-beta].tar.zst` | Release asset | Pi OS 2.6.4, once. Only when `new_migration_tarball` is on. |
-| Git tag | Source repo | Only when the source repo is the repo that runs the workflow. A release from `mrosseel/PiFinder` makes no tag. |
+| Git tag `vX.Y.Z[-beta]` | `brickbots/PiFinder`, on the built source commit | The workflow makes it, also for a source in `mrosseel/PiFinder`. Tag by hand only after a `Could not tag` warning. |
 
 ## Release rules
 
@@ -46,18 +49,18 @@ Devices also use `cache.nixos.org` for paths that nixpkgs builds.
 3. Open the migration gate only when a **stable** release is in the
    manifest. The migration downloads the newest system at first boot. A beta
    closure can be gone by then.
-4. Before each release, compare the release files on the brickbots CI
-   branch with `nixos`:
+4. Before each release, compare the release files on brickbots `main` with
+   `nixos`:
 
    ```sh
-   git fetch https://github.com/brickbots/PiFinder.git ci/btrfs-migration-release && ci=$(git rev-parse FETCH_HEAD)
+   git fetch https://github.com/brickbots/PiFinder.git main && ref=$(git rev-parse FETCH_HEAD)
    git fetch https://github.com/mrosseel/PiFinder.git nixos && nixos=$(git rev-parse FETCH_HEAD)
-   git diff --stat "$ci" "$nixos" -- .github/workflows/release.yml \
+   git diff --stat "$ref" "$nixos" -- .github/workflows/release.yml \
      .github/scripts/update_manifest.py .github/scripts/publish_manifest.sh
    ```
 
-   No output means that the files are the same. If they are different, add a commit to the CI branch that copies them.
-   Push it as a fast-forward. Never force-push.
+   No output means that the files are the same. If they are different, copy
+   the files to brickbots `main` with a pull request before the release.
 5. Set `new_migration_tarball` only when the migration must change. See
    [When a new tarball is needed](#when-a-new-tarball-is-needed). When it is
    off, the new entry names the tarball of the newest release that has one.
@@ -68,15 +71,32 @@ Devices also use `cache.nixos.org` for paths that nixpkgs builds.
 
 ## Start a release
 
+A stable release:
+
 ```sh
-gh workflow run release.yml -R brickbots/PiFinder --ref ci/btrfs-migration-release \
+gh workflow run release.yml -R brickbots/PiFinder --ref main \
   -f version=3.1.3 -f type=stable \
   -f source_repository=mrosseel/PiFinder -f source_branch=nixos \
   -f new_migration_tarball=false \
   -f notes="..."
 ```
 
-- `version`: semver, no `v`. A beta gets the tag `vX.Y.Z-beta`.
+A beta: the same command with `-f type=beta`.
+
+```sh
+gh workflow run release.yml -R brickbots/PiFinder --ref main \
+  -f version=3.1.4 -f type=beta \
+  -f source_repository=mrosseel/PiFinder -f source_branch=nixos \
+  -f new_migration_tarball=false \
+  -f notes="..."
+```
+
+- `version`: semver, no `v`. A beta gets the tag `vX.Y.Z-beta`, and GitHub
+  marks its release as a pre-release.
+- A beta goes first in the `beta` list of the manifest. The Software screen
+  shows it only on a device that has the beta channel on.
+- While the manifest has only betas, 2.6.4 migrates to the newest beta. Keep
+  one beta that is newer than 90 days, or the migration fails at first boot.
 - The run takes about 15 minutes when Attic already has most paths.
 
 Then check:
@@ -93,6 +113,9 @@ Then check:
 
 4. The `.sha256` URL of the tarball returns 200. For some minutes after a
    publish, GitHub can return 504 for a new asset.
+5. The tag is on the built source commit. If the run log has the warning
+   `Could not tag`, the tag is on the head of the default branch. Then move
+   the tag by hand to the commit that the run built.
 
 ## The migration from Pi OS
 
@@ -167,9 +190,6 @@ and a rev 4 (CM4) before the manifest names it.
 
 ## Known faults
 
-- **The release workflow on brickbots `main` is old.** It writes
-  `migration_url`, and 2.6.3 units then start the ext4 migration. Start
-  releases only from the CI branch until `main` has the `nixos` workflow.
 - **The FAT partition does not change after the migration.** NixOS updates
   only U-Boot there (`pifinder-uboot-update`). A fix in `config.txt` or a
   device tree on FAT reaches new migrations and new cards, not cards that
