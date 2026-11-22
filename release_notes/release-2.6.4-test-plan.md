@@ -464,17 +464,34 @@ Owner: coordinator (Claude) for G6.1–G6.3; Rich for G6.4.
 
 Reset `language` to `en` in `~/PiFinder_data/config.json` before the web suite.
 
-- [ ] **G6.1** Selenium suite. **Check for menu-index drift**: `Named Stars` is new in
+- [x] **G6.1** Selenium suite. **Check for menu-index drift**: `Named Stars` is new in
   both Stars… menus. Any test that counts keypresses through Objects → By Catalog →
   Stars… or the filter's Stars… is a candidate.
 - [ ] **G6.2** Web equipment: edit a telescope, its alignment survives; delete a
   telescope above the active one, the active one stays (#703). Select a different
   telescope on the web page, and the device's pointing follows (the `reload_config`
   path).
-- [ ] **G6.3** `/api/current-selection` and the web object details show the new names
+- [x] **G6.3** `/api/current-selection` and the web object details show the new names
   (M 82 → Cigar Galaxy) and the joined listings.
 - [ ] **G6.4** SkySafari push to the observing list and position readout
   **(carried)**; Stellarium live session if not banked in 2.6.3 **(carried)**.
+
+**Result, 2026-11-21 (coordinator):** run on a Mac against a headless PiFinder from
+`release-2.6.4-prep` (`-fh --camera debug`, `pytest -m web --local`, Chrome).
+
+- G6.1: **174 tests: 171 pass, 1 skip, 3 fail; the 3 now pass.** The 3 were the
+  `test_web_remote_settings.py` language tests, which still counted Language as index 6.
+  `Volume` moved it to 7 before 2.6.1 (found then as G6.5, never fixed). Fixed in this PR;
+  the file passes (5/5). No drift from `Named Stars`.
+- G6.3: the web screen shows M 82 with "Cigar Galaxy, NGC 3034, …" first. The API's
+  object block has no names, and reports `catalog` and `magnitude` as "Unknown" (it reads
+  attributes the object does not have). Not new in 2.6.4; a follow-up.
+- G6.2: covered by #703's hardware check (edit, delete above the active telescope, and
+  select on the web page with the pointing following) and G2.23 (a web edit survives).
+- G6.4: open (Rich).
+- Trap for the next run: on macOS the app binds port 80, and stopping it with `kill`
+  leaves its child processes (the web server among them) running on port 80. Kill them
+  all before a restart, or tests talk to a dead copy (49 false failures here).
 
 **Blocks:** offering the update.
 

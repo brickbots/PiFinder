@@ -26,12 +26,13 @@ Settings menu (root → DD → R) items (0-indexed):
 
 User Pref submenu (0-indexed):
   0: Key Bright    (not tested: hardware LED)
-  1: Sleep Time    (not tested: hardware display)
-  2: Menu Anim     (not tested: animation param)
-  3: Scroll Speed  (not tested: animation param)
-  4: Search Input  (not tested: input method)
-  5: Az Arrows     (not tested: hardware keypad)
-  6: Language      (testable: software language switch)
+  1: Volume        (not tested: hardware buzzer)
+  2: Sleep Time    (not tested: hardware display)
+  3: Menu Anim     (not tested: animation param)
+  4: Scroll Speed  (not tested: animation param)
+  5: Search Input  (not tested: input method)
+  6: Az Arrows     (not tested: hardware keypad)
+  7: Language      (testable: software language switch)
 
 Language submenu items (0-indexed, values depend on translation):
   English (en), German (de), French (fr), Spanish (es), Chinese (zh)
@@ -40,7 +41,7 @@ Key sequences from navigate_to_root_menu() (lands on Objects in root menu):
   DD   → highlight Settings (index 4, 2 downs from Objects=2)
   R    → enter Settings submenu (now at User Pref, index 0)
   R    → enter User Pref submenu (now at Key Bright, index 0)
-  DDDDDD → navigate to Language (index 6, 6 downs from Key Bright)
+  DDDDDDD → navigate to Language (index 7, 7 downs from Key Bright)
   R    → enter Language submenu
 """
 
@@ -101,10 +102,10 @@ def test_settings_language_submenu_entry(driver):
     navigate_to_root_menu(driver)
 
     # DDR = enter Settings; R = enter User Pref at Key Bright (0)
-    # DDDDDD = navigate to Language (index 6); R = enter Language submenu
+    # DDDDDDD = navigate to Language (index 7); R = enter Language submenu
     press_keys_and_validate(
         driver,
-        "DDRRDDDDDDR",
+        "DDRRDDDDDDDR",
         {
             "ui_type": "UITextMenu",
             "title": "Language",
@@ -123,7 +124,7 @@ def test_settings_language_has_english_default(driver):
     # Navigate to Language submenu
     press_keys_and_validate(
         driver,
-        "DDRRDDDDDDR",
+        "DDRRDDDDDDDR",
         {
             "ui_type": "UITextMenu",
             "title": "Language",
@@ -160,7 +161,7 @@ def test_settings_language_select_german_and_restore(driver):
     # Navigate to Language submenu
     press_keys_and_validate(
         driver,
-        "DDRRDDDDDDR",
+        "DDRRDDDDDDDR",
         {"ui_type": "UITextMenu", "title": "Language"},
     )
 
