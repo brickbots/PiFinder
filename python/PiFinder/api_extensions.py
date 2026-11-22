@@ -15,6 +15,7 @@ Usage:
 Dependencies: No additional dependencies. Reuses PiFinder's existing Flask / PIL / shared state.
 """
 
+import functools
 import io
 import json
 import logging
@@ -22,6 +23,7 @@ import logging
 from flask import request, session, Response
 from PIL import Image
 
+from PiFinder import utils
 from PiFinder.optics import OpticalTrainResolver
 
 logger = logging.getLogger("PiFinderAPI")
@@ -144,8 +146,24 @@ def register_api_routes(app, server_instance, require_auth=False):
     def _auth_wrapper(func):
         """Return 401 if authentication is enabled and the request is not authorized"""
 
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if not _check_auth():
+                return _json_response({"error": "Unauthorized"}, 401)
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    def _login_required(func):
+        """Return 401 unless the request carries the Web UI login session.
+
+        Applies regardless of ``require_auth``: these endpoints press keys,
+        stop the app or return camera frames.
+        """
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if not session.get("authenticated"):
                 return _json_response({"error": "Unauthorized"}, 401)
             return func(*args, **kwargs)
 
@@ -174,7 +192,7 @@ def register_api_routes(app, server_instance, require_auth=False):
                 },
                 "imu": ss.imu().to_dict() if ss.imu() else None,
                 "sqm": ss.sqm().to_dict() if ss.sqm() else None,
-                "software_version": _get_version(server_instance),
+                "software_version": utils.get_version(),
             }
             return _json_response(data)
         except Exception as e:
@@ -701,7 +719,7 @@ def register_api_routes(app, server_instance, require_auth=False):
             return _json_response({"error": str(e)}, 500)
 
     # ───────────────────────────────────────────────
-    # 3. Image endpoint (no authentication required, convenient for direct embedding in browsers/OpenClaw)
+    # 3. Image endpoints (/api/screen is open for embedding; camera frames need the login)
     # ───────────────────────────────────────────────
 
     @app.route("/api/screen")
@@ -718,6 +736,7 @@ def register_api_routes(app, server_instance, require_auth=False):
             return _png_response(empty)
 
     @app.route("/api/camera/raw")
+    @_login_required
     def api_camera_raw():
         """Return the raw CMOS image, if available"""
         try:
@@ -741,6 +760,7 @@ def register_api_routes(app, server_instance, require_auth=False):
             return _json_response({"error": str(e)}, 500)
 
     @app.route("/api/camera/debug")
+    @_login_required
     def api_camera_debug():
         """Return the latest debug frame from the solver_debug_dumps directory"""
         try:
@@ -767,10 +787,11 @@ def register_api_routes(app, server_instance, require_auth=False):
             return _json_response({"error": str(e)}, 500)
 
     # ───────────────────────────────────────────────
-    # 4. Lightweight control endpoints (optional, for remote triggering by OpenClaw)
+    # 4. Control endpoints (need the Web UI login)
     # ───────────────────────────────────────────────
 
     @app.route("/api/key", methods=["POST"])
+    @_login_required
     def api_key():
         """Simulate button input. JSON body: {"button": "UP"} or {"button": 1}"""
         try:
@@ -790,6 +811,7 @@ def register_api_routes(app, server_instance, require_auth=False):
             return _json_response({"error": str(e)}, 500)
 
     @app.route("/api/stop", methods=["POST"])
+    @_login_required
     def api_stop():
         """Cleanly shut down the entire PiFinder application.
 
@@ -846,18 +868,6 @@ def register_api_routes(app, server_instance, require_auth=False):
         "PiFinder API extensions registered (%s auth)",
         "with" if require_auth else "without",
     )
-
-
-def _get_version(server_instance) -> str:
-    """Try to read the PiFinder software version"""
-    try:
-        version_txt = getattr(server_instance, "version_txt", None)
-        if version_txt:
-            with open(version_txt, "r") as f:
-                return f.read().strip()
-    except Exception:
-        pass
-    return "Unknown"
 
 
 def _safe_json_value(value):

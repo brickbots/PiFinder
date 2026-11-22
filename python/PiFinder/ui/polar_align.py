@@ -105,7 +105,7 @@ class UIPolarAlign(UIModule):
 
     def _solve_datetime(self, timestamp: float):
         """UTC datetime of a time.time()-based solve timestamp."""
-        dt = self.shared_state.datetime()
+        dt = self.snapshot.datetime()
         if dt is None:
             return None
         return dt - timedelta(seconds=time.time() - timestamp)
@@ -120,7 +120,7 @@ class UIPolarAlign(UIModule):
         right source for polar alignment regardless of mount motion.
         ``last_solve_success`` is its time.time() epoch.
         """
-        solution = self.shared_state.solution()
+        solution = self.snapshot.solution()
         if not solution or not solution.has_pointing():
             return None, None
         cam = solution.pointing.camera.solve
@@ -152,7 +152,7 @@ class UIPolarAlign(UIModule):
 
     def _gps_ready(self) -> bool:
         """True when location/time are available to compute a result."""
-        if not self.shared_state.altaz_ready():
+        if not self.snapshot.altaz_ready():
             return False
         return self._solve_datetime(self.solves[-1][3]) is not None
 
@@ -168,7 +168,7 @@ class UIPolarAlign(UIModule):
         """
         if not self._gps_ready():
             return False
-        location = self.shared_state.location()
+        location = self.snapshot.location()
         dt_last = self._solve_datetime(self.solves[-1][3])
 
         calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
@@ -325,7 +325,7 @@ class UIPolarAlign(UIModule):
                 _("on the mount."),
             ],
         )
-        if not self.shared_state.altaz_ready():
+        if not self.snapshot.altaz_ready():
             self._draw_lines(y + 2, [_("GPS: waiting...")], fill=128)
         # TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
         self._draw_hints(_("{icon} START").format(icon=self._SQUARE_))

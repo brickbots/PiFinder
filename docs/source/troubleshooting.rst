@@ -81,6 +81,31 @@ For re-imaging instructions, see :ref:`user_guide:update software` and the
 :doc:`software` page.
 
 
+The PiFinder fails to start after an update
+-------------------------------------------
+
+If an update does not start, the PiFinder goes back to the last version that worked.  The
+screen then shows **Update failed** and **Rolled back**.  If the screen shows **HOLD SQUARE AT
+POWER ON FOR RECOVERY**, use recovery mode.
+
+Recovery mode starts only the software update screen.  It does not start the camera, the
+solver or the GPS, so it works when the normal software does not.  To start it:
+
+1. Turn the PiFinder off.
+2. Press and hold **SQUARE**.
+3. Turn the PiFinder on, and keep **SQUARE** held.
+4. Release **SQUARE** when the screen shows **RECOVERY MODE**.  This takes 10 to 20 seconds.
+
+The screen shows the **Rollback** list first.  It contains the versions that are on the
+PiFinder.  A check mark shows a version that started correctly before.  Select a version and
+then **Install**.  The PiFinder restarts with that version, and it keeps that version for
+the next starts.  A rollback needs no internet.  With WiFi in Client mode, the other update
+channels are also available.  To leave recovery mode without a change, turn the PiFinder off
+and on again.  If recovery mode itself does not start, the PiFinder goes back to the last
+version that worked and shows **Recovery failed**.  Recovery mode needs a software version
+that shows the **Rollback** channel in Software Upd.
+
+
 The camera view is blank or black
 ---------------------------------
 

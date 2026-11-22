@@ -8,6 +8,7 @@ This module contains all the UI Module classes
 from typing import Union
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.layout import carousel_layout
+from PiFinder.ui.ui_utils import draw_text_cached
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 
 
@@ -120,11 +121,12 @@ class UITextMenu(UIModule):
                 item_def is not None
                 and item_def.get("value", "--") in self._selected_values
             ):
-                self.draw.text(
+                draw_text_cached(
+                    self.screen,
                     (layout.check_x, row.y),
                     self._CHECKMARK,
-                    font=row.font.font,
-                    fill=self.colors.get(row.brightness),
+                    row.font.font,
+                    self.colors.get(row.brightness),
                 )
 
         return self.screen_update()
@@ -136,11 +138,13 @@ class UITextMenu(UIModule):
         to scroll the selected item when it is too long) and keep the shared
         carousel layout.
         """
-        self.draw.text(
+        # Cached glyphs: the menu draws the same lines on every frame.
+        draw_text_cached(
+            self.screen,
             pos,
             text,
-            font=row.font.font,
-            fill=self.colors.get(row.brightness),
+            row.font.font,
+            self.colors.get(row.brightness),
         )
 
     def menu_scroll(self, direction: int):

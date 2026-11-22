@@ -375,7 +375,7 @@ hardware, or network dependency at construct or update time — are:
 | `UITextEntry` | `textentry.py:104` | In catalog-search mode opens `ObjectsDatabase` (the bundled `pifinder_objects.db`) and calls `catalogs.search_by_t9` / `search_by_text`. |
 | `UISQM` | `sqm.py:54` | `update()` calls `self.camera_image.copy()` — needs a real `camera_image` (a `PIL.Image`, **not** `None`). Reads `shared_state.sqm()`, sends camera commands. |
 | `UIPreview` | `preview.py:213` | Also `self.camera_image.copy()` — needs a real camera image; reads `shared_state.last_image_metadata()`. |
-| `UISoftware` | `software.py:55`–`:74` | Constructor `open()`s `version.txt` and `wifi_status.txt` from `utils.pifinder_dir` (must exist). Update path does `requests.get(...)` to GitHub — network. |
+| `UISoftware` | `software.py:372` | Constructor `open()`s `wifi_status.txt` from `utils.pifinder_dir` (must exist) and reads the version with `utils.get_version()`. The update path fetches the update manifest from GitHub — network. |
 | `UIStatus` | `status.py:47`, `:152` | `open()`s `wifi_status.txt` and `/sys/class/thermal/thermal_zone0/temp` (Linux/Pi-only file). |
 | `UIGPSStatus` | `gpsstatus.py:58` | Sends to `command_queues["gps"]`; reads `shared_state.location()/sats()`. No data file, but the GPS process must be alive for live data. |
 | `UIEquipment` | `equipment.py:5` | Imports `utils.get_sys_utils()` at module import (falls back to `sys_utils_fake` off-Pi). Reads `config_object.equipment`. |

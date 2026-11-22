@@ -88,7 +88,10 @@ def cfg(tmp_path, monkeypatch):
 
 @pytest.fixture
 def shared_state(cfg, monkeypatch):
-    monkeypatch.setattr("PiFinder.state.TimezoneFinder", _StubTimezoneFinder)
+    monkeypatch.setattr(
+        "PiFinder.state.timezonefinder",
+        SimpleNamespace(TimezoneFinder=_StubTimezoneFinder),
+    )
     state = SharedStateObj()
     state.set_ui_state(UIState())
     return state

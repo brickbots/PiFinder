@@ -5,7 +5,7 @@ without going through ``OpticalTrainResolver``, so it needs the same tolerance
 the resolver has: it runs while the menu is being built, and raising there
 leaves the user with a menu that cannot be opened -- on exactly the screen
 they would go to in order to fix a camera problem. It reads both halves from
-``shared_state`` rather than config, because self-heal writes the lens from
+the shared-state snapshot rather than config, because self-heal writes the lens from
 another process and this one's ``Config`` is loaded at boot.
 
 ``set_camera_lens`` must restart. Everything that reads the lens live picks a
@@ -22,6 +22,7 @@ import pytest
 # Installs the ``_()`` gettext builtin that PiFinder.ui modules rely on.
 import PiFinder.i18n  # noqa: F401
 
+from PiFinder.state_snapshot import StateSnapshot
 from PiFinder.ui import callbacks
 
 
@@ -38,10 +39,7 @@ def _ui_module(camera_type, lens_key, config_lens=_UNSET):
     """
     stale = lens_key if config_lens is _UNSET else config_lens
     return SimpleNamespace(
-        shared_state=SimpleNamespace(
-            camera_type=lambda: camera_type,
-            camera_lens=lambda: lens_key,
-        ),
+        snapshot=StateSnapshot({"camera_type": camera_type, "camera_lens": lens_key}),
         config_object=SimpleNamespace(get_option=lambda _key: stale),
     )
 

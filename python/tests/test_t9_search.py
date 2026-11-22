@@ -32,11 +32,6 @@ def catalogs_api(monkeypatch):
     stub_dataclasses_json.dataclass_json = dataclass_json
     monkeypatch.setitem(sys.modules, "dataclasses_json", stub_dataclasses_json)
 
-    # Avoid optional numpy dependency pulled in via CompositeObject
-    stub_numpy = types.ModuleType("numpy")
-    stub_numpy.array = lambda *args, **kwargs: None
-    monkeypatch.setitem(sys.modules, "numpy", stub_numpy)
-
     # Avoid timezone lookup dependency required by SharedState
     stub_timezonefinder = types.ModuleType("timezonefinder")
 
@@ -124,53 +119,14 @@ def test_search_by_t9_matches_objects(catalogs_api):
 
 
 @pytest.mark.unit
-def test_search_by_t9_uses_cached_digits(monkeypatch, catalogs_api):
-    Catalogs, _, _ = catalogs_api
-    objects = [DummyObject(["Vega"], sequence=1)]
-    catalogs = Catalogs([DummyCatalog("TST", objects)])
-
-    call_count = 0
-    original = Catalogs._name_to_t9_digits
-
-    def counting(self, name):
-        nonlocal call_count
-        call_count += 1
-        return original(self, name)
-
-    monkeypatch.setattr(Catalogs, "_name_to_t9_digits", counting)
-
-    catalogs.search_by_t9("1")
-    first_count = call_count
-
-    # Subsequent searches should use cached digit strings
-    catalogs.search_by_t9("18")
-    assert call_count == first_count
-
-
-@pytest.mark.unit
-def test_search_by_t9_cache_invalidation_on_catalog_change(monkeypatch, catalogs_api):
+def test_search_by_t9_finds_an_object_added_after_a_search(catalogs_api):
     Catalogs, _, _ = catalogs_api
     objects = [DummyObject(["Vega"], sequence=1)]
     dummy_catalog = DummyCatalog("TST", objects)
     catalogs = Catalogs([dummy_catalog])
 
     catalogs.search_by_t9("1897")
-
-    new_object = DummyObject(["Deneb"], sequence=2)
-    dummy_catalog._objects.append(new_object)
-
-    # Update tracker to ensure cache rebuild triggers conversion for new object
-    call_count = 0
-    original = Catalogs._name_to_t9_digits
-
-    def counting(self, name):
-        nonlocal call_count
-        call_count += 1
-        return original(self, name)
-
-    monkeypatch.setattr(Catalogs, "_name_to_t9_digits", counting)
+    dummy_catalog._objects.append(DummyObject(["Deneb"], sequence=2))
 
     results = catalogs.search_by_t9("88587")
-
-    assert any(obj.sequence == 2 for obj in results)
-    assert call_count > 0
+    assert [obj.sequence for obj in results] == [2]

@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
+from PiFinder.state_snapshot import StateSnapshot
 from PiFinder.ui import preview as preview_module
 from PiFinder.displays import (
     DisplayBase,
@@ -104,7 +105,7 @@ def test_solved_hip_ids_restore_stars_to_their_existing_slots():
         matched_centroids=[(300.0, 400.0), (80.0, 100.0)],
         matched_catID=[71683, 32349],
     )
-    preview.shared_state = SimpleNamespace(solution=lambda: solution)
+    preview.snapshot = StateSnapshot({"solution": solution})
 
     preview._adopt_solved_catalog_ids(42.0)
 
@@ -622,8 +623,8 @@ def _hold_preview(*, camera_exp="auto", exposure_time=437_000):
     preview._saved_camera_exp = None
     preview._held_exposure_us = None
     preview.config_object = SimpleNamespace(get_option=lambda _name: camera_exp)
-    preview.shared_state = SimpleNamespace(
-        last_image_metadata=lambda: {"exposure_time": exposure_time}
+    preview.snapshot = StateSnapshot(
+        {"last_image_metadata": {"exposure_time": exposure_time}}
     )
     preview.camera_commands = []
     preview.command_queues = {

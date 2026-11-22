@@ -15,10 +15,24 @@ from PIL import Image, ImageDraw
 import PiFinder.i18n  # noqa: F401
 
 from PiFinder.displays import get_display
+from PiFinder.ui import text_menu
 from PiFinder.ui.layout import carousel_layout
 from PiFinder.ui.obs_list import UIObsList
 
 pytestmark = pytest.mark.unit
+
+# The RecordingDraw of the picker under test. UITextMenu draws its rows with
+# draw_text_cached, which pastes onto the screen; the fixture below sends those
+# calls to this draw, so the tests see every row.
+_ACTIVE_DRAW = {}
+
+
+@pytest.fixture(autouse=True)
+def record_cached_text(monkeypatch):
+    def draw_through_recorder(screen, xy, text, font, fill):
+        _ACTIVE_DRAW["draw"].text(xy, text, font=font, fill=fill)
+
+    monkeypatch.setattr(text_menu, "draw_text_cached", draw_through_recorder)
 
 
 class RecordingDraw:
@@ -52,6 +66,8 @@ def _picker(display_name, n_items, index):
     ui.colors = display.colors
     ui.fonts = display.fonts
     ui.draw = RecordingDraw(display.resolution)
+    ui.screen = Image.new("RGB", display.resolution)
+    _ACTIVE_DRAW["draw"] = ui.draw
     ui.clear_screen = lambda: None
     ui.screen_update = lambda *a, **k: None
     ui.config_object = type("Cfg", (), {"get_option": lambda self, k, d=None: d})()

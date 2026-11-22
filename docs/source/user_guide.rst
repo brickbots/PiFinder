@@ -1140,31 +1140,48 @@ Updates happen on the PiFinder itself, so there is no need to send it anywhere. 
 often ship a version or two behind the latest release, so running an update is a normal part
 of your first night out.
 
-.. image:: images/user_guide/software_update_01_docs.png
-
 The PiFinder needs internet access, so put it in Client Mode connected to a WiFi network.
 See :ref:`connectivity:connecting to a new wifi network` for details.
 
-The PiFinder confirms it can reach the internet, then compares the current release version
-to the one installed.
+The screen shows the installed version at the top, then a channel, then the versions in that
+channel.  Press **RIGHT** on the channel to change it:
+
+* **Stable**: tested releases.  Use this channel unless you want to help test.
+* **Beta**: test releases of the next version.
+* **Rollback**: the versions that were installed on this PiFinder before.  This channel works
+  without internet, so you can go back to a version that worked.
+* **Unstable**: development builds.  This channel shows only when developer mode is on.
+
+.. image:: images/user_guide/software_update_01_docs.png
+
+Press **DOWN** to move into the list of versions.  The selected version shows when it was
+built.
 
 .. image:: images/user_guide/software_update_02_docs.png
 
-.. note::
-   If the release version shows as **unknown**, the PiFinder cannot reach the internet to
-   check.  It is either in Access Point mode, or its WiFi is not configured.  Put it in
-   Client mode on a network with internet access (see
-   :ref:`connectivity:connecting to a new wifi network`).  Re-imaging the SD card is not the
-   fix for this.  If WiFi is configured but the check still fails, move closer to the
-   router or re-enter the network details.
-
-If a new version is available, select the option presented to start the update.  This may
-take several minutes, and the PiFinder restarts when it's done.
-
-.. image:: images/user_guide/software_update_04_docs.png
-
+Press **RIGHT** to select the version.  The next screen shows the version and three options:
 
 .. image:: images/user_guide/software_update_03_docs.png
+
+* **Install** starts the update.  The PiFinder downloads the update, installs it and
+  restarts.  This can take several minutes.
+* **Notes** shows the release notes of the version.
+* **Cancel** goes back to the list.
+
+**Install** shows only when the PiFinder is on USB-C power.  On battery, the screen asks you
+to plug in USB-C power, because an update must not stop part way.
+
+Press **SQUARE** in the list to check for new versions again.
+
+.. note::
+   If the screen says it can't reach the update server, the PiFinder has no internet.  It is
+   either in Access Point mode, or its WiFi is not configured.  Put it in Client mode on a
+   network with internet access (see :ref:`connectivity:connecting to a new wifi network`).
+   Re-imaging the SD card is not the fix for this.  If WiFi is configured but the check still
+   fails, move closer to the router or re-enter the network details.
+
+If the PiFinder does not start after an update, use recovery mode.  See
+:ref:`troubleshooting:the pifinder fails to start after an update`.
 
 You can also download a pre-built image of any software release and write it to the
 PiFinder's SD card.  See our `release page <https://github.com/brickbots/PiFinder/releases>`_

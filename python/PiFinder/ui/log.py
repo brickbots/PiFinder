@@ -160,7 +160,7 @@ class UILog(UIModule):
             fill=(0, 0, 0, 100),
         )
 
-        if not self.shared_state.solve_state():
+        if not self.snapshot.solve_state():
             self.draw.text(
                 (0, self.display_class.titlebar_height + 3),
                 _("No Solve Yet"),
@@ -277,7 +277,7 @@ class UILog(UIModule):
         self._observing_session.log_object(
             catalog=self.object.catalog_code,
             sequence=self.object.sequence,
-            solution=self.shared_state.solution(),
+            solution=self.snapshot.solution(),
             notes=notes,
         )
         self.catalogs.mark_logged(self.object)
