@@ -30,7 +30,12 @@
 #define MAX_WIDTH 176
 #define MAX_HEIGHT 176
 #define SPI_DEVICE "/dev/spidev0.0"
-#define SPI_SPEED 40000000
+/* The SPI clock of each panel, the same as PiFinder/displays.py. Newer 1.5"
+ * SSD1351 panels stay blank at 40 MHz, which is about twice the datasheet
+ * clock. SPI_SPEED_MAX is the device limit; each transfer sets its speed. */
+#define SPI_SPEED_SSD1351 20000000
+#define SPI_SPEED_SSD1333 40000000
+#define SPI_SPEED_MAX SPI_SPEED_SSD1333
 #define GPIO_DC 24
 #define GPIO_RST 25
 
@@ -54,6 +59,7 @@ enum oled_controller {
 };
 
 static enum oled_controller controller = CTRL_SSD1351;
+static uint32_t spi_speed = SPI_SPEED_SSD1351;
 static int display_width = 128;
 static int display_height = 128;
 
@@ -195,7 +201,7 @@ static void spi_write(const uint8_t *data, size_t len)
         struct spi_ioc_transfer tr = {0};
         tr.tx_buf = (unsigned long)data;
         tr.len = this_len;
-        tr.speed_hz = SPI_SPEED;
+        tr.speed_hz = spi_speed;
         tr.bits_per_word = 8;
         ioctl(spi_fd, SPI_IOC_MESSAGE(1), &tr);
         data += this_len;
@@ -229,11 +235,13 @@ static void detect_display(void)
     const char *display_resolution = getenv("MIGRATION_DISPLAY_RESOLUTION");
 
     controller = CTRL_SSD1351;
+    spi_speed = SPI_SPEED_SSD1351;
     display_width = 128;
     display_height = 128;
 
     if (display_class && strstr(display_class, "SSD1333")) {
         controller = CTRL_SSD1333;
+        spi_speed = SPI_SPEED_SSD1333;
         display_width = 176;
         display_height = 176;
         return;
@@ -241,6 +249,7 @@ static void detect_display(void)
 
     if (display_resolution && strcmp(display_resolution, "176x176") == 0) {
         controller = CTRL_SSD1333;
+        spi_speed = SPI_SPEED_SSD1333;
         display_width = 176;
         display_height = 176;
     }
@@ -505,7 +514,7 @@ static int hw_init(void)
 
     uint8_t mode = SPI_MODE_0;
     uint8_t bits = 8;
-    uint32_t speed = SPI_SPEED;
+    uint32_t speed = SPI_SPEED_MAX;
     ioctl(spi_fd, SPI_IOC_WR_MODE, &mode);
     ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD, &bits);
     ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
