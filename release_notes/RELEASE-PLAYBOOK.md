@@ -176,6 +176,9 @@ them for no reason.
       on both branches, but `v2.6.3` ended up on `31c900c3`, two commits past the actual release
       merge, because the tag went on afterwards. That makes "what shipped as 2.6.3" ambiguous.
 - [ ] Push the tag.
+- [ ] Fast-forward `release_candidate` to the same commit and push it. It is the branch for
+      testing ahead of a release, when there is time for that. It has no commits of its own,
+      so the fast-forward is clean; keep it that way. Nothing on a unit reads it.
 
 Tag by hand for Track A only. Expect to see NixOS tags on this branch all the same:
 `v3.1.1-beta` to `v3.1.3-beta` sit on `release` commits, and `v3.1.3-beta` is on the case fix.
