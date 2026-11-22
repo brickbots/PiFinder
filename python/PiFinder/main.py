@@ -169,6 +169,16 @@ def apply_test_mode_gps(shared_state, location, console):
     )
 
 
+def rollback_cause(notice: Path) -> str:
+    """The "by" field of the watchdog's rollback notice, or "" when the
+    notice has none or cannot be read."""
+    try:
+        by = json.loads(notice.read_text()).get("by", "")
+    except (OSError, ValueError, AttributeError):
+        return ""
+    return by if isinstance(by, str) else ""
+
+
 def setup_dirs():
     utils.create_path(Path(utils.data_dir))
     utils.create_path(Path(utils.data_dir, "captures"))
@@ -610,14 +620,17 @@ def main(
         console.update()
         logger.info("Starting ....")
 
-        # One-shot notice from the boot watchdog: a failed upgrade was
-        # auto-rolled-back to this (previous) generation.
+        # One-shot notice from the boot watchdog: a failed upgrade, or a
+        # failed recovery mode, was rolled back to this generation.
         upgrade_failed_notice = utils.data_dir / "upgrade_failed.json"
         if upgrade_failed_notice.exists():
-            console.write("!! Update failed")
+            if rollback_cause(upgrade_failed_notice) == "recovery":
+                console.write("!! Recovery failed")
+            else:
+                console.write("!! Update failed")
             console.write("!! Rolled back")
             console.update()
-            logger.warning("Previous upgrade failed; watchdog rolled back")
+            logger.warning("Previous boot failed; watchdog rolled back")
             try:
                 upgrade_failed_notice.unlink()
             except OSError:

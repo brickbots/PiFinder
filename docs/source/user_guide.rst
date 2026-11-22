@@ -1166,6 +1166,9 @@ take several minutes, and the PiFinder restarts when it's done.
 
 .. image:: images/user_guide/software_update_03_docs.png
 
+If the PiFinder does not start after an update, use recovery mode.  See
+:ref:`troubleshooting:the pifinder fails to start after an update`.
+
 You can also download a pre-built image of any software release and write it to the
 PiFinder's SD card.  See our `release page <https://github.com/brickbots/PiFinder/releases>`_
 for information about each release and a download link.

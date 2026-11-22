@@ -955,3 +955,101 @@ def test_run_upgrade_dry_run_without_a_closure(tmp_path, monkeypatch):
 
     assert statuses == ["starting", "checking", "unavailable"]
     assert dry_runs == [STORE]
+
+
+# --- Recovery mode (ADR 0038) ------------------------------------------------
+
+
+@pytest.mark.unit
+def test_fallback_is_the_running_system_in_normal_mode(monkeypatch):
+    monkeypatch.setattr(
+        nixos_upgrade.generations, "recovery_mode_active", lambda: False
+    )
+    running = Path("/run/current-system")
+    assert nixos_upgrade.fallback_system(STORE, running) == running
+
+
+@pytest.mark.unit
+def test_fallback_is_the_newest_confirmed_in_recovery(monkeypatch):
+    confirmed = Path("/nix/store/old-confirmed")
+    seen = []
+
+    def newest(exclude=None):
+        seen.append(exclude)
+        return confirmed
+
+    monkeypatch.setattr(nixos_upgrade.generations, "recovery_mode_active", lambda: True)
+    monkeypatch.setattr(nixos_upgrade.generations, "newest_confirmed", newest)
+    assert nixos_upgrade.fallback_system(STORE) == confirmed
+    assert seen == [STORE]
+
+
+@pytest.mark.unit
+def test_fallback_in_recovery_without_a_confirmed_generation(monkeypatch):
+    monkeypatch.setattr(nixos_upgrade.generations, "recovery_mode_active", lambda: True)
+    monkeypatch.setattr(
+        nixos_upgrade.generations, "newest_confirmed", lambda exclude=None: None
+    )
+    running = Path("/run/current-system")
+    assert nixos_upgrade.fallback_system(STORE, running) == running
+
+
+@pytest.mark.unit
+def test_trial_marker_names_the_fallback(tmp_path, monkeypatch):
+    previous = tmp_path / "confirmed"
+    previous.mkdir()
+    target = tmp_path / "target"
+    target.mkdir()
+    marker = tmp_path / "trial-generation.json"
+    monkeypatch.setattr(nixos_upgrade, "TRIAL_MARKER_FILE", marker)
+    monkeypatch.setattr(nixos_upgrade, "fallback_system", lambda _target: previous)
+    nixos_upgrade.arm_trial_marker(target)
+    assert json.loads(marker.read_text()) == {
+        "previous": str(previous),
+        "new": str(target),
+    }
+
+
+@pytest.mark.unit
+def test_boot_counter_in_recovery_names_the_confirmed_generation(monkeypatch):
+    confirmed = Path("/nix/store/old-confirmed")
+    calls = []
+    monkeypatch.setattr(
+        nixos_upgrade, "command", lambda args, **_kw: calls.append(args)
+    )
+    monkeypatch.setattr(
+        nixos_upgrade, "fallback_system", lambda _target, _running: confirmed
+    )
+    nixos_upgrade.arm_boot_counter(boot_target=STORE)
+    assert calls == [["pifinder-bootcount", "arm", str(confirmed)]]
+
+
+@pytest.mark.unit
+def test_recovery_mode_keeps_the_old_generations(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        nixos_upgrade, "command", lambda args, **_kw: calls.append(args)
+    )
+    monkeypatch.setattr(nixos_upgrade.generations, "recovery_mode_active", lambda: True)
+    nixos_upgrade.cleanup_old_generations()
+    assert calls == []
+    monkeypatch.setattr(
+        nixos_upgrade.generations, "recovery_mode_active", lambda: False
+    )
+    nixos_upgrade.cleanup_old_generations()
+    assert calls[0][:2] == ["nix-env", "--delete-generations"]
+
+
+@pytest.mark.unit
+def test_activation_makes_the_pick_the_boot_default(tmp_path, monkeypatch):
+    """A pick (a rollback generation or an internet build) is sticky: the
+    profile points at it before the boot loader is written."""
+    store, calls, _armed = _setup_activation(tmp_path, monkeypatch, "imx462", [])
+    nixos_upgrade.activate_system(str(store), "imx462")
+    assert calls[0] == [
+        "nix-env",
+        "-p",
+        "/nix/var/nix/profiles/system",
+        "--set",
+        str(store),
+    ]

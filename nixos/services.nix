@@ -5,6 +5,9 @@ let
   pifinder-src = import ./pkgs/pifinder-src.nix { inherit pkgs; };
   boot-splash = import ./pkgs/boot-splash.nix { inherit pkgs; };
   uboot-sd = import ./pkgs/uboot-sd.nix { inherit pkgs; };
+  # Recovery mode (ADR 0038). PiFinder.recovery_hold writes this file when
+  # SQUARE is held at power-on; PiFinder.generations.RECOVERY_FLAG names it.
+  recoveryFlag = "/run/pifinder-recovery-mode";
   # The U-Boot boot counter (ADR 0038, nixos/pkgs/uboot-sd.nix): two files on
   # the FAT FIRMWARE partition. pifinder.bootcount is 4 bytes: magic 0xbd,
   # version 1, count, upgrade_available. pifinder-fallback.env names the
@@ -411,8 +414,10 @@ in {
   # ---------------------------------------------------------------------------
   systemd.services.cedar-detect = {
     description = "Cedar Detect Star Detection Server";
-    after = [ "basic.target" ];
+    after = [ "basic.target" "pifinder-recovery-hold.service" ];
     wantedBy = [ "multi-user.target" ];
+    # Recovery mode has no solver.
+    unitConfig.ConditionPathExists = "!${recoveryFlag}";
     serviceConfig = {
       Type = "idle";
       User = "pifinder";
@@ -445,12 +450,38 @@ in {
   };
 
   # ---------------------------------------------------------------------------
+  # Recovery hold (ADR 0038): SQUARE held at power-on starts recovery mode
+  # ---------------------------------------------------------------------------
+  # Scans the keypad once, early, as root. When SQUARE is held it writes
+  # ${recoveryFlag} and shows "RECOVERY MODE" on the screen. pifinder.service
+  # then starts the recovery app (PiFinder.recovery). The detection never
+  # stops a normal boot: pifinder.service only "wants" this unit, the script
+  # always exits 0, and the time limit stops a scan that hangs.
+  systemd.services.pifinder-recovery-hold = {
+    description = "PiFinder recovery hold (SQUARE at power-on)";
+    wantedBy = [ "sysinit.target" ];
+    # After the splash, so that the recovery message is not overwritten.
+    after = [ "systemd-modules-load.service" "boot-splash.service" ];
+    before = [ "pifinder.service" "cedar-detect.service" ];
+    unitConfig.DefaultDependencies = false;
+    path = [ boot-splash ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      TimeoutStartSec = 30;
+      # The source in the store: /home is not needed this early.
+      WorkingDirectory = "${pifinder-src}/python";
+      ExecStart = "${pifinderPythonEnv}/bin/python -m PiFinder.recovery_hold";
+    };
+  };
+
+  # ---------------------------------------------------------------------------
   # Main PiFinder application
   # ---------------------------------------------------------------------------
   systemd.services.pifinder = {
     description = "PiFinder";
-    after = [ "basic.target" "cedar-detect.service" "gpsd.socket" ];
-    wants = [ "cedar-detect.service" "gpsd.socket" ];
+    after = [ "basic.target" "cedar-detect.service" "gpsd.socket" "pifinder-recovery-hold.service" ];
+    wants = [ "cedar-detect.service" "gpsd.socket" "pifinder-recovery-hold.service" ];
     wantedBy = [ "multi-user.target" ];
     path = let
       # Runtime paths not in the nix store — symlinks resolve at boot, not build time
@@ -488,7 +519,15 @@ in {
       User = "pifinder";
       Group = "users";
       WorkingDirectory = "/home/pifinder/PiFinder/python";
-      ExecStart = "${pifinderPythonEnv}/bin/python -m PiFinder.main";
+      # In recovery mode the app is the Software screen alone
+      # (PiFinder.recovery). exec keeps the PID, so READY=1 still comes
+      # from the main process.
+      ExecStart = pkgs.writeShellScript "pifinder-start" ''
+        if [ -e ${recoveryFlag} ]; then
+          exec ${pifinderPythonEnv}/bin/python -m PiFinder.recovery
+        fi
+        exec ${pifinderPythonEnv}/bin/python -m PiFinder.main
+      '';
       # Allow binding to privileged ports (80 for web UI)
       AmbientCapabilities = "CAP_NET_BIND_SERVICE";
       Restart = "on-failure";
@@ -564,6 +603,9 @@ in {
   #     splash, roll back (marker hint first, else newest other generation),
   #     reboot. With no rollback target at all, stay up for rescue instead of
   #     boot-looping.
+  #   - recovery boot (SQUARE held at power-on) -> check the recovery app
+  #     only. A recovery app that fails goes to the newest confirmed
+  #     generation that is not the running one.
   # A failure in stage 1 (the initrd) or a kernel panic restarts the Pi after
   # 10 s instead of waiting for ever. Each restart counts on the U-Boot boot
   # counter, so a trial generation that cannot boot falls back without a
@@ -583,6 +625,8 @@ in {
     # this job at each boot. See pifinder-migration-cleanup in migration.nix.
     after = [ "multi-user.target" "pifinder-watchdog.service" ];
     wantedBy = [ "multi-user.target" ];
+    # A recovery boot does not change the boot firmware.
+    unitConfig.ConditionPathExists = "!${recoveryFlag}";
     serviceConfig.Type = "oneshot";
     path = with pkgs; [ coreutils diffutils gnugrep util-linux pifinder-bootcount ];
     script = ''
@@ -634,6 +678,105 @@ in {
       is_confirmed() {
         [ -f "$CONFIRMED" ] && grep -qxF "$1" "$CONFIRMED"
       }
+
+      # Exit 0 when pifinder.service becomes active and stays up for 15 s
+      # (not crash-looping), within $1 checks 5 s apart.
+      app_healthy() {
+        for i in $(seq 1 "$1"); do
+          if systemctl is-active --quiet pifinder.service; then
+            UPTIME=$(systemctl show pifinder.service --property=ExecMainStartTimestamp --value)
+            START_EPOCH=$(date -d "$UPTIME" +%s 2>/dev/null || echo 0)
+            NOW_EPOCH=$(date +%s)
+            RUNNING_FOR=$((NOW_EPOCH - START_EPOCH))
+            if [ "$RUNNING_FOR" -ge 15 ]; then
+              echo "pifinder.service healthy (running ''${RUNNING_FOR}s)."
+              return 0
+            fi
+          fi
+          sleep 5
+        done
+        return 1
+      }
+
+      # Print the newest confirmed system that is not the running one: the
+      # toplevel of a generation or one of its camera specialisations. A
+      # generation that can boot the running system is skipped.
+      newest_confirmed() {
+        for GEN in $(ls -d /nix/var/nix/profiles/system-*-link 2>/dev/null | sort -t- -k2 -rn); do
+          G=$(readlink -f "$GEN")
+          SYSTEMS="$G"
+          for S in "$G"/specialisation/*/; do
+            [ -e "$S" ] || continue
+            SYSTEMS="$SYSTEMS $(readlink -f "$S")"
+          done
+          SKIP=0
+          for S in $SYSTEMS; do
+            [ "$S" = "$CURRENT" ] && SKIP=1
+          done
+          [ "$SKIP" = 1 ] && continue
+          for S in $SYSTEMS; do
+            if is_confirmed "$S"; then
+              echo "$S"
+              return 0
+            fi
+          done
+        done
+        return 1
+      }
+
+      # Keep the journal of this boot and the notice that the app shows after
+      # the reboot. $1: the rollback target (empty for none), $2: the cause.
+      # The data folder is writable by the pifinder user, so the files are
+      # written as pifinder: root never opens a path in it, and a symlink
+      # there cannot redirect the write.
+      capture_evidence() {
+        TS=$(date +%Y%m%d-%H%M%S)
+        runuser -u pifinder -- mkdir -p "$DATA" || true
+        journalctl -b | runuser -u pifinder -- tee "$DATA/failed-boot-$TS.log" > /dev/null || true
+        jq -n --arg failed "$CURRENT" --arg reverted_to "''${1:-none}" --arg at "$TS" --arg by "$2" \
+          '{failed: $failed, reverted_to: $reverted_to, at: $at, by: $by}' \
+          | runuser -u pifinder -- tee "$DATA/upgrade_failed.json" > /dev/null || true
+      }
+
+      # Make $1 the boot default and reboot into it.
+      boot_into() {
+        echo "Rolling back to $1 and rebooting..."
+        rm -f "$MARKER"
+        # current-build.json was written for the (now failed) generation before
+        # its reboot; left in place it makes the rolled-back system misreport
+        # its identity (and the update UI mis-hide entries). Remove it — version
+        # display falls back to the baked build metadata.
+        rm -f /var/lib/pifinder/current-build.json
+        nix-env -p /nix/var/nix/profiles/system --set "$1"
+        "$1/bin/switch-to-configuration" boot || true
+        systemctl reboot
+      }
+
+      if [ -e ${recoveryFlag} ]; then
+        # Recovery mode (ADR 0038): SQUARE was held at power-on, and the app
+        # is the Software screen alone. Its health check does not confirm a
+        # trial and does not roll one back: the next normal boot does that.
+        # A recovery app that fails its health check goes to the newest
+        # confirmed generation that is not this one.
+        echo "Recovery mode: waiting up to 120s for the recovery app..."
+        if app_healthy 24; then
+          exit 0
+        fi
+        TARGET=$(newest_confirmed || true)
+        echo "ERROR: the recovery app is not healthy. Capturing evidence..."
+        capture_evidence "$TARGET" recovery
+        systemctl stop pifinder.service || true
+        # This watchdog does the rollback; U-Boot must not count on top of it.
+        pifinder-bootcount reset || true
+        if [ -z "$TARGET" ]; then
+          echo "FATAL: no confirmed generation to roll back to; staying up for rescue (SSH)."
+          boot-splash --message "RECOVERY" "FAILED" "NO ROLLBACK" "USE SSH OR REFLASH" || true
+          exit 1
+        fi
+        boot-splash --message "RECOVERY" "FAILED" "ROLLING BACK" "PLEASE WAIT" || true
+        boot_into "$TARGET"
+        exit 0
+      fi
 
       if is_confirmed "$CURRENT"; then
         # A counting boot counter on a confirmed generation: U-Boot fell back
@@ -691,24 +834,14 @@ in {
       fi
 
       echo "Trial boot of unconfirmed generation $CURRENT: waiting up to 120s for pifinder.service..."
-      for i in $(seq 1 24); do
-        if systemctl is-active --quiet pifinder.service; then
-          # Verify it stays running (not crash-looping)
-          UPTIME=$(systemctl show pifinder.service --property=ExecMainStartTimestamp --value)
-          START_EPOCH=$(date -d "$UPTIME" +%s 2>/dev/null || echo 0)
-          NOW_EPOCH=$(date +%s)
-          RUNNING_FOR=$((NOW_EPOCH - START_EPOCH))
-          if [ "$RUNNING_FOR" -ge 15 ]; then
-            echo "pifinder.service healthy (running ''${RUNNING_FOR}s) — confirming generation."
-            mkdir -p "$(dirname "$CONFIRMED")"
-            echo "$CURRENT" >> "$CONFIRMED"
-            rm -f "$MARKER"
-            pifinder-bootcount reset || true
-            exit 0
-          fi
-        fi
-        sleep 5
-      done
+      if app_healthy 24; then
+        echo "Confirming generation $CURRENT."
+        mkdir -p "$(dirname "$CONFIRMED")"
+        echo "$CURRENT" >> "$CONFIRMED"
+        rm -f "$MARKER"
+        pifinder-bootcount reset || true
+        exit 0
+      fi
 
       # ----- unhealthy: pick a rollback target ------------------------------
       # Marker hint (exact pre-upgrade system, specialisation included) first;
@@ -733,10 +866,17 @@ in {
             [ "$(readlink -f "$S")" = "$CURRENT" ] && SKIP=1 && break
           done
           [ "$SKIP" = 1 ] && continue
-          if is_confirmed "$G"; then
-            TARGET="$G"
-            break
-          fi
+          # The ledger holds the system that ran: the camera specialisation
+          # on a device with another camera than the base one.
+          for S in "$G" "$G"/specialisation/*/; do
+            [ -e "$S" ] || continue
+            S=$(readlink -f "$S")
+            if is_confirmed "$S"; then
+              TARGET="$S"
+              break
+            fi
+          done
+          [ -n "$TARGET" ] && break
           [ -z "$FALLBACK" ] && FALLBACK="$G"
         done
         [ -z "$TARGET" ] && TARGET="$FALLBACK"
@@ -744,15 +884,7 @@ in {
 
       # ----- capture evidence ------------------------------------------------
       echo "ERROR: trial generation unhealthy. Capturing evidence..."
-      TS=$(date +%Y%m%d-%H%M%S)
-      # The data folder is writable by the pifinder user, so the files are
-      # written as pifinder: root never opens a path in it, and a symlink
-      # there cannot redirect the write.
-      runuser -u pifinder -- mkdir -p "$DATA" || true
-      journalctl -b | runuser -u pifinder -- tee "$DATA/failed-boot-$TS.log" > /dev/null || true
-      jq -n --arg failed "$CURRENT" --arg reverted_to "''${TARGET:-none}" --arg at "$TS" \
-        '{failed: $failed, reverted_to: $reverted_to, at: $at}' \
-        | runuser -u pifinder -- tee "$DATA/upgrade_failed.json" > /dev/null || true
+      capture_evidence "$TARGET" trial
 
       # Stop the crash-looping app so the display is free for the failure
       # message (and so the reboot is clean).
@@ -769,16 +901,7 @@ in {
 
       boot-splash --message "UPDATE" "FAILED" "ROLLING BACK" "PLEASE WAIT" "HOLD SQ AT POWER ON" "FOR RECOVERY" || true
 
-      echo "Rolling back to $TARGET and rebooting..."
-      rm -f "$MARKER"
-      # current-build.json was written for the (now failed) generation before
-      # its reboot; left in place it makes the rolled-back system misreport
-      # its identity (and the update UI mis-hide entries). Remove it — version
-      # display falls back to the baked build metadata.
-      rm -f /var/lib/pifinder/current-build.json
-      nix-env -p /nix/var/nix/profiles/system --set "$TARGET"
-      "$TARGET/bin/switch-to-configuration" boot || true
-      systemctl reboot
+      boot_into "$TARGET"
     '';
   };
 

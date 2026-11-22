@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterable
 
-from PiFinder import delta_updates
+from PiFinder import delta_updates, generations
 
 logger = logging.getLogger("PiFinder.nixos_upgrade")
 
@@ -584,10 +584,31 @@ def persist_current_build(store_path: str, selection: dict) -> None:
     remember_build_label(store_path, str(data["version"]))
 
 
+def fallback_system(
+    boot_target: str | Path, running: Path = Path("/run/current-system")
+) -> Path:
+    """The system that a failed trial of `boot_target` goes back to.
+
+    Normally this is the running system. In recovery mode (ADR 0038) the
+    running system can be the one whose app fails, so the fallback is the
+    newest confirmed generation that cannot boot `boot_target`. Without one
+    it is the running system.
+    """
+    if generations.recovery_mode_active():
+        try:
+            confirmed = generations.newest_confirmed(exclude=str(boot_target))
+        except OSError as exc:
+            logger.warning("cannot read the confirmed generations: %s", exc)
+            confirmed = None
+        if confirmed is not None:
+            return confirmed
+    return running
+
+
 def arm_trial_marker(boot_target: Path) -> None:
     """Arm the boot-health watchdog for the next boot.
 
-    Records the currently-running (known-good) system and the generation the
+    Records the known-good system (fallback_system) and the generation the
     next boot is expected to run, so pifinder-watchdog can roll back if that
     generation fails its first boot. The watchdog deletes the marker once the
     new generation proves healthy (commit); no marker means a committed
@@ -597,7 +618,7 @@ def arm_trial_marker(boot_target: Path) -> None:
     this upgrade proceeds without the automatic safety net.
     """
     try:
-        previous = Path("/run/current-system").resolve()
+        previous = fallback_system(boot_target).resolve()
         new = boot_target.resolve()
         TRIAL_MARKER_FILE.parent.mkdir(parents=True, exist_ok=True)
         TRIAL_MARKER_FILE.write_text(
@@ -608,17 +629,22 @@ def arm_trial_marker(boot_target: Path) -> None:
         logger.warning("could not arm trial marker: %s", exc)
 
 
-def arm_boot_counter(previous: Path = Path("/run/current-system")) -> None:
+def arm_boot_counter(
+    previous: Path = Path("/run/current-system"), boot_target: str | None = None
+) -> None:
     """Arm the U-Boot boot counter for the trial boot (ADR 0038).
 
     If the new generation stops before the watchdog runs (in the initrd, or
     with a kernel panic), U-Boot counts the restarts and, after three, boots
-    the extlinux entry of `previous`, the system that runs now. The watchdog
-    stops the counter when a boot is healthy.
+    the extlinux entry of `previous`, the system that runs now. In recovery
+    mode, with `boot_target` given, it is fallback_system(boot_target). The
+    watchdog stops the counter when a boot is healthy.
 
     Best-effort: without the counter the upgrade still has the watchdog.
     """
     try:
+        if boot_target is not None:
+            previous = fallback_system(boot_target, previous)
         command(
             ["pifinder-bootcount", "arm", str(previous.resolve())],
             check=False,
@@ -797,7 +823,12 @@ def set_extlinux_default(camera: str, store_path: str | None = None) -> None:
 
 def cleanup_old_generations() -> None:
     # Keep the 3 newest generations: current + 2 rollback targets (surfaced in
-    # the Software screen's Rollback channel).
+    # the Software screen's Rollback channel). Recovery mode deletes none: the
+    # newest confirmed generation can be older than the 3 newest, and a failed
+    # trial goes back to it (fallback_system).
+    if generations.recovery_mode_active():
+        logger.info("recovery mode: old generations stay")
+        return
     command(
         ["nix-env", "--delete-generations", "+3", "-p", "/nix/var/nix/profiles/system"],
         check=False,
@@ -874,7 +905,7 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
         activate_system(store_path, default_camera)
         persist_current_build(store_path, selection)
         cleanup_old_generations()
-        arm_boot_counter()
+        arm_boot_counter(boot_target=store_path)
         write_status("rebooting")
         command(["systemctl", "reboot"])
         terminal = True

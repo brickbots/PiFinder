@@ -1,10 +1,20 @@
-# A self-arming boot watchdog rolls back failed trials; recovery mode is the update screen alone (proposed)
+# A self-arming boot watchdog rolls back failed trials; recovery mode is the update screen alone
 
 **Watchdog (in use, `pifinder-watchdog.service`).** A generation is a **trial** until it passes one boot health check. The health check passes when the app itself declares that its UI is live (systemd READY from the first drawn frame) and then stays up for a short time. A passed trial **confirms** the generation, and a ledger on the Pi records it (`/var/lib/pifinder/confirmed-generations`). Each boot of a generation that is not confirmed is a trial, whichever build installed it. So the protection does not depend on the code of the previous system. A trial that fails rolls back to the newest confirmed generation, captures the journal to `PiFinder_data`, and tells the user on the screen.
 
 The watchdog never rolls back a confirmed generation. A cold night or a slow SD read must not downgrade a Pi that worked. If a confirmed generation's app fails, the watchdog only shows an advisory that names the recovery hold.
 
-**Recovery mode (proposed, not built).** Holding the square-equivalent input at power-on starts a stripped app with only the update screen: display and keypad, no camera, solver or positioning. It shows the local generations, marks the confirmed ones, and offers the internet channels. A generation pick is sticky: it becomes the boot default. An internet pick installs through the normal upgrade and faces a normal trial. If recovery mode itself fails its health check, the Pi falls back to a blind rollback to the newest confirmed generation. Today only the advisory text exists (`nixos/services.nix`), and no code detects the hold.
+**Recovery mode (in use, `pifinder-recovery-hold.service`).** Holding SQUARE at power-on starts a stripped app with only the update screen: display and keypad, no camera, solver or positioning.
+
+- `pifinder-recovery-hold` runs once per boot, early in `sysinit.target`, before `pifinder.service`. It scans the keypad matrix ten times in 0.5 s with the pins and the scheme of `keyboard_pi` (`PiFinder/recovery_hold.py`). The scheme is the same on rev3 and rev4. Rev4 has a second SQUARE at matrix position (4,4).
+- The hold counts only when a SQUARE switch is closed and no other switch is closed, in every scan. A chord or a matrix fault is not a hold.
+- On a hold it writes `/run/pifinder-recovery-mode` and shows "RECOVERY MODE" on the screen. Only root can write the flag, and each boot clears it.
+- A failure of the detection never stops a normal boot. `pifinder.service` only wants the unit, the script always exits 0, and a time limit of 30 s stops a scan that hangs.
+- With the flag, `pifinder.service` starts `PiFinder.recovery` in place of `PiFinder.main`. The recovery app runs the display and `UISoftware` in one process and the keypad scanner in a second process. On rev4 a thread reads the battery charger, so Install needs USB-C power as in the normal app. It starts no camera, solver, IMU, GPS, integrator, web server or sound process. `cedar-detect` and `pifinder-uboot-update` do not start in recovery mode.
+- `UISoftware` shows the local generations first (the Rollback channel), with a check mark on the confirmed ones, then the internet channels. Without a WiFi client connection it shows the Rollback channel alone, because a rollback needs no internet.
+- A pick, a generation or an internet build, installs through the normal upgrade (`PiFinder.nixos_upgrade`). The upgrade sets the system profile to the pick, so the pick becomes the boot default. A pick that is not confirmed faces a normal trial.
+- In recovery mode the running system can be the one whose app fails. So the trial marker and the U-Boot boot counter name the newest confirmed generation as the fallback, not the running system. The upgrade then also deletes no old generations, so that confirmed generation stays.
+- The recovery app sends READY=1 after its first frame. The watchdog checks its health like the health of the normal app, but a recovery boot never confirms a trial and never rolls one back. When the recovery app fails its health check, the watchdog does a blind rollback to the newest confirmed generation that is not the running one. With none, it shows a failure message and stays up for rescue.
 
 ## Considered options
 
@@ -15,6 +25,8 @@ The watchdog never rolls back a confirmed generation. A cold night or a slow SD 
 
 ## Consequences
 
+- The recovery hold needs SQUARE held from power-on until "RECOVERY MODE" shows, about 10 to 20 s. The scan runs only when `sysinit.target` starts, not in the boot loader or the initrd.
+- The rollback notice (`upgrade_failed.json`) has a `by` field: `trial`, `recovery` or `boot counter`. After a failed recovery the app shows "Recovery failed".
 - The marker that the upgrade writes (`/var/lib/pifinder/trial-generation.json`) is only a hint. It names the exact system before the upgrade, camera specialisation included. The ledger is what counts. Loss of the ledger is harmless: a healthy generation confirms again.
 - A failing trial with no generation to roll back to (a first install) shows a failure message and stays up for rescue, and it does not loop.
 - The watchdog runs only after the root file system is mounted. A build that stops in the kernel or the initrd never reaches it. On 2026-09-26 a CM4 stopped in the initrd this way, and recovery needed a change of `extlinux.conf` on the card. **The U-Boot boot counter** closes this gap (`nixos/pkgs/uboot-sd.nix`, `pifinder-bootcount` in `nixos/services.nix`):

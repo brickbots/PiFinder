@@ -240,8 +240,11 @@ def _entry_row_parts(entry: dict) -> Tuple[str, str]:
 
     PR rows lead with the bare PR number, trunk rows with a dot; the store
     hash never appears in the list — titles/branch names are what a human
-    scans for.
+    scans for. A confirmed generation in the rollback list leads with a
+    check mark: it passed the boot health check once (ADR 0038).
     """
+    if entry.get("confirmed"):
+        return f"{UIModule._CHECKMARK} ", entry["label"]
     if entry.get("kind") == "pr" and entry.get("number"):
         return f"{entry['number']} ", entry.get("title") or entry["label"]
     if entry.get("is_trunk"):
@@ -363,11 +366,20 @@ class UISoftware(UIModule):
       confirm   - selected version details + Install / Notes / Cancel
       upgrading - progress bar with download progress, then reboot
       failed    - update failed + Retry / Cancel
+
+    With "recovery": True in the item definition (recovery mode, ADR 0038)
+    the Rollback channel comes first. Without a WiFi client connection the
+    screen then shows the Rollback channel alone, because a rollback needs
+    no internet.
     """
 
     __title__ = "SOFTWARE"
     # Version rows on screen; _draw_browse sets it from the screen height.
     _visible_rows = 4
+    # Recovery mode, from the item definition.
+    _recovery = False
+    # Rollback channel only, with no manifest refresh (recovery, no WiFi).
+    _local_only = False
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -376,6 +388,7 @@ class UISoftware(UIModule):
             self._wifi_mode = f.read().strip()
         self._software_version = utils.get_version()
         self._software_subtitle: Optional[str] = None
+        self._recovery = bool(self.item_definition.get("recovery", False))
 
         self._channels: Dict[str, List[dict]] = {}
         self._manifest_channels: Dict[str, List[dict]] = {}
@@ -423,6 +436,15 @@ class UISoftware(UIModule):
         self._scroller_phase = None
         self._scroller_index = None
         self._check_failed = False
+
+        self._local_only = False
+        if self._recovery and self._wifi_mode != "Client":
+            rollback = self._list_rollback_targets()
+            if rollback:
+                self._local_only = True
+                self._show_rollback_only(rollback)
+                self._phase = "browse"
+                return
 
         # Render the last cached manifest immediately; a fresh copy is fetched
         # in the background and swapped in when it lands.
@@ -501,14 +523,18 @@ class UISoftware(UIModule):
         rollback = self._list_rollback_targets()
         if rollback:
             self._check_failed = True
-            self._manifest_channels = {}
-            self._channels = {"rollback": rollback}
-            self._channel_names = list(self._channels.keys())
-            self._channel_index = 0
-            self._refresh_version_list()
+            self._show_rollback_only(rollback)
             self._phase = "browse"
         else:
             self._phase = "offline"
+
+    def _show_rollback_only(self, rollback: List[dict]):
+        """Offer the local generations as the only channel."""
+        self._manifest_channels = {}
+        self._channels = {"rollback": rollback}
+        self._channel_names = list(self._channels.keys())
+        self._channel_index = 0
+        self._refresh_version_list()
 
     def _apply_manifest(
         self, manifest_channels: Dict[str, List[dict]], keep_position: bool = False
@@ -526,6 +552,12 @@ class UISoftware(UIModule):
         rollback = self._list_rollback_targets()
         if rollback:
             self._channels["rollback"] = rollback
+            if self._recovery:
+                # Recovery mode shows the local generations first.
+                self._channels = {
+                    "rollback": rollback,
+                    **{k: v for k, v in self._channels.items() if k != "rollback"},
+                }
 
         # Try to find subtitle for current version from fetched entries
         self._software_subtitle = self._find_current_subtitle()
@@ -1018,7 +1050,7 @@ class UISoftware(UIModule):
             self._draw_failed()
             return self.screen_update()
 
-        if self._wifi_mode != "Client":
+        if self._wifi_mode != "Client" and not self._local_only:
             self._draw_wifi_warning()
             return self.screen_update()
 
@@ -1128,7 +1160,8 @@ class UISoftware(UIModule):
         # automatic check on entry — the bottom status line in browse, the
         # full "Checking for updates" screen when currently offline.
         if self._phase == "browse":
-            self._start_refresh()
+            if not self._local_only:
+                self._start_refresh()
         elif self._phase == "offline":
             self._phase = "loading"
             self._elipsis_count = 0

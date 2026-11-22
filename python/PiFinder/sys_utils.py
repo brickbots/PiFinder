@@ -16,7 +16,7 @@ import json
 import subprocess
 import logging
 
-from PiFinder import timez
+from PiFinder import generations, timez
 from pathlib import Path
 from typing import Optional
 
@@ -541,6 +541,7 @@ def start_upgrade(ref: str = "release", selection: Optional[dict] = None) -> boo
 def list_rollback_targets(
     profile_dir: Path = Path("/nix/var/nix/profiles"),
     labels_file: Path = Path("/var/lib/pifinder/build-labels.json"),
+    ledger: Path = generations.CONFIRMED_LEDGER,
 ) -> list:
     """On-disk system generations available for rollback (all but the current).
 
@@ -550,7 +551,8 @@ def list_rollback_targets(
     "v3.1.1-beta") comes from labels_file, which the upgrade writes
     (nixos_upgrade.remember_build_label). Without an entry there, the
     NixOS version is the label. Each entry mirrors a Software-screen version
-    entry so the same list UI can render it.
+    entry so the same list UI can render it. "confirmed" is True when the
+    generation passed the boot health check once (the watchdog's ledger).
     """
     try:
         current = (profile_dir / "system").resolve()
@@ -562,6 +564,7 @@ def list_rollback_targets(
             known = {}
     except (OSError, ValueError):
         known = {}
+    confirmed = generations.read_ledger(ledger)
 
     targets = []
     for link in profile_dir.glob("system-*-link"):
@@ -590,6 +593,8 @@ def list_rollback_targets(
                     "notes": None,
                     "subtitle": f"gen {generation} · {date}",
                     "channel": "rollback",
+                    "confirmed": generations.confirmed_system(link, confirmed)
+                    is not None,
                 },
             )
         )
