@@ -547,12 +547,12 @@ unverified). No dedicated release review was run for this cut.
 
 | Gate | Owner | Date | Result |
 |---|---|---|---|
-| Pre-flight (§2) | Claude / Rich / mrosseel | | |
-| G1 — Automated | Claude | | |
-| G2 — Bench, standard hardware | Rich | | |
-| G3 — Migration, catalog off rev4, alignment, OLED, power-off | Rich, mrosseel | | |
-| G4 — Upgrade paths | Rich | | |
-| G5 — Under the stars | Rich | | |
-| G6 — Web, API, planetarium | Claude, Rich | | |
+| Pre-flight (§2) | Claude / Rich / mrosseel | 2026-11-22 | Pass. `release` ← `main` clean, tree equals `main`; both gate flags `false`. |
+| G1 — Automated | Claude | 2026-11-22 | Pass at `45377bce1`: 2,421 smoke+unit, 225 UI, ruff, mypy, sphinx `-nW`, i18n 698 × 4. G1.7 not run. |
+| G2 — Bench, standard hardware | Rich | 2026-11-20 | Pass on rev4. G2.9 and G2.40 not run. |
+| G3 — Migration, catalog off rev4, alignment, OLED, power-off | Rich, mrosseel | 2026-11-22 | Pass: migration on rev4 and Pi 4, catalog on 128 px, OLED (G3.30, G3.32). Accepted as not run: G3.7, G3.20–G3.21, G3.31. G3.40–G3.41 after the image. Known gap: turned rev4 conversion screen. |
+| G4 — Upgrade paths | Rich | | After the cut, with G6.4. |
+| G5 — Under the stars | Rich | 2026-11-22 | **Not run, by decision:** the solver and camera paths did not change (only #666, which does not move a live reading). |
+| G6 — Web, API, planetarium | Claude, Rich | 2026-11-21 | G6.1–G6.3 pass (web suite 174, with the language-test fix). G6.4 after the cut. |
 
-**Migration gates (G3.1–G3.7) passed on Pi 4 and rev4:** ______________  **Cut authorised by:** ______________  **Date:** ____________
+**Migration gates (G3.1–G3.6) passed on Pi 4 and rev4:** 2026-11-22  **Cut authorised by:** Rich  **Date:** 2026-11-22
