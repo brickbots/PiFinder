@@ -27,8 +27,14 @@ from PiFinder.catalog_imports.catalog_import_utils import (
     match_guard,
     parse_component,
 )
+from PiFinder.catalog_imports.specialized_loaders import (
+    collinder_names,
+    collinder_other_catalogs,
+    collinder_other_names,
+)
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.db.objects_db import ObjectsDatabase
+from PiFinder.designations import listing_named
 
 pytestmark = pytest.mark.unit
 
@@ -681,6 +687,177 @@ def test_load_collinder_keeps_the_sign_of_minus_00(db, astro_data, monkeypatch):
     specialized_loaders.load_collinder()
 
     assert sky_object(db, "Col", 401)["dec"] == pytest.approx(-20 / 60)
+
+
+# --- Collinder's two name columns ---------------------------------------------
+
+COLLINDER_HEADER = (
+    "Col #\tNGC/Other Cat.\tCon\tRA\tDEC\tm (v/p)\t# Stars\tSize\tClass\tn\n"
+)
+COLLINDER2_HEADER = (
+    "Collinder number\tNGC/IC number\tOther names\tImage\tObject type"
+    "\tConstellation\tApparent magnitude\n"
+)
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        # A bare number is an NGC number.
+        ("581", ["NGC 581"]),
+        # A second designation in parentheses.
+        ("581 (M103)", ["NGC 581", "M 103"]),
+        ("6374 (6383)", ["NGC 6374", "NGC 6383"]),
+        ("IC4725 (M25)", ["IC 4725", "M 25"]),
+        ("Mel 15 (IC1805)", ["Melotte 15", "IC 1805"]),
+        # IC and Messier designations get their space.
+        ("IC1848", ["IC 1848"]),
+        ("M45", ["M 45"]),
+        # The catalogs that the file abbreviates are written out.
+        ("Tr.9", ["Trumpler 9"]),
+        ("Tr 16", ["Trumpler 16"]),
+        ("Mel.111", ["Melotte 111"]),
+        ("Harv.5", ["Harvard 5"]),
+        ("Melotte 186", ["Melotte 186"]),
+        # A part of an NGC object: a name, which the import joins to nothing.
+        ("2384a", ["NGC 2384a"]),
+        # A name stays as written; "Cl." is "Cluster".
+        ("Orion Cluster", ["Orion Cluster"]),
+        ("Ursa Major", ["Ursa Major"]),
+        ("Markarian 18", ["Markarian 18"]),
+        ("Antares Cl.", ["Antares Cluster"]),
+        ("eta Car cluster (Tr 16)", ["eta Car cluster", "Trumpler 16"]),
+        # One designation in parentheses is a designation...
+        ("(Harvard 8)", ["Harvard 8"]),
+        # ...and any other text in parentheses is a note.
+        ("(Mel 72 per A/H)", []),
+        ("Mel 20 (PMC)", ["Melotte 20"]),
+        # Collinder's cross-reference was wrong: no name, so no join.
+        ("(incorrectly) 3247", []),
+        # Placeholders.
+        ("nl", []),
+        (" ", []),
+        ("", []),
+        # The Flamsteed numbers of the cluster's stars.
+        ("4-5 Vul.", []),
+        ("9-12 Gem", []),
+    ],
+)
+def test_collinder_other_catalogs(raw, expected):
+    assert collinder_other_catalogs(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("", []),
+        ("Pleiades", ["Pleiades"]),
+        ("Beehive Cluster, Praesepe", ["Beehive Cluster", "Praesepe"]),
+        (
+            "Al Sufi's Cluster, Brocchi's Cluster, Coathanger",
+            ["Al Sufi's Cluster", "Brocchi's Cluster", "Coathanger"],
+        ),
+        ("[note 1]", []),
+    ],
+)
+def test_collinder_other_names(raw, expected):
+    assert collinder_other_names(raw) == expected
+
+
+def test_collinder_names_lists_each_name_once():
+    # collinder.txt's "Tr.9" and collinder2.txt's "Trumpler 9" are one name.
+    assert collinder_names("Tr.9", "Trumpler 9") == ["Trumpler 9"]
+    assert collinder_names("Markarian 18", "Markarian 18") == ["Markarian 18"]
+    assert collinder_names("eta Car cluster (Tr 16)", "Trumpler 16") == [
+        "eta Car cluster",
+        "Trumpler 16",
+    ]
+    # A catalog abbreviation that collinder2.txt does not repeat is kept.
+    assert collinder_names("Mel.111", "Coma Star Cluster") == [
+        "Melotte 111",
+        "Coma Star Cluster",
+    ]
+    assert collinder_names("4-5 Vul.", "Al Sufi's Cluster, Coathanger") == [
+        "Al Sufi's Cluster",
+        "Coathanger",
+    ]
+
+
+@pytest.mark.parametrize(
+    "raw, joins",
+    [
+        ("581 (M103)", [("NGC", 581), ("M", 103)]),
+        ("IC4725 (M25)", [("IC", 4725), ("M", 25)]),
+        ("Mel 15 (IC1805)", [("IC", 1805)]),
+        # Trumpler, Melotte and Harvard are no PiFinder catalogs, and a part
+        # of an NGC object is not that object.
+        ("Tr.9", []),
+        ("(Harvard 8)", []),
+        ("2384a", []),
+        ("(incorrectly) 3247", []),
+        ("4-5 Vul.", []),
+    ],
+)
+def test_collinder_names_join_only_through_the_allowlist(raw, joins):
+    listings = [listing_named(name) for name in collinder_other_catalogs(raw)]
+    assert [found for found in listings if found is not None] == joins
+
+
+def test_load_collinder_reads_its_name_columns(db, astro_data, monkeypatch):
+    (astro_data / "collinder.desc").write_text("Collinder")
+    (astro_data / "collinder.txt").write_text(
+        COLLINDER_HEADER
+        # At NGC 5194 = M 51, NGC 7000, NGC 869 and IC 1590 of the fixture.
+        + "1\t5194 (M51)\tCVn\t13h 29m 52.6s\t+47\u00ba 11' 42\"\t8\t20\t10\tPlei\t \n"
+        + "2\t(incorrectly) 7000\tCyg\t20h 59m 00.0s\t+44\u00ba 19' 48\"\t8\t20\t10\tPlei\t \n"
+        + "3\t869a\tPer\t02h 19m 00.0s\t+57\u00ba 07' 48\"\t8\t20\t10\tPlei\t \n"
+        + "4\tIC1590\tCas\t00h 52m 48.0s\t+56\u00ba 37' 48\"\t8\t20\t10\tPlei\t \n"
+        + "5\t4-5 Vul.\tVul\t19h 25m 24.0s\t+20\u00ba 11' 00\"\t4\t60\t15\tPlei\t \n"
+        + "6\tnl\tAur\t05h 22m 30.0s\t+41\u00ba 00' 00\"\t4\t28\t15\tPlei\t \n"
+        + "7\tHarv.5\tCru\t12h 27m 10.0s\t-60\u00ba 46' 00\"\t7\t5\t25\tPlei\t \n"
+    )
+    (astro_data / "collinder2.txt").write_text(
+        COLLINDER2_HEADER
+        + "Cr 1\tNGC 5194\tWhirlpool Cluster\t\tOpen cluster\tCanes Venatici\t8.0\n"
+        + "Cr 2\t-\t\t\tOpen cluster\tCygnus\t8.0\n"
+        + "Cr 3\t-\t\t\tOpen cluster\tPerseus\t8.0\n"
+        + "Cr 4\tIC 1590\t[note 1]\t\tOpen cluster\tCassiopeia\t8.0\n"
+        + "Cr 5\t-\tAl Sufi's Cluster, Brocchi's Cluster, Coathanger\t\tAsterism"
+        "\tVulpecula\t3.6\n"
+        + "Cr 6\t-\t\t\tOpen cluster\tAuriga\t4.2\n"
+        + "Cr 7\t-\t\t\tOpen cluster\tCrux\t7.1\n"
+    )
+    monkeypatch.setattr(specialized_loaders, "objects_db", db)
+    specialized_loaders.load_collinder()
+
+    # "5194 (M51)" is two designations: the listing joins their sky object.
+    assert object_of(db, "Col", 1) == object_of(db, "NGC", 5194)
+    assert names(db, "Col", 1) == [
+        "NGC 5194",
+        "Col 1",
+        "NGC 5194",
+        "M 51",
+        "Whirlpool Cluster",
+    ]
+    # Collinder's wrong cross-reference: no join and no name.
+    assert object_of(db, "Col", 2) != object_of(db, "NGC", 7000)
+    assert names(db, "Col", 2) == ["Col 2"]
+    # A part of NGC 869 is a name, not a join.
+    assert object_of(db, "Col", 3) != object_of(db, "NGC", 869)
+    assert names(db, "Col", 3) == ["Col 3", "NGC 869a"]
+    # An IC designation joins as before, and its name has a space.
+    assert object_of(db, "Col", 4) == object_of(db, "IC", 1590)
+    assert names(db, "Col", 4) == ["IC 1590", "Col 4", "IC 1590"]
+    # A comma list is separate names; the star numbers are no name.
+    assert names(db, "Col", 5) == [
+        "Col 5",
+        "Al Sufi's Cluster",
+        "Brocchi's Cluster",
+        "Coathanger",
+    ]
+    assert names(db, "Col", 6) == ["Col 6"]
+    assert names(db, "Col", 7) == ["Col 7", "Harvard 5"]
+    assert ciu.MATCH_REJECTIONS == []
 
 
 def test_load_caldwell_keeps_the_sign_of_minus_0(db, astro_data, monkeypatch):

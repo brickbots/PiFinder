@@ -337,7 +337,7 @@ class SharedStateObj:
         self.__datetime_time = None
         self.__datetime_manual = False  # True when manually set, blocks GPS overrides
         self.__screen = None
-        self.__target_pixel = config.Config().get_option("target_pixel")
+        self.__target_pixel = config.Config().active_target_pixel()
         self.__arch = None
         self.__camera_align = False
         self.__camera_type = "imx296"  # Default, will be set by camera process

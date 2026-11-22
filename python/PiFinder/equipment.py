@@ -1,7 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from operator import attrgetter
-from typing import NamedTuple, Union
+from typing import NamedTuple, Optional, Union
 
 
 class Limits(NamedTuple):
@@ -81,6 +81,15 @@ class Telescope:
     flop_image: bool
     reverse_arrow_a: bool
     reverse_arrow_b: bool
+    # This telescope's alignment point: the (Y, X) pixel in the 512x512
+    # camera image that sits at the centre of its eyepiece.  None until the
+    # telescope is aligned; Config.active_target_pixel() then falls back to
+    # the global ``target_pixel``.  Excluded from equality because records
+    # are looked up by value (set_active_telescope, the DeepskyLog import's
+    # duplicate check, the device menu's selected item), and those lookups
+    # must still find a telescope after it has been aligned.  See
+    # docs/adr/0047-alignment-point-belongs-to-the-telescope.md.
+    target_pixel: Optional[list[float]] = field(default=None, compare=False)
 
 
 @dataclass_json
@@ -145,6 +154,28 @@ class Equipment:
         eyepiece = self.eyepieces.pop(index)
         self.sort_eyepieces()
         return eyepiece
+
+    def remove_telescope(self, index: int) -> Telescope:
+        """Delete the telescope at ``index``, keeping the active one active.
+
+        The active telescope is stored as an index, so a bare ``pop`` of a
+        telescope listed above it silently selects the next one -- and with
+        it that telescope's flip/flop and alignment point.  When the active
+        telescope itself is deleted, the first remaining one becomes active.
+        Raises IndexError for a bad index.
+        """
+        active = self.active_telescope
+        telescope = self.telescopes.pop(index)
+        if active is None or active is telescope:
+            self.active_telescope_index = 0 if self.telescopes else -1
+        else:
+            # Find the surviving record by identity: equality ignores the
+            # alignment point, so two otherwise-identical telescopes would
+            # compare equal and index() could pick the wrong one.
+            self.active_telescope_index = next(
+                i for i, t in enumerate(self.telescopes) if t is active
+            )
+        return telescope
 
     def update_eyepiece(self, index: int, eyepiece: Eyepiece) -> None:
         self.eyepieces[index] = eyepiece

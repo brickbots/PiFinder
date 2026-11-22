@@ -282,3 +282,71 @@ def test_stored_whole_millimetres_render_without_a_trailing_zero(equipment_clien
 
     assert "<td>1000</td>" in response.text
     assert "<td>1000.0</td>" not in response.text
+
+
+# ── an edit keeps the telescope's alignment point ──────────────────
+
+
+def dobsonian_form(**overrides):
+    """The edit form for the fixture's telescope."""
+    form = instrument_form(
+        make="Generic",
+        name="Dobsonian",
+        aperture="200",
+        focal_length_mm="1000",
+        obstruction_perc="17",
+    )
+    form.update(overrides)
+    return form
+
+
+@pytest.mark.unit
+def test_editing_an_instrument_keeps_its_alignment_point(equipment_client):
+    """The form has no alignment field; saving it must not un-align."""
+    client, cfg = equipment_client
+    cfg.equipment.telescopes[0].target_pixel = [300.0, 200.0]
+
+    response = client.post(
+        "/equipment/add_instrument/0", data=dobsonian_form(name="Renamed Dob")
+    )
+
+    assert SUCCESS_INSTRUMENT in response.text
+    assert cfg.equipment.telescopes[0].name == "Renamed Dob"
+    assert cfg.equipment.telescopes[0].target_pixel == [300.0, 200.0]
+
+
+@pytest.mark.unit
+def test_re_adding_an_aligned_instrument_keeps_its_alignment_point(
+    equipment_client,
+):
+    """The add path (-1) matches an existing record by value; the match
+    must ignore the alignment point and keep it."""
+    client, cfg = equipment_client
+    cfg.equipment.telescopes[0].target_pixel = [300.0, 200.0]
+
+    response = client.post("/equipment/add_instrument/-1", data=dobsonian_form())
+
+    assert SUCCESS_INSTRUMENT in response.text
+    assert len(cfg.equipment.telescopes) == 1
+    assert cfg.equipment.telescopes[0].target_pixel == [300.0, 200.0]
+
+
+@pytest.mark.unit
+def test_deleting_an_instrument_keeps_the_active_one(equipment_client):
+    """The active telescope is stored as an index: deleting one listed above
+    it used to select the next telescope, and with it that telescope's
+    alignment point."""
+    client, cfg = equipment_client
+    cfg.equipment.telescopes = [
+        a_telescope("A"),
+        a_telescope("B"),
+        a_telescope("C"),
+    ]
+    cfg.equipment.active_telescope_index = 1
+
+    response = client.get("/equipment/delete_instrument/0")
+
+    assert response.status_code == 200
+    assert [t.name for t in cfg.equipment.telescopes] == ["B", "C"]
+    assert cfg.equipment.active_telescope.name == "B"
+    assert cfg.saved
