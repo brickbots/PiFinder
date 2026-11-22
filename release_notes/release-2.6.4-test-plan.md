@@ -13,7 +13,10 @@ merge; gates 4–6 must pass before the update is offered. The process behind it
 Items marked **(carried)** come from `release-2.6.3-test-plan.md` and are not re-derived
 here. That plan remains the reference for why they exist.
 
-**Status as of 2026-11-21** (`main` @ `66673d2a2`): Gate 1 green at `b709c6f5a` (G1.7 not run); since then only #706 landed, a change to `nixos_migration_init.sh` that no Gate 1 check covers. Gate 2 passed on a rev4 (G2.9 and G2.40 not run). Pre-flight below.
+**Status as of 2026-11-22** (`main` @ `45377bce1`): Gate 1 green again after #706–#708
+(2,421 smoke+unit, ruff and mypy clean; G1.7 not run). Gate 2 passed on a rev4 (G2.9 and
+G2.40 not run). Gate 3 and Gate 6 results are under each gate. `release` ← `main` merges
+clean and gives `main`'s tree.
 
 **Shape of this release, and what that means for testing.** Three kinds of change, with
 different evidence:
