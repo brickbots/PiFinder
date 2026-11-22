@@ -346,7 +346,9 @@ camera (imx462). The card converted; the conversion screens drew correctly on 12
 **The newer 1.5" OLED is blank on NixOS:** 3.1.3-beta (2026-10-23) predates #701. The
 `nixos` branch has #701 in `displays.py` since 2026-11-19, but `nixos/pkgs/boot-splash.c`
 and `python/scripts/migration_progress.c` (on `main`, ships in 2.6.4) still drive the
-SSD1351 at 40 MHz. Not a 2.6.4 blocker (gate closed, notes silent), but **the NixOS
+SSD1351 at 40 MHz. On this panel the blue conversion screen (`migration_progress.c`, in
+the Pi OS initramfs) drew correctly; the NixOS screens after it (boot splash, then the
+app) stayed blank. Not a 2.6.4 blocker (gate closed, notes silent), but **the NixOS
 release behind an opened gate must include #701 and a 20 MHz splash.** Reported to
 mrosseel on Discord. Carry-over and power checks: see G3.5/G3.6 below this note when done.
 
