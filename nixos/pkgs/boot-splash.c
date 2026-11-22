@@ -27,7 +27,11 @@
 
 #define MAX_DIM 176
 #define SPI_DEVICE "/dev/spidev0.0"
-#define SPI_SPEED 40000000
+/* The SPI clock of each panel, the same as PiFinder/displays.py. Newer 1.5"
+ * SSD1351 panels stay blank at 40 MHz, which is about twice the datasheet
+ * clock. */
+#define SPI_SPEED_SSD1351 20000000
+#define SPI_SPEED_SSD1333 40000000
 #define GPIO_DC 24
 #define GPIO_RST 25
 
@@ -118,6 +122,10 @@ static void gpio_set(struct gpio_v2_line_request *req, int value) {
     ioctl(req->fd, GPIO_V2_LINE_SET_VALUES_IOCTL, &vals);
 }
 
+static uint32_t spi_speed(void) {
+    return panel == PANEL_SSD1333 ? SPI_SPEED_SSD1333 : SPI_SPEED_SSD1351;
+}
+
 static void spi_write(const uint8_t *data, size_t len) {
     const size_t chunk_size = 4096;
     while (len > 0) {
@@ -125,7 +133,7 @@ static void spi_write(const uint8_t *data, size_t len) {
         struct spi_ioc_transfer tr = {0};
         tr.tx_buf = (unsigned long)data;
         tr.len = this_len;
-        tr.speed_hz = SPI_SPEED;
+        tr.speed_hz = spi_speed();
         tr.bits_per_word = 8;
         ioctl(spi_fd, SPI_IOC_MESSAGE(1), &tr);
         data += this_len;
@@ -454,7 +462,7 @@ static int hw_init(void) {
 
     uint8_t mode = SPI_MODE_0;
     uint8_t bits = 8;
-    uint32_t speed = SPI_SPEED;
+    uint32_t speed = spi_speed();
     ioctl(spi_fd, SPI_IOC_WR_MODE, &mode);
     ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD, &bits);
     ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
