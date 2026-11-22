@@ -279,8 +279,17 @@ updated in place and cleaned. Written down from Rich's 2.6.4 build (2026-11-22).
       [all]
       ```
 - [ ] Delete the WiFi network you added, and switch to access-point mode.
-- [ ] Remove what the validation left behind (test observations, logs) if any. TODO: list what
-      to remove.
+- [ ] Remove what the validation left behind in `~/PiFinder_data` (2.6.4's first build kept a
+      test `observations.db`):
+      - delete `observations.db` (the app creates an empty one), `pifinder.log*`, and the
+        contents of `captures/`, `screenshots/`, `solver_debug_dumps/` and `telemetry/`;
+      - delete `PiFinder_backup.zip` and `startup_profile.*` if they exist;
+      - keep `config.json`, but undo anything the validation changed in it (it carries the
+        image's preset hardware settings, #637);
+      - keep `migrations/` (its sentinel files stop migrations running again) and
+        `cache/catalogs/` (it spares a new owner the 2-minute first catalog load; a stale
+        cache is simply rebuilt);
+      - outside the data folder, clear `~/.bash_history`.
 - [ ] Shut the PiFinder down, remove the card, dump it to an image file and shrink it. That
       file is `PiFinder_X.Y.Z.img`. TODO: the dump and shrink tools.
 - [ ] Upload it to the S3 bucket behind `https://ddbeeedxfpnp0.cloudfront.net/software/` with
@@ -517,8 +526,7 @@ release is one workflow run, so that is the way to publish one.
 
 ## Still open
 
-- Phase 6 has three TODOs: what to clean before imaging, the dump and shrink tools, and the
-  CloudFront step.
+- Phase 6 has two TODOs: the dump and shrink tools, and the CloudFront step.
 - Phase 7's three announcement channels need their specifics filled in.
 - The Software screen's behaviour with the gate open is read from code, not seen on a device.
 - The two items under "Not decided" in the transition plan.
