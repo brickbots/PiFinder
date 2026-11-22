@@ -418,7 +418,7 @@ owners: if an older panel misbehaves at 20 MHz, the fix for new panels breaks ol
 
 Owner: Rich.
 
-- [ ] **G4.1** **From the `v2.6.3` tag** (tracked symlink). In-app update is offered,
+- [ ] **G4.1** **From the `v2.6.3` tag** (tracked symlink). **Run G6.4 (SkySafari) on this card too.** In-app update is offered,
   completes, Status reads 2.6.4. `python/tetra3` is the relative link
   `PiFinder/tetra3/tetra3` and the solver starts.
 - [ ] **G4.2** **From the later `release` tip** (still reports 2.6.3, already untracked).
@@ -491,7 +491,11 @@ Reset `language` to `en` in `~/PiFinder_data/config.json` before the web suite.
   attributes the object does not have). Not new in 2.6.4; a follow-up.
 - G6.2: covered by #703's hardware check (edit, delete above the active telescope, and
   select on the web page with the pointing following) and G2.23 (a web edit survives).
-- G6.4: open (Rich).
+- G6.4: **moved to after the cut** (Rich, 2026-11-22), on the same card as G4.1 (a 2.6.3
+  card updated by the in-app update). Accepted because `pos_server.py` is unchanged since
+  2.6.3 and `test_pos_server.py` passes; the new risk is that the readout follows the
+  active telescope's alignment (#703). A pushed object still builds with the 2.6.4 object
+  code (checked by hand).
 - Trap for the next run: on macOS the app binds port 80, and stopping it with `kill`
   leaves its child processes (the web server among them) running on port 80. Kill them
   all before a restart, or tests talk to a dead copy (49 false failures here).
