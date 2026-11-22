@@ -49,6 +49,15 @@ STAGE_TOTAL=19
 PROGRESS_FIFO="/tmp/migration_progress.fifo"
 PROGRESS_READY=0
 
+# The progress server reads the panel type from its environment when it
+# starts, so export it from migration_meta first. Without it the server
+# draws for the 128x128 panel, also on the 176x176 panel of a v4.
+if [ -f /migration_meta ]; then
+    . /migration_meta
+    export MIGRATION_DISPLAY_CLASS="${DISPLAY_CLASS:-}"
+    export MIGRATION_DISPLAY_RESOLUTION="${DISPLAY_RESOLUTION:-}"
+fi
+
 # Drive the OLED with a single long-lived process. It initialises the panel
 # once and redraws in place from stdin, so the display never resets to black
 # between stages (a fresh process per stage would re-assert the panel's RST
@@ -127,12 +136,6 @@ fail() {
 # ("Attempted to kill init"). Route it into fail() instead: fail() ends in
 # exec or reboot, so the trap never re-fires.
 trap 'fail "unexpected failure near stage ${STAGE_NUM}"' EXIT
-
-if [ -f /migration_meta ]; then
-    . /migration_meta
-    export MIGRATION_DISPLAY_CLASS="${DISPLAY_CLASS:-}"
-    export MIGRATION_DISPLAY_RESOLUTION="${DISPLAY_RESOLUTION:-}"
-fi
 
 show 28 "Starting upgrade"
 

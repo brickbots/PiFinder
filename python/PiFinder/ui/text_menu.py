@@ -111,13 +111,11 @@ class UITextMenu(UIModule):
                 except Exception:
                     suffix = ""
 
-            # Cached glyphs: the menu draws the same lines on every frame.
-            draw_text_cached(
-                self.screen,
+            self._draw_item_text(
                 (layout.text_x, row.y),
                 _(item_text) + suffix,  # I18N: translate item for display, add suffix
-                row.font.font,
-                self.colors.get(row.brightness),
+                row,
+                is_focus=slot == half,
             )
             if (
                 item_def is not None
@@ -132,6 +130,22 @@ class UITextMenu(UIModule):
                 )
 
         return self.screen_update()
+
+    def _draw_item_text(self, pos, text: str, row, is_focus: bool) -> None:
+        """Draw one item's text on its carousel row.
+
+        Subclasses override this to change how an item is drawn (for example,
+        to scroll the selected item when it is too long) and keep the shared
+        carousel layout.
+        """
+        # Cached glyphs: the menu draws the same lines on every frame.
+        draw_text_cached(
+            self.screen,
+            pos,
+            text,
+            row.font.font,
+            self.colors.get(row.brightness),
+        )
 
     def menu_scroll(self, direction: int):
         self._current_item_index += direction

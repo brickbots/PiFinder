@@ -327,31 +327,11 @@ why = "SAC names xi Peg 'Menkib', which is xi Per's name (IAU WGSN). xi Peg's ow
 sources = ["https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt"]
 names.remove = ["Menkib"]
 
-["SaM 1633"]
-why = "SAC lists Fomalhaut as a double, so the D* rule types it D*. Its 14 mag companion at 30\" is See's lambda 478, which Burnham showed is a field star, and WDS has dropped it (Mamajek et al. 2013)."
-sources = [
-    "WDS, wds_precise.txt as shipped in PiFinder astro_data/WDS (GSU/USNO, 2025-09): 22577-2937 KAL 1, SHY 106, MAM 1 only",
-    "https://arxiv.org/pdf/1310.0764 (Mamajek et al. 2013, Fomalhaut C, section on See 1898)",
-    "https://en.wikipedia.org/wiki/Fomalhaut",
-]
-obj_type = "*"
-was.obj_type = "D*"
-
 ["SaM 1745"]
 why = "SAC lists zeta Scl as a double, so the D* rule types it D*. Its only pair, B 631, is flagged X (dubious) in WDS."
 sources = [
     "WDS, wds_precise.txt as shipped in PiFinder astro_data/WDS (GSU/USNO, 2025-09): 00023-2943 B 631 [NX]",
     "SIMBAD (sim-tap, V and otype) (* zet Scl, SB*)",
-]
-obj_type = "*"
-was.obj_type = "D*"
-
-["SaM 1241"]
-why = "SAC lists Vega AB, so the D* rule types Vega D*. Its WDS companions are all field stars: H 5 39 AB 9.5 at 85\" (U, non-physical), STFB 9 AC 11.0 at 79\" and AE 9.5 at 83\" (S), and faint MET 11 stars, so to an observer it is a single star (the audit: * equally acceptable; planned in #683)."
-sources = [
-    "WDS, wds_precise.txt as shipped in PiFinder astro_data/WDS (GSU/USNO, 2025-09)",
-    "Hipparcos I/239 hip_main.dat (PiFinder astro_data), CCDM fields H55-H62",
-    "Bright Star Catalogue V/50 via VizieR",
 ]
 obj_type = "*"
 was.obj_type = "D*"

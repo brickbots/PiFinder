@@ -559,6 +559,11 @@ The marker returns to the normal Telrad-style reticle, showing your newly adjust
 point. The PiFinder saves it, so you don't need to repeat this unless you remove the
 PiFinder from your telescope and attach it again.
 
+The PiFinder saves the alignment for the
+:ref:`active telescope <equipment:choosing your active telescope and eyepiece>`. If you
+move the PiFinder between telescopes, align it once on each telescope. When you change
+the active telescope, the PiFinder uses the alignment of that telescope.
+
 **SQUARE** starts and saves the alignment on this screen only. It is not a general confirm
 key. On a screen that asks you to confirm, such as the shutdown screen, press **RIGHT**.
 

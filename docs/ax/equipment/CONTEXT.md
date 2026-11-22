@@ -13,7 +13,7 @@ The container holding the user's telescopes, eyepieces, and which of each is act
 _Avoid_: gear, kit, instruments (collectively).
 
 **Telescope**:
-A configured optical instrument: make, name, aperture, focal length, central obstruction, mount type, image-orientation flags (**flip**/**flop**), and arrow-reversal flags. Defined in `equipment.py`.
+A configured optical instrument: make, name, aperture, focal length, central obstruction, mount type, image-orientation flags (**flip**/**flop**), arrow-reversal flags, and its **alignment point**. Defined in `equipment.py`.
 _Avoid_: scope (overloaded — see Flagged ambiguities and ADR 0001), OTA, instrument.
 
 **Eyepiece**:
@@ -56,6 +56,12 @@ _Avoid_: FOV (unqualified), field.
 The eyepiece's own angular field — a property of the eyepiece, independent of the telescope.
 _Avoid_: FOV (unqualified).
 
+### Alignment
+
+**Alignment point** (`target_pixel`):
+The telescope's own **target pixel** — the `(Y, X)` camera pixel at the centre of its eyepiece, produced by alignment and owned in meaning by [Positioning](../positioning/CONTEXT.md). Stored on the `Telescope` record because it depends on how the PiFinder sits on that telescope; `None` means the telescope has never been aligned and falls back to the global `target_pixel`. Excluded from record equality, so a telescope is still found by value after it is aligned. Not shown or editable on the web page; an edit there keeps it. See [ADR 0047](../../adr/0047-alignment-point-belongs-to-the-telescope.md).
+_Avoid_: calibration, offset (unqualified), solve_pixel.
+
 ### Navigation
 
 **Reverse arrow A / B** (`reverse_arrow_a` / `reverse_arrow_b`):
@@ -97,6 +103,7 @@ Recorded in [ADR 0033](../../adr/0033-equipment-measurements-are-validated-float
 
 ### Boundary terms
 
+- **Target pixel** — Positioning's term for the point the solver reports `pointing.aligned` at. Equipment stores one per telescope (the **alignment point**); Positioning reads the active one through `Config.active_target_pixel()`.
 - **Roll** — the camera roll from the latest plate-solve, owned by [Positioning](../positioning/CONTEXT.md); the object-image baseline rotation consumes it.
 - **Object image** — the POSS/SDSS survey image on the object-detail screen; the one surface flip/flop orient. The image files belong to [Catalog](../catalog/CONTEXT.md); Equipment only supplies the orientation/scale inputs.
 - **Live camera preview** — the real-time camera frame; oriented by the physical optics, **not** by flip/flop. Owned by the camera/preview UI.

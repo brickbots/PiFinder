@@ -8,7 +8,8 @@ centres a distant object in the eyepiece; the rigidly-mounted camera sees that
 object somewhere in its frame; the user marks that pixel by eye and we write it
 straight to ``target_pixel`` -- the same destination the solve-based
 ``ui/align.py::align_on_radec`` writes (``shared_state.set_target_pixel`` +
-``config.set_option("target_pixel", ...)``), reached by hand.
+``config.save_target_pixel(...)``, which stores it on the active telescope),
+reached by hand.
 
 See docs/ax/positioning/CONTEXT.md ("Daytime alignment" vs "Solve-based
 alignment") for the vocabulary. Both write the same ``target_pixel``, stored as
@@ -200,7 +201,7 @@ class UIAlignDaytime(UIModule):
 
     def _draw_inactive_overlay(self):
         # Show the current saved alignment point for context, then the start hint.
-        target = self.config_object.get_option("target_pixel", None)
+        target = self.config_object.active_target_pixel()
         if target:
             sx = target[1] * self.display_class.resX / CAMERA_NATIVE_RES
             sy = target[0] * self.display_class.resY / CAMERA_NATIVE_RES
@@ -305,7 +306,7 @@ class UIAlignDaytime(UIModule):
             (self.display_class.resX, self.display_class.resY),
         )
         self.shared_state.set_target_pixel(target_pixel)
-        self.config_object.set_option("target_pixel", target_pixel)
+        self.config_object.save_target_pixel(target_pixel)
         self.started = False
         self.message(_("Aligned!"), 1)
         if self.remove_from_stack:

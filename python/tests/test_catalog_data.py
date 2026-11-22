@@ -21,7 +21,7 @@ def test_object_counts():
         "Ta2": 200,
         "H": 400,
         "SaA": 114,
-        "SaM": 2157,
+        "SaM": 2157,  # 5 rows SAC marks as rejected pairs ("rej.") are skipped
         "SaR": 333,
         "Str": 78,
         "EGC": 102,
@@ -303,8 +303,7 @@ def check_ic_objects():
             "name": "Heart Nebula",
             "ra": 38.200,  # RA = 02h 32m 48s
             "dec": 61.450,  # Dec = +61° 27' 00"
-            # The import merges IC 1805 with Sh2 190 (the nebula) and Lyn 77
-            # (the cluster) into one object: a cluster with nebulosity.
+            # Cluster with nebula: Trumpler class "n" (#676)
             "obj_type": "C+N",
             "const": "Cas",  # Cassiopeia
         },
@@ -364,6 +363,248 @@ def test_catalog_data_validation():
     check_messier_objects()
     check_ngc_objects()
     check_ic_objects()
+
+
+# The catalog-audit fixes (#670) as the committed database holds them.
+
+
+def listing_object(db, catalog_code, sequence):
+    """The sky object a catalog listing belongs to."""
+    listing = db.get_catalog_object_by_sequence(catalog_code, sequence)
+    assert listing is not None, f"{catalog_code} {sequence} should exist"
+    return db.get_object_by_id(listing["object_id"])
+
+
+def object_listings(db, object_id):
+    """The sky object's listings, as designators."""
+    return {
+        f"{row['catalog_code']} {row['sequence']}"
+        for row in db.get_catalog_objects_by_object_id(object_id)
+    }
+
+
+def object_names(db, object_id):
+    """The sky object's names in import order, repeats dropped, as the device loads them."""
+    db.cursor.execute(
+        "SELECT common_name FROM names WHERE object_id = ? ORDER BY rowid;",
+        (object_id,),
+    )
+    return list(dict.fromkeys(row["common_name"] for row in db.cursor.fetchall()))
+
+
+def objects_named(db, name):
+    db.cursor.execute(
+        "SELECT DISTINCT object_id FROM names WHERE common_name = ?;", (name,)
+    )
+    return [row["object_id"] for row in db.cursor.fetchall()]
+
+
+@pytest.fixture(scope="module")
+def hipparcos():
+    from PiFinder.catalog_imports.star_identity import load_hipparcos
+
+    return load_hipparcos()
+
+
+def hip_position(hipparcos, hip):
+    i = hipparcos.index_of(hip)
+    return hipparcos.ra[i], hipparcos.dec[i]
+
+
+@pytest.mark.unit
+def test_messier_preferred_names():
+    db = objects_db.ObjectsDatabase()
+    m82 = object_names(db, listing_object(db, "M", 82)["id"])
+    assert m82[0] == "Cigar Galaxy"
+    assert not any(name.lower() == "bode's nebulae" for name in m82)
+    m57 = object_names(db, listing_object(db, "M", 57)["id"])
+    assert m57[0] == "Ring Nebula"
+
+
+@pytest.mark.unit
+def test_not_found_description():
+    db = objects_db.ObjectsDatabase()
+    listing = db.get_catalog_object_by_sequence("NGC", 56)
+    assert listing["description"].startswith(
+        "Not found: nothing at Dreyer's position (Steinicke).\n"
+    )
+    assert db.get_object_by_id(listing["object_id"])["obj_type"] == "?"
+
+
+@pytest.mark.unit
+def test_mizar_is_one_double_star():
+    db = objects_db.ObjectsDatabase()
+    assert len(objects_named(db, "Mizar")) == 1
+    mizar = listing_object(db, "Nam", 65378)
+    assert mizar["obj_type"] == "D*"
+    assert object_listings(db, mizar["id"]) == {
+        "Str 56",
+        "SaM 2054",
+        "WDS 70779",
+        "Nam 65378",
+    }
+    assert object_names(db, mizar["id"])[0] == "Mizar"
+    # A double star is filtered by its brightest magnitude.
+    mag = json.loads(mizar["mag"])
+    assert mag["mags"] == [2.23, 4.0]
+    assert mag["filter_mag"] == 2.23
+
+
+@pytest.mark.unit
+def test_vega_takes_hipparcos_values(hipparcos):
+    db = objects_db.ObjectsDatabase()
+    vega = listing_object(db, "Nam", 91262)
+    assert object_listings(db, vega["id"]) >= {"Str 77", "SaM 1241", "WDS 94640"}
+    # Its WDS pairs are optical, and every WDS pair is a double star.
+    assert vega["obj_type"] == "D*"
+    assert json.loads(vega["mag"])["filter_mag"] == 0.03
+    ra, dec = hip_position(hipparcos, 91262)
+    assert vega["ra"] == pytest.approx(ra, abs=1e-9)
+    assert vega["dec"] == pytest.approx(dec, abs=1e-9)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "listing, listings, obj_type",
+    [
+        # Atria's only pair, WFC 179 (11.45 at 92"), is flagged optical (U).
+        ("Nam 82273", {"WDS 85313", "Nam 82273"}, "D*"),
+        # Suhail's only pair, SEE 109, is 12.6 mag fainter (2.21/14.8).
+        ("Nam 44816", {"WDS 50823", "Nam 44816"}, "D*"),
+        # Arcturus's only pair, HDS 2003, is flagged dubious (X).
+        ("Nam 69673", {"Str 28", "WDS 74543", "Nam 69673"}, "*"),
+    ],
+)
+def test_every_wds_pair_but_a_dubious_one_is_a_double_star(listing, listings, obj_type):
+    db = objects_db.ObjectsDatabase()
+    code, sequence = listing.split()
+    star = listing_object(db, code, int(sequence))
+    assert object_listings(db, star["id"]) == listings
+    assert star["obj_type"] == obj_type
+
+
+@pytest.mark.unit
+def test_wds_listings_by_type():
+    db = objects_db.ObjectsDatabase()
+    counts = dict(
+        db.conn.execute(
+            "SELECT o.obj_type, COUNT(*) FROM catalog_objects c"
+            " JOIN objects o ON o.id = c.object_id"
+            " WHERE c.catalog_code = 'WDS' GROUP BY o.obj_type"
+        ).fetchall()
+    )
+    assert counts == {"D*": 120706, "*": 10597}
+
+
+@pytest.mark.unit
+def test_sam_1019_is_hip_44804(hipparcos):
+    # SAC's position for STF 1316 is 14' off; the WDS designation identifies it.
+    db = objects_db.ObjectsDatabase()
+    star = listing_object(db, "SaM", 1019)
+    assert object_listings(db, star["id"]) == {"SaM 1019", "WDS 50812"}
+    ra, dec = hip_position(hipparcos, 44804)
+    assert star["ra"] == pytest.approx(ra, abs=1e-9)
+    assert star["dec"] == pytest.approx(dec, abs=1e-9)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "listing, joined",
+    [
+        (("IC", 2145), "NGC 2086"),  # Corwin: IC 2145 = NGC 2086
+        (("NGC", 771), "Nam 9598"),  # Corwin: NGC 771 = 50 Cas (Gang)
+        (("WDS", 99456), "Nam 94645"),  # Gumala, by a hip correction
+    ],
+)
+def test_identifications_join_one_sky_object(listing, joined):
+    db = objects_db.ObjectsDatabase()
+    sky_object = listing_object(db, *listing)
+    assert object_listings(db, sky_object["id"]) == {
+        f"{listing[0]} {listing[1]}",
+        joined,
+    }
+
+
+@pytest.mark.unit
+def test_iau_names_keep_their_diacritics():
+    db = objects_db.ObjectsDatabase()
+    star = listing_object(db, "Nam", 88567)
+    assert object_names(db, star["id"])[0] == "Dhanuśarāgra"
+    assert objects_named(db, "Gumala") == [listing_object(db, "Nam", 94645)["id"]]
+
+
+@pytest.mark.unit
+def test_collinder_399_has_three_separate_names():
+    # collinder2.txt's comma list is three names. collinder.txt's "4-5 Vul.",
+    # the Flamsteed numbers of the Coathanger's stars, is not a name.
+    db = objects_db.ObjectsDatabase()
+    coathanger = listing_object(db, "Col", 399)
+    assert object_listings(db, coathanger["id"]) == {"Col 399", "Ta2 173", "Lyn 847"}
+    names = object_names(db, coathanger["id"])
+    assert names[:4] == [
+        "Col 399",
+        "Al Sufi's Cluster",
+        "Brocchi's Cluster",
+        "Coathanger",
+    ]
+    assert "4-5 Vul." not in names
+    assert not any("," in name for name in names)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "sequence, listings",
+    [
+        # collinder.txt: "581 (M103)", "2632 (M44)", "IC4725 (M25)",
+        # "Mel 15 (IC1805)", and "6374 (6383)" beside Col 335's "6383".
+        (14, {"NGC 581", "M 103", "Col 14", "Lyn 44"}),
+        (189, {"NGC 2632", "M 44", "Col 189", "Lyn 449"}),
+        (382, {"IC 4725", "M 25", "Col 382", "Lyn 803"}),
+        (26, {"IC 1805", "Col 26", "Sh2 190", "Lyn 77"}),
+        (334, {"NGC 6383", "NGC 6374", "Col 334", "Col 335", "Lyn 730"}),
+        # "(incorrectly) 3247": Collinder 220 is not NGC 3247.
+        (220, {"Col 220"}),
+        # "2384a" is a part of NGC 2384, not NGC 2384.
+        (142, {"Col 142"}),
+    ],
+)
+def test_collinder_joins_the_object_it_names(sequence, listings):
+    db = objects_db.ObjectsDatabase()
+    sky_object = listing_object(db, "Col", sequence)
+    assert object_listings(db, sky_object["id"]) == listings
+
+
+@pytest.mark.unit
+def test_collinder_joins_keep_the_first_loaders_values():
+    db = objects_db.ObjectsDatabase()
+    # The Messier name stays first on M 44, and Collinder's names follow.
+    m44 = object_names(db, listing_object(db, "Col", 189)["id"])
+    assert m44[:2] == ["Beehive Cluster", "Praesepe"]
+    assert "2632 (M44)" not in m44
+    # IC 1805 keeps its type (#676) with Collinder 26 = Melotte 15 on it.
+    ic1805 = listing_object(db, "Col", 26)
+    assert ic1805["obj_type"] == "C+N"
+    assert "Melotte 15" in object_names(db, ic1805["id"])
+    assert object_names(db, listing_object(db, "Col", 220)["id"]) == ["Col 220"]
+    assert object_names(db, listing_object(db, "Col", 142)["id"]) == [
+        "Col 142",
+        "NGC 2384a",
+    ]
+
+
+@pytest.mark.unit
+def test_collinder_names_hold_no_raw_column_text():
+    # No placeholder, parenthesised note, comma list or bare number.
+    db = objects_db.ObjectsDatabase()
+    db.cursor.execute("SELECT DISTINCT common_name FROM names WHERE origin = 'Col';")
+    names = [row["common_name"] for row in db.cursor.fetchall()]
+    assert len(names) == 939
+    raw = [
+        name
+        for name in names
+        if name == "nl" or "(" in name or "," in name or name.isdigit()
+    ]
+    assert raw == []
 
 
 @pytest.mark.unit

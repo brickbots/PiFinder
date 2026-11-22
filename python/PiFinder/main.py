@@ -1018,6 +1018,9 @@ def main(
                     menu_manager.jump_to_label("recent")
                 elif ui_command == "reload_config":
                     cfg.load_config()
+                    # The web page may have changed the active telescope,
+                    # and each telescope keeps its own alignment point.
+                    shared_state.set_target_pixel(cfg.active_target_pixel())
                 elif ui_command == "test_mode":
                     # Toggle test mode (store in both shared_state and config).
                     # The camera process follows shared_state.test_mode()

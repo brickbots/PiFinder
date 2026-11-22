@@ -126,38 +126,25 @@ def wds_magnitudes(mag1: float, mag2: float) -> MagnitudeObject:
     return MagnitudeObject(mags)
 
 
-# The D* rule's WDS clause (docs/ax/catalog.md §9.3): WDS lists every pair
-# ever measured, so a pair makes a double star only if WDS flags it neither
-# optical (S, U, Y, L) nor dubious (X), it includes the primary, and its
-# companion is one an observer would look for: within this separation and
-# magnitude difference of the primary, and wide enough to split (Capella's
-# and Algol's interferometric pairs are not). Vega's companions fail,
-# Propus's BU 1008 (6.2 at 1.9") passes. The limits are Rich's choice
-# (2026-10), his to tune.
-OPTICAL_OR_DUBIOUS = frozenset("SUYLX")
-DOUBLE_MIN_SEPARATION_ARCSEC = 0.5
-DOUBLE_MAX_SEPARATION_ARCSEC = 60.0
-DOUBLE_MAX_DELTA_MAG = 5.0
+# The D* rule's WDS clause (docs/ax/catalog.md §9.3): a WDS listing is a
+# double star if any of its pairs is one. WDS lists a pair because someone
+# measured it as a pair, so every pair is a double, optical (S, U, Y, L) or
+# not, with the primary or without (BC), however close, wide or unequal.
+# The type says what the object is; whether an observer can see the
+# companion is for the filters (a double filters by its brighter star) and
+# for the separation and both magnitudes on the entry. Only a pair WDS
+# notes as dubious (X), and a pair without a companion's magnitude, are not
+# doubles. This follows mrosseel's review of #697 (2026-11); before it, the
+# rule kept only unflagged pairs with the primary, 0.5-60" apart and within
+# 5 mag, and typed 40,788 of WDS's 131,303 listings single.
+DUBIOUS = "X"
 
 
 def is_double_star_pair(value) -> bool:
-    """Whether one WDS pair makes its primary a double star (D*)."""
-    if set(value["Notes"]) & OPTICAL_OR_DUBIOUS:
+    """Whether one WDS pair makes its listing a double star (D*)."""
+    if DUBIOUS in value["Notes"]:
         return False
-    components = value["Components"].strip()
-    if components and not components.startswith("A"):
-        return False
-    sep = value["Sep"].item()
-    if np.isnan(sep) or not (
-        DOUBLE_MIN_SEPARATION_ARCSEC <= sep <= DOUBLE_MAX_SEPARATION_ARCSEC
-    ):
-        return False
-    mag1, mag2 = value["Mag_First"].item(), value["Mag_Second"].item()
-    if np.isnan(mag2):
-        return False
-    # WDS gives magnitudes to 0.01, so compare the difference at that
-    # precision: 18.6 - 13.6 is 5.000000000000002 in floating point.
-    return bool(np.isnan(mag1) or round(mag2 - mag1, 2) <= DOUBLE_MAX_DELTA_MAG)
+    return not np.isnan(value["Mag_Second"].item())
 
 
 def wds_dm_number(raw: str) -> Optional[Tuple[str, int, int]]:

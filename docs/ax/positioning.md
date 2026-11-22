@@ -265,9 +265,22 @@ sight-lines are not the same — the finder camera is offset from the
 optical axis of the main scope. The job of the alignment subsystem is
 to learn one number: which pixel in the 512×512 camera image
 corresponds to the center of the eyepiece view. That pixel is called
-the **target pixel**, stored in `shared_state` and persisted in `Config`
-under `"target_pixel"`. Default `(256, 256)` (image center) means
-"no offset known yet."
+the **target pixel**, held in `shared_state` for the solver and persisted
+**per telescope** on the active `Telescope` record (`target_pixel`). The
+offset depends on how the PiFinder is mounted on a particular telescope, so
+each telescope keeps its own ([ADR 0047](../adr/0047-alignment-point-belongs-to-the-telescope.md)).
+
+`Config.active_target_pixel()` decides which point applies:
+
+1. the active telescope's own `target_pixel`, if it has been aligned;
+2. otherwise the global `Config["target_pixel"]` — the single point every
+   telescope shared before alignment became per-telescope, and the one used
+   when no telescope is selected;
+3. otherwise `(256, 256)` (image center), meaning "no offset known yet."
+
+A new unit's shipped default telescope has no point of its own, so it
+resolves to the shipped global `(256, 256)`. An upgraded unit keeps its old
+global point on every telescope until that telescope is aligned.
 
 ### 5.1 How the target pixel is used during normal operation
 
@@ -316,10 +329,11 @@ eyepiece direction. Every downstream consumer (UI, web, SkySafari) reads
    ```python
    target_pixel = response.as_target_pixel()   # (Y, X)
    shared_state.set_target_pixel(target_pixel)
-   config_object.set_option("target_pixel", target_pixel)
+   config_object.save_target_pixel(target_pixel)
    ```
-   `shared_state` makes it effective immediately; `Config` makes it
-   survive a restart.
+   `shared_state` makes it effective immediately; `save_target_pixel`
+   stores it on the active telescope so it survives a restart. (With no
+   telescope selected it goes to the global `target_pixel`.)
 
 ### 5.3 Coordinate conventions and reset
 
@@ -329,10 +343,30 @@ eyepiece direction. Every downstream consumer (UI, web, SkySafari) reads
   (No UI currently consumes this form — the Focus-screen reticle that
   did was removed; the accessor remains for future overlays.)
 - Resetting alignment in the UI calls
-  `shared_state.set_target_pixel((256, 256))` and writes the same value
-  to `Config` — i.e. recenter the eyepiece pixel on the image center.
+  `shared_state.set_target_pixel((256, 256))` and saves the same value
+  with `save_target_pixel` — i.e. recenter the eyepiece pixel on the image
+  center, for the active telescope only.
 
-### 5.4 Why alignment doesn't disturb IMU tracking
+### 5.4 Switching telescope
+
+Selecting a different telescope must move the point the solver uses, so
+both selection paths push `Config.active_target_pixel()` into
+`shared_state`:
+
+- **Device menu** — the Telescope menu's `post_callback`,
+  `callbacks.apply_target_pixel`.
+- **Web page** — `set_active_instrument` (and every other equipment edit)
+  posts `reload_config`; the handler in `main.py` reloads the config and
+  pushes the point.
+
+The switch is silent and takes effect on the next solve. Until then the
+IMU-only estimate still uses the old `q_cam2aligned`; it is re-derived from
+the next (camera, aligned) pair, so nothing needs resetting. The solve-based
+Align screen is preloaded, so each time align mode starts it re-reads the
+active point and clears any star left from an earlier alignment; otherwise
+the marker would jump back to that star, and SQUARE would re-align on it.
+
+### 5.5 Why alignment doesn't disturb IMU tracking
 
 The IMU is rigidly attached to the camera, not the eyepiece. The
 reference frame the dead-reckoner learns (`q_eq2x`) is therefore anchored
