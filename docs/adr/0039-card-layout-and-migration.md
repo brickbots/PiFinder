@@ -1,6 +1,6 @@
 # A NixOS card is FAT firmware plus a btrfs root; the migration converts the Raspbian root in place
 
-**Status:** decided 2026-09-26. The system is btrfs-only on `nixos`. The migration and the SD images still write ext4 `NIXOS_SD`, and the plan in `docs/ax/nixos/btrfs-and-data-packs-plan.md` changes them.
+**Status:** decided 2026-09-26, built. The SD images and the migration write the btrfs root `PIFINDER_SD`.
 
 ## Card layout
 

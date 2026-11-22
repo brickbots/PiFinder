@@ -38,6 +38,7 @@ import argparse
 import json
 import os
 import platform
+import shutil
 import signal
 import subprocess
 import sys
@@ -115,9 +116,12 @@ def find_cedar(repo):
         for f in files:
             if f.name.endswith(suffix):
                 return f
-    for f in files:  # last resort: any executable cedar binary
+    for f in files:  # any executable cedar binary in bin/
         if os.access(f, os.X_OK):
             return f
+    on_path = shutil.which("cedar-detect-server")  # the nix dev shell puts it here
+    if on_path:
+        return Path(on_path)
     raise SystemExit(f"No cedar-detect-server binary found in {repo / 'bin'}")
 
 

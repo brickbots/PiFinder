@@ -158,10 +158,12 @@ The size of the published magnitude depends directly on getting the subtracted
 pedestal right, and it is the part of the estimator that has been rebuilt most
 often. Precedence today, highest first:
 
-1. an explicit `pedestal_override`;
-2. a **leased tracked black level** (§4.1);
-3. an optional user calibration's bias offset;
-4. the profile `bias_offset`.
+1. on IMX290/IMX462, the frame's own **optical black** (§4.3), when the frame
+   carries a measured value and its sky-colour diagnostic (§5) is valid;
+2. an explicit `pedestal_override`;
+3. a **leased tracked black level** (§4.1);
+4. an optional user calibration's bias offset;
+5. the profile `bias_offset`.
 
 ### 4.1 The tracked black level supersedes any stored bias
 
@@ -225,6 +227,38 @@ The same table discharges §4.1's dark-site obligation: on the two clear
 21.4–21.6 mag sweeps the tracker returns 238.65 and 238.62 against those
 independent fits of 238.78 and 238.73, agreeing to about 0.1 ADU on a sky where
 the error it corrects is not swamped by the background.
+
+### 4.3 Per-frame optical black on the IMX290/IMX462
+
+The IMX290/IMX462 sends ten shielded optical-black (OB) rows with each frame.
+A kernel patch adds a second sensor source pad (`MEDIA_BUS_FMT_SENSOR_DATA`),
+so these rows reach the receiver as a metadata stream. The 1920x1080 image
+does not change. A libcamera cam-helper unpacks the shielded pixels, drops the
+outer 5% at each side and averages the central 90%. It publishes the result
+through `controls::SensorBlackLevels` on the 16-bit scale as
+`{level, level, level, level + 1}`. The one-count mark in the fourth channel
+tells a measured value from the static tuning tuple of §4.2. `camera_pi`
+converts a marked value back to native ADU and adds it to the radiometer
+sample as `optical_black_pedestal`.
+
+**Decision.** A valid marked OB value is the complete pedestal of its frame.
+It holds the bias and the dark signal of that frame, so no dark-current rate is
+added to it. The solver uses it as the pedestal of the sky-colour diagnostic.
+When that diagnostic is valid, the radiometer uses the same value as the
+pedestal of the sample. Other frames use the order of §4.
+
+A same-frame test in the dark on mr2 (IMX462, gain 29.5) compared the
+active green pixels with the OB rows of the same frames. Their dark slopes
+agree to well under 1 ADU/s. Active green sits a fixed 0.8 to 1.0 ADU below OB,
+about 0.01 mag. That residual is not modelled.
+
+- The IMX462 SQM needs no lens cap, dark frame or calibration wizard.
+- The camera process uses about 0.23 percentage points more of one core.
+- The patched kernel is built through `nixos-hardware`. `pifinder-fast` and
+  `pifinder-kernel-cross` give a fast x86_64 cross build that fills the binary
+  cache.
+- The IMX296 sends its OB through another CSI line type, and the IMX477 OB is
+  not shown to reach this stack. Both use the order of §4.
 
 ---
 

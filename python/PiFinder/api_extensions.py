@@ -23,6 +23,7 @@ import logging
 from flask import request, session, Response
 from PIL import Image
 
+from PiFinder import utils
 from PiFinder.optics import OpticalTrainResolver
 
 logger = logging.getLogger("PiFinderAPI")
@@ -191,7 +192,7 @@ def register_api_routes(app, server_instance, require_auth=False):
                 },
                 "imu": ss.imu().to_dict() if ss.imu() else None,
                 "sqm": ss.sqm().to_dict() if ss.sqm() else None,
-                "software_version": _get_version(server_instance),
+                "software_version": utils.get_version(),
             }
             return _json_response(data)
         except Exception as e:
@@ -867,18 +868,6 @@ def register_api_routes(app, server_instance, require_auth=False):
         "PiFinder API extensions registered (%s auth)",
         "with" if require_auth else "without",
     )
-
-
-def _get_version(server_instance) -> str:
-    """Try to read the PiFinder software version"""
-    try:
-        version_txt = getattr(server_instance, "version_txt", None)
-        if version_txt:
-            with open(version_txt, "r") as f:
-                return f.read().strip()
-    except Exception:
-        pass
-    return "Unknown"
 
 
 def _safe_json_value(value):

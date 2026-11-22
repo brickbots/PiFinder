@@ -1,6 +1,6 @@
 # The imx462 camera gets an explicit 74.25 MHz xclk overlay, because fdtoverlay drops overlay parameters
 
-**Status: proposed.** It waits for a build on pi5 and a camera test on a Pi.
+**Status: accepted.** An IMX462 camera streams on NixOS with this overlay.
 
 The PiFinder imx462 camera module has a 74.25 MHz oscillator. The kernel's `imx290` and `imx462` overlays set the sensor xclk to 37.125 MHz by default. On Raspbian, PiFinder corrects this with an overlay parameter: `switch_camera.py` writes `dtoverlay=imx290,clock-frequency=74250000` to `config.txt`, and the firmware applies it.
 
