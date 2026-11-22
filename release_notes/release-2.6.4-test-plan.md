@@ -308,7 +308,7 @@ observing list, a non-default camera type where possible, and a changed access-p
   offers only Cancel. Plug in USB-C: **Confirm** appears.
 - [x] **G3.3** Pre-flight refusal: with WiFi in access-point mode, the screen names the
   cause (**WiFi must be in client mode**) and LEFT goes back.
-- [ ] **G3.4** Run the migration to the end on both units. Progress screen: the bar
+- [x] **G3.4** Run the migration to the end on both units. Progress screen: the bar
   shows only for steps with a measure; the elapsed time updates; the screen does not dim.
   Record the total time.
   On rev4, the card-conversion screens fill the 176 px panel the right way up. Before
@@ -350,7 +350,10 @@ SSD1351 at 40 MHz. On this panel the blue conversion screen (`migration_progress
 the Pi OS initramfs) drew correctly; the NixOS screens after it (boot splash, then the
 app) stayed blank. Not a 2.6.4 blocker (gate closed, notes silent), but **the NixOS
 release behind an opened gate must include #701 and a 20 MHz splash.** Reported to
-mrosseel on Discord. Carry-over and power checks: see G3.5/G3.6 below this note when done.
+mrosseel on Discord. **G3.5 and G3.6 pass on this unit:** hostname `pifinder-test`, AP
+`PiFiAP`, imx462 with the 16 mm lens, the observing list and M 13 logged all carried; Test
+Mode solves (checked over SSH and the web remote); two reboots and two power-offs were
+normal. This proves the hostname and AP-name carry-over that the rev4 run could not.
 
 **Still to do in this section:** a rev4 run with #706 for the conversion screens; G3.7.
 
