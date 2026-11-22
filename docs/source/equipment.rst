@@ -75,6 +75,17 @@ highlight an item, then press **RIGHT** to make it active.
 .. image:: images/equipment/select_eyepiece_docs.png
    :width: 45%
 
+Each telescope keeps its own :ref:`alignment <quick_start:alignment>`. When you align the
+PiFinder, it saves the alignment for the active telescope. When you change the active
+telescope, the PiFinder uses the alignment of that telescope. You do not need to align
+again.
+
+.. note::
+   A telescope that you have not aligned uses the general alignment of the PiFinder. On a
+   new PiFinder, the general alignment is the center of the camera image. If you aligned
+   your PiFinder before software version 2.6.4, the general alignment is that earlier
+   alignment.
+
 With no active telescope or eyepiece, the PiFinder skips the magnification and
 field-of-view figures. It shows the object image in its default orientation.
 

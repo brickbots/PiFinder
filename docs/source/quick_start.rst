@@ -9,9 +9,9 @@ Quick Start
    Not sure which you have? See
    :ref:`Which PiFinder do I have? <quick_start:which pifinder do i have?>` below.
 
-   If you need docs for a previous version please see `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
-   , `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_
-   or `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_
+   This manual follows the current release. Manuals for three earlier releases are kept:
+   `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_, `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_ and
+   `2.6.3 <https://pifinder.readthedocs.io/en/v2.6.3/index.html>`_.
 
 Congratulations on getting your hands on a PiFinder™! Whether you built it yourself or
 ordered a ready-built one from BBLabs, you're on your way to a new level of accuracy and
@@ -558,6 +558,11 @@ Now align in a few steps:
 The marker returns to the normal Telrad-style reticle, showing your newly adjusted alignment
 point. The PiFinder saves it, so you don't need to repeat this unless you remove the
 PiFinder from your telescope and attach it again.
+
+The PiFinder saves the alignment for the
+:ref:`active telescope <equipment:choosing your active telescope and eyepiece>`. If you
+move the PiFinder between telescopes, align it once on each telescope. When you change
+the active telescope, the PiFinder uses the alignment of that telescope.
 
 **SQUARE** starts and saves the alignment on this screen only. It is not a general confirm
 key. On a screen that asks you to confirm, such as the shutdown screen, press **RIGHT**.

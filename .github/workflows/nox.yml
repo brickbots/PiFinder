@@ -11,7 +11,9 @@ on:
   pull_request:
 jobs:
   nox:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to Ubuntu 26.04 (2026-11), for which
+    # actions/setup-python has no Python 3.9 build, the version the device runs.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:

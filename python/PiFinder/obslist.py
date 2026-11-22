@@ -14,17 +14,18 @@ from __future__ import annotations
 
 import os
 import logging
+import re
 from PiFinder import utils
 from PiFinder.calc_utils import sf_utils
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.catalog_base import VirtualIDManager
 from PiFinder.catalogs import Catalogs
 from PiFinder.composite_object import CompositeObject
+from PiFinder.designations import is_ambiguous_designation, listing_named
 from PiFinder.ui.ui_utils import normalize
 from PiFinder.obslist_formats import (
     ObsList,
     ObsListEntry,
-    SKYSAFARI_CATALOG_NAMES_INV,
     SUPPORTED_EXTENSIONS,
     read_file as formats_read_file,
     write_skylist,
@@ -62,35 +63,41 @@ def _entry_from_composite(obj: CompositeObject) -> ObsListEntry:
     )
 
 
-CATALOG_ALIASES: dict = {
-    "Messier": "M",
-    "Caldwell": "C",
-    "Collinder": "Cr",
-}
-
-
 def resolve_object(catalog_numbers, catalogs: Catalogs):
     """
     Takes a list of catalog number strings
     (e.g. ["M 31", "NGC 224"]) and tries to
     find a matching object in the PiFinder DB.
 
+    Each string is read by listing_named, the parser the catalog import uses,
+    so "Cr 399" and "Collinder 399" both name Collinder 399, and "H 24" (a
+    double-star discoverer, not Herschel 400) names nothing.
+
     Pure lookup: returns the shared catalog object (or None). Callers must not
     mutate its catalog description; per-list text goes in `list_descriptions`.
     """
     for catalog_number in catalog_numbers:
-        parts = catalog_number.strip().split(" ", 1)
-        catalog = SKYSAFARI_CATALOG_NAMES_INV.get(parts[0], parts[0])
-        catalog = CATALOG_ALIASES.get(catalog, catalog)
-        try:
-            sequence = int(parts[1].strip())
-        except (ValueError, IndexError):
-            sequence = None
-
-        if sequence is not None:
-            _object = catalogs.get_object(catalog, sequence)
+        listing = listing_named(catalog_number)
+        if listing:
+            _object = catalogs.get_object(*listing)
             if _object:
                 return _object
+    return None
+
+
+def resolve_entry(entry: ObsListEntry, catalogs: Catalogs):
+    """
+    Catalog-keyed resolution of one observing list entry, or None.
+
+    A SkySafari entry's catalog numbers are source spellings, so each goes
+    through resolve_object. Every other entry's catalog code and sequence were
+    already parsed by its reader (see ObsListEntry), or are the native
+    format's own catalog key, so they are looked up as they are.
+    """
+    if entry.catalog_names:
+        return resolve_object(entry.catalog_names, catalogs)
+    if entry.catalog_code and entry.sequence:
+        return catalogs.get_object(entry.catalog_code, entry.sequence)
     return None
 
 
@@ -245,35 +252,53 @@ def _normalize_designation(name: str):
     return None
 
 
+def _name_key(name: str) -> tuple:
+    """
+    The name-index key of ``name``: the normalized name (ui_utils.normalize,
+    which ignores case, spaces and hyphens, with leading zeros removed) and
+    its digit groups as numbers.
+    The digit groups keep "M 2-9" (2, 9), a Minkowski nebula, apart from
+    "M 29" (29). "Sh 2-71" and "Sh2 71" both give (2, 71), and "NGC 0497" and
+    "NGC 497" both give (497,), so these still match.
+    """
+    text = re.sub(r"\d+", lambda m: str(int(m.group())), normalize(name))
+    return (text, tuple(int(d) for d in re.findall(r"\d+", name)))
+
+
 def _build_name_index(catalogs: Catalogs) -> dict:
     """
     Map every catalog object's names to the object, for name-based resolution.
-    Names are normalized (ui_utils.normalize) so spacing/case variants like
-    "NGC 6205" and "NGC6205" collapse together. First writer wins, so a name
-    resolves to one stable object.
+    The key is _name_key, so spacing/case variants like "NGC 6205" and
+    "NGC6205" collapse together. First writer wins, so a name resolves to one
+    stable object.
     """
     index: dict = {}
     for obj in catalogs.get_objects(only_selected=False, filtered=False):
         for nm in obj.names:
-            key = normalize(nm)
-            if key and key not in index:
+            key = _name_key(nm)
+            if key[0] and key not in index:
                 index[key] = obj
     return index
 
 
 def resolve_by_name(name: str, name_index: dict):
     """
-    Resolve an entry to a catalog object by normalized name (ui_utils.normalize:
-    case-, space- and hyphen-insensitive), also trying a constellation-normalized
-    variant ("VY Andromedae" -> "VY And"). Returns the shared catalog object or
-    None.
+    Resolve an entry to a catalog object by name (see _name_key: case-,
+    space- and hyphen-insensitive, but the digit groups must match), also
+    trying a constellation-normalized variant ("VY Andromedae" -> "VY And").
+    Returns the shared catalog object or None.
+
+    A designation with a bare "A", "B" or "H" prefix ("H 24", "B 33") is not
+    matched by name: catalogs use those names for different objects (a double
+    star in SAC, a Herschel 400 or Barnard object in PiFinder), and the
+    designation parser refuses them for the same reason.
     """
-    if not name:
+    if not name or is_ambiguous_designation(name):
         return None
-    keys = [normalize(name)]
+    keys = [_name_key(name)]
     designation = _normalize_designation(name)
     if designation:
-        keys.append(normalize(designation))
+        keys.append(_name_key(designation))
     for key in keys:
         obj = name_index.get(key)
         if obj:
@@ -308,13 +333,7 @@ def read_list(catalogs: Catalogs, name):
             try:
                 _object = None
 
-                # Try catalog resolution with catalog_names (skylist multi-name)
-                if entry.catalog_names:
-                    _object = resolve_object(entry.catalog_names, catalogs)
-                elif entry.catalog_code and entry.sequence:
-                    _object = resolve_object(
-                        [f"{entry.catalog_code} {entry.sequence}"], catalogs
-                    )
+                _object = resolve_entry(entry, catalogs)
 
                 # No catalog match: try resolving by object name (handles lists
                 # that identify objects only by name, e.g. "VY Andromedae").

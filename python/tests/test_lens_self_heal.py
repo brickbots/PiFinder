@@ -20,10 +20,10 @@ from PiFinder.types.positioning import Pointing, SolveDiagnostics, SuccessfulSol
 class FakeConfig:
     """Just enough Config to see what self-heal does, and in what order.
 
-    ``load_config`` is recorded because the ordering is load-bearing: the
-    integrator's dict was loaded at process start and ``dump_config`` rewrites
-    the whole file from it, so writing without reloading first would revert
-    every setting changed from the menu since boot.
+    ``load_config`` is recorded because the integrator's dict was loaded at
+    process start: reloading first keeps its view current with what the menu
+    has changed since boot. (The write itself only touches ``camera_lens``;
+    see ``Config._persist``.)
     """
 
     def __init__(self, options=None):
@@ -143,9 +143,8 @@ class TestSelfHealWrites:
     def test_reloads_config_before_writing(self):
         """Ordering, not just the fact of a reload.
 
-        dump_config rewrites the whole file from the dict this process loaded
-        at start-up, so a reload after the set_option would either be pointless
-        or clobber the value just written.
+        The reload refreshes the dict this process loaded at start-up; done
+        after the set_option it would be pointless.
         """
         cfg, state = FakeConfig(), FakeSharedState()
         healer = LensSelfHeal(cfg, state)

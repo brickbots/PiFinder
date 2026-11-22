@@ -59,7 +59,7 @@ _Avoid_: confusion with the prose word — context disambiguates by markup.
 _Avoid_: scope direction, telescope direction (fine in user-facing copy; in dev prose say "pointing").
 
 **Target pixel** (`target_pixel`):
-The `(Y, X)` pixel in 512×512 camera-image space where the eyepiece centre is calibrated by the alignment system. This is the coordinate the alignment flow produces. Persisted as `Config["target_pixel"]` and read via `shared_state.target_pixel()`. Default `(256, 256)` means no offset known. Passed to tetra3 as its `target_pixel` argument on every solve.
+The `(Y, X)` pixel in 512×512 camera-image space where the eyepiece centre is calibrated by the alignment system. This is the coordinate the alignment flow produces. **Each telescope has its own**: it is stored on the active telescope's record (`Telescope.target_pixel`, owned by [Equipment](../equipment/CONTEXT.md)). A telescope that has never been aligned falls back to the global `Config["target_pixel"]`, then to `(256, 256)` (no offset known). `Config.active_target_pixel()` resolves that chain and `Config.save_target_pixel()` writes to the active telescope. The solver reads it via `shared_state.target_pixel()` and passes it to tetra3 as its `target_pixel` argument on every solve; selecting a telescope pushes its point into `shared_state`. See [ADR 0047](../../adr/0047-alignment-point-belongs-to-the-telescope.md).
 _Avoid_: solve_pixel (legacy name), reticle pixel, aligned pixel (the *axis* is called aligned; the *pixel* is called target).
 
 > Three names, three concepts, no overlap:
@@ -237,7 +237,7 @@ _Avoid_: orientation, mount direction.
 ### Alignment
 
 **Camera-to-telescope alignment**:
-The process of learning which camera pixel coincides with the centre of the eyepiece view. Outcome: an updated **target pixel**. From then on, every solve reports RA/Dec at that pixel as `pointing.aligned`. There are **two paths** to that outcome — *solve-based alignment* and *daytime (manual) alignment* — which differ only in how the target pixel is discovered; both write the same `Config["target_pixel"]` / `shared_state.set_target_pixel()`.
+The process of learning which camera pixel coincides with the centre of the eyepiece view. Outcome: an updated **target pixel**. From then on, every solve reports RA/Dec at that pixel as `pointing.aligned`. There are **two paths** to that outcome — *solve-based alignment* and *daytime (manual) alignment* — which differ only in how the target pixel is discovered; both write it the same way — `Config.save_target_pixel()` (onto the active telescope) and `shared_state.set_target_pixel()`. An alignment applies to the telescope that was active when it was made.
 _Avoid_: telescope alignment, eyepiece alignment, scope alignment.
 
 **Solve-based alignment**:
@@ -245,7 +245,7 @@ The default alignment path (`ui/align.py` `UIAlign` + `align_on_radec`): the use
 _Avoid_: star alignment, chart alignment (describe it as solve-based).
 
 **Daytime alignment** (manual alignment):
-The manual alignment path (`ui/align_daytime.py` `UIAlignDaytime`): with the scope pointed at a distant **daytime** object centred in the eyepiece, the user looks at the live camera image and marks, by eye, the pixel showing that same object. That pixel **is** the target pixel — no plate-solve, no `align_command_queue` round-trip; the module writes `target_pixel` directly. The use case is daylight (no stars to solve); the mechanic is a manual pixel pick.
+The manual alignment path (`ui/align_daytime.py` `UIAlignDaytime`): with the scope pointed at a distant **daytime** object centred in the eyepiece, the user looks at the live camera image and marks, by eye, the pixel showing that same object. That pixel **is** the target pixel — no plate-solve, no `align_command_queue` round-trip; the module saves the target pixel directly. The use case is daylight (no stars to solve); the mechanic is a manual pixel pick.
 _Avoid_: daytime mode (it is an alignment, not a camera mode), visual alignment, manual solve (there is no solve).
 
 **Alignment target** (`align_ra` / `align_dec`):

@@ -53,6 +53,22 @@ translator = str.maketrans(LETTER_TO_DIGIT_MAP)
 VALID_T9_DIGITS = "".join(KEYPAD_DIGIT_TO_CHARS.keys())
 INVALID_T9_DIGITS_RE = re.compile(f"[^{VALID_T9_DIGITS}]")
 
+# The object list display mode a catalog's list opens in (#408), by catalog
+# code. The values name members of ui.object_list.DisplayModes. These catalogs
+# open in NAME mode: their sequence is only a position in the list, and an
+# observer knows the object by its name (Algol, RX Peg, Winter Triangle). All
+# other catalogs open in LOCATE mode. The registry is in code, not in
+# objects.db, because planets and comets are built at run time.
+NAME_MODE_CATALOGS = frozenset(
+    {"PL", "CM", "Str", "Nam", "SaA", "SaR", "TLK", "SaM", "RDS", "WDS"}
+)
+
+
+def default_display_mode_for(catalog_code: str) -> str:
+    """The DisplayModes member name a list of this catalog opens in."""
+    return "NAME" if catalog_code in NAME_MODE_CATALOGS else "LOCATE"
+
+
 # collection of all catalog-related classes
 
 # CatalogBase : just the CompositeObjects (imported from catalog_base)
@@ -330,6 +346,11 @@ class Catalog(CatalogBase):
         if self.catalog_filter is None:
             return False
         return self.catalog_code in self.catalog_filter.selected_catalogs
+
+    @property
+    def default_display_mode(self) -> str:
+        """The DisplayModes member name this catalog's object list opens in."""
+        return default_display_mode_for(self.catalog_code)
 
     def has(self, sequence: int, filtered=True):
         return sequence in self.filtered_objects_seq

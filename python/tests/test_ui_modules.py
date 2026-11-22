@@ -355,11 +355,22 @@ def _no_comet_download():
     Stub the network function to report "no download" (success=False);
     the real catalog/threading logic stays intact
     and just loads no comets, keeping the suite hermetic.
+
+    A failed download starts CometCatalog's background retry, which loops
+    "sleep 60 s, download" until the comet file exists. Under `_fast_sleep`
+    that loop never sleeps and the stubbed download never makes the file, so
+    it spun for the whole session, calling (and recording) the mock and
+    logging on every pass, until CI's tests crawled past the job's time
+    limit. With no network there is nothing to retry, so the retry is off.
     """
     import PiFinder.comets as comets
+    from PiFinder.comet_catalog import CometCatalog
 
-    with mock.patch.object(
-        comets, "comet_data_download", return_value=(False, None, None)
+    with (
+        mock.patch.object(
+            comets, "comet_data_download", return_value=(False, None, None)
+        ),
+        mock.patch.object(CometCatalog, "_start_background_retry", lambda self: None),
     ):
         yield
 
@@ -434,6 +445,13 @@ def camera_image():
 def catalogs(_no_comet_download) -> Iterator[Catalogs]:
     """Build the real catalogs once from the bundled DB.
 
+    Without a catalog cache (always so in CI), the build hands the deferred
+    objects to a background CatalogLoader thread. Wait for it before any test
+    runs, so every test sees fully loaded catalogs: its completion callback
+    adds objects to the live catalogs, re-filters them and writes the cache
+    from that thread, and `_fast_sleep` removes its per-batch yield, so it
+    would otherwise compete flat out with the first tests.
+
     Teardown stops the perpetual catalog timers. The planet and comet catalogs
     run a self-rescheduling, *non-daemon* threading.Timer (via TimerMixin);
     left running they keep the interpreter alive at shutdown,
@@ -443,6 +461,11 @@ def catalogs(_no_comet_download) -> Iterator[Catalogs]:
     boot_state = SharedStateObj()
     boot_state.set_ui_state(UIState())
     built = CatalogBuilder().build(boot_state, queue.Queue())
+    loader = getattr(built, "_background_loader", None)
+    thread = getattr(loader, "_thread", None)
+    if thread is not None:
+        thread.join(timeout=600)
+        assert not thread.is_alive(), "background catalog loading did not finish"
     yield built
 
     for catalog in built.get_catalogs(only_selected=False):
@@ -652,8 +675,8 @@ def test_object_details_tracks_target(display, camera_image, catalogs):
     catalog_filter.load_from_config(cfg)
     catalogs.set_catalog_filter(catalog_filter)
 
-    # Two catalog objects with distinct object_ids (scroll_object indexes by
-    # equality, which is object_id-based).
+    # Two catalog objects with distinct object_ids, so the scroll is a change
+    # of sky object as well as of listing.
     objs = catalogs.get_objects(only_selected=False, filtered=False)
     obj_a = objs[0]
     obj_b = next((o for o in objs if o.object_id != obj_a.object_id), None)
@@ -682,6 +705,52 @@ def test_object_details_tracks_target(display, camera_image, catalogs):
     # ...and updated on scroll.
     module.scroll_object(1)
     assert shared_state.ui_state().target() is obj_b
+
+
+@pytest.mark.integration
+def test_object_details_scrolls_past_a_sibling_listing(display, camera_image, catalogs):
+    """UP/DOWN in object details steps by catalog listing, not by sky object.
+
+    M 31 and NGC 224 are two catalog listings of one sky object, so they share
+    an object_id and compare equal. Opened on NGC 224 with no "object_index"
+    (as the chart and recents open it), DOWN has to reach the listing after it
+    rather than finding M 31's slot and stepping onto NGC 224 again.
+    """
+    m31 = catalogs.get_object("M", 31)
+    ngc224 = catalogs.get_object("NGC", 224)
+    m32 = catalogs.get_object("M", 32)
+    if m31 is None or ngc224 is None or m32 is None:
+        pytest.skip("M 31, NGC 224 or M 32 missing from the catalog DB")
+    assert m31.object_id == ngc224.object_id  # the premise: sibling listings
+
+    cfg = Config()
+    shared_state = _make_shared_state("warm")
+    catalog_filter = CatalogFilter(shared_state=shared_state)
+    catalog_filter.load_from_config(cfg)
+    catalogs.set_catalog_filter(catalog_filter)
+
+    module = UIObjectDetails(
+        display,
+        camera_image,
+        shared_state,
+        _make_command_queues(),
+        cfg,
+        catalogs,
+        item_definition={
+            "name": ngc224.display_name,
+            "class": UIObjectDetails,
+            "object": ngc224,
+            "object_list": [m31, ngc224, m32],
+            "label": "object_details",
+        },
+    )
+
+    module.scroll_object(1)
+    assert module.object is m32
+    module.scroll_object(-1)
+    assert module.object is ngc224
+    module.scroll_object(-1)
+    assert module.object is m31
 
 
 @pytest.mark.integration

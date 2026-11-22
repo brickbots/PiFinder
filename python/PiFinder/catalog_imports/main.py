@@ -9,16 +9,25 @@ import argparse
 import logging
 
 from PiFinder import timez
-from .catalog_import_utils import print_database, resolve_object_images
+from .catalog_import_utils import (
+    MATCH_REJECTIONS,
+    print_database,
+    resolve_object_images,
+)
+from .corrections import apply_corrections, hip_identifications, load_corrections
 from .database import init_shared_database
+from .star_identity import identify_stars
 
 # Loader registry - import functions dynamically to reduce coupling
 CATALOG_LOADERS = [
     # Core catalogs (order matters for referencing)
     ("steinicke_loader", "load_ngc_catalog"),
-    # Additional catalogs
-    ("caldwell_loader", "load_caldwell"),
+    # Additional catalogs. A loader joins only sky objects that earlier
+    # loaders created, so Collinder and Sharpless come before Caldwell, whose
+    # C 9 is Sh2 155.
     ("specialized_loaders", "load_collinder"),
+    ("specialized_loaders", "load_sharpless"),
+    ("caldwell_loader", "load_caldwell"),
     ("specialized_loaders", "load_taas200"),
     ("herschel_loader", "load_herschel400"),
     ("sac_loaders", "load_sac_asterisms"),
@@ -28,18 +37,32 @@ CATALOG_LOADERS = [
     ("specialized_loaders", "load_egc"),
     ("specialized_loaders", "load_rasc_double_Stars"),
     ("specialized_loaders", "load_barnard"),
-    ("specialized_loaders", "load_sharpless"),
     ("specialized_loaders", "load_abell"),
     ("specialized_loaders", "load_arp"),
     ("specialized_loaders", "load_tlk_90_vars"),
     ("wds_loader", "load_wds"),
     ("harris_loader", "load_harris"),
     ("lynga_loader", "load_lynga"),
+    # Last, so each star another catalog lists keeps its sky object when the
+    # star-identity stage joins the Named Stars listing to it by HIP number.
+    ("named_stars_loader", "load_named_stars"),
 ]
 
 POST_PROCESSING_FUNCTIONS = [
     ("post_processing", "fix_object_types"),
     ("post_processing", "add_missing_messier_objects"),
+    ("post_processing", "add_messier_names"),
+]
+
+# Supplementary sources (docs/ax/catalog.md §9.4) fill or replace fields on the
+# sky objects made above, and never add a listing. Each is called with the
+# objects database. Hipparcos and the WGSN join on the HIP numbers the star
+# identity stage recorded in STAR_HIPS.
+SUPPLEMENTARY_SOURCES = [
+    ("supplementary_sources", "replace_hipparcos_values"),
+    ("supplementary_sources", "add_wgsn_names"),
+    ("supplementary_sources", "fill_bica_sizes"),
+    ("supplementary_sources", "replace_rc3_v_magnitudes"),
 ]
 
 
@@ -81,6 +104,10 @@ def main():
 
     logging.info("Starting")
 
+    # Read the corrections up front, so a malformed file fails the import
+    # before the loaders run rather than after.
+    corrections = load_corrections()
+
     # Initialize shared databases
     logging.info("Creating DB")
     objects_db, _ = init_shared_database()
@@ -118,6 +145,32 @@ def main():
         except Exception as e:
             logging.error(f"Failed to run {function_name} from {module_name}: {e}")
             raise
+
+    # Star identity: merge the star catalogs' listings by Hipparcos number,
+    # applying the `hip` corrections before the identifier rules (catalog.md §9.3).
+    logging.info("Identifying stars...")
+    identify_stars(objects_db, hip_identifications(corrections))
+
+    # A rejected join doesn't fail the import: the listing stays a sky object
+    # of its own, and each one was logged as it happened (catalog.md §9.3).
+    logging.info("Match guard rejected %d joins", len(MATCH_REJECTIONS))
+
+    for module_name, function_name in SUPPLEMENTARY_SOURCES:
+        try:
+            module = __import__(
+                f"PiFinder.catalog_imports.{module_name}", fromlist=[function_name]
+            )
+            source_func = getattr(module, function_name)
+            logging.info(f"Applying supplementary source: {function_name}")
+            source_func(objects_db)
+        except Exception as e:
+            logging.error(f"Failed to apply {function_name} from {module_name}: {e}")
+            raise
+
+    # The final pass: corrections have the last word over every stage above,
+    # so any stage added later goes before this (ADR 0046).
+    logging.info("Applying corrections...")
+    apply_corrections(objects_db, corrections)
 
     # Populate the images table
     logging.info("Resolving object images...")

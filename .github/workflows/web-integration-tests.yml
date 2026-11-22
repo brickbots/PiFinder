@@ -9,7 +9,9 @@ permissions:
 jobs:
   web-integration-tests:
     name: Web Integration Tests
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to Ubuntu 26.04 (2026-11), for which
+    # actions/setup-python has no Python 3.9 build, the version the device runs.
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repository

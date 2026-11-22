@@ -193,9 +193,9 @@ class LensSelfHeal:
 
     def _write(self, lens_key: str, fitted_fov: float, profile) -> None:
         derived = OpticalTrain(profile, get_lens(lens_key), lens_stated=True)
-        # Reload first: this process loaded its dict at start-up and
-        # dump_config rewrites the whole file from it, so anything the menu
-        # has changed since would be reverted by the write below.
+        # Reload first so this process's view of the config (loaded at
+        # start-up) includes what the menu has changed since. The write
+        # itself only touches camera_lens.
         self._cfg.load_config()
         self._cfg.set_option("camera_lens", lens_key)
         self._shared_state.set_camera_lens(lens_key)

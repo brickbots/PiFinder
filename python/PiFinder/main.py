@@ -186,14 +186,16 @@ class PowerManager:
         self.shared_state.set_power_state(0)
         self.sleep_screen()
 
-    def update(self):
+    def update(self, keep_awake: bool = False):
         """
         Check IMU for activity
         go to sleep if needed
         if asleep, Introduce wait state
+
+        keep_awake: the screen on top (e.g. upgrade progress) must not dim.
         """
-        if self.get_sleep_timeout() <= 0:
-            # Disabled
+        if keep_awake or self.get_sleep_timeout() <= 0:
+            # Disabled, or held awake
             self.register_activity()
             return
 
@@ -805,6 +807,9 @@ def main(
                     menu_manager.jump_to_label("recent")
                 elif ui_command == "reload_config":
                     cfg.load_config()
+                    # The web page may have changed the active telescope,
+                    # and each telescope keeps its own alignment point.
+                    shared_state.set_target_pixel(cfg.active_target_pixel())
                 elif ui_command == "catalogs_fully_loaded":
                     logger.info(
                         "All catalogs loaded - WDS and extended catalogs available"
@@ -1069,7 +1074,7 @@ def main(
                             menu_manager.key_right()
 
                 menu_manager.update()
-                power_manager.update()
+                power_manager.update(keep_awake=menu_manager.keep_awake())
 
         except KeyboardInterrupt:
             logger.info("KeyboardInterrupt received: shutting down.")

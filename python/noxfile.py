@@ -116,7 +116,16 @@ def ui_tests(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
-    session.run("pytest", "-m", "integration", "tests/test_ui_modules.py")
+    # A test that runs past the timeout dumps every thread's stack to the log
+    # (pytest's faulthandler plugin), so a hang in CI shows where it is.
+    session.run(
+        "pytest",
+        "-m",
+        "integration",
+        "-o",
+        "faulthandler_timeout=180",
+        "tests/test_ui_modules.py",
+    )
 
 
 @nox.session(reuse_venv=True, python="3.9")
@@ -126,6 +135,10 @@ def babel(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
+    # Babel 2.16 on Python 3.9 finds the jinja2 extractor through
+    # pkg_resources, which setuptools 81 removed. Without this pin, a fresh
+    # venv fails with "Unknown extraction method 'jinja2'".
+    session.install("setuptools<81")
 
     session.run(
         "pybabel",

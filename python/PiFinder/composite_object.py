@@ -183,9 +183,14 @@ class MagnitudeObject:
         self.calc_filter_mag()
 
     def calc_filter_mag(self):
+        """The brightest magnitude: a double's primary, a variable's maximum.
+
+        The catalog filter compares it, so a mean would hide a double behind
+        its companion: SAC's Vega, [0.6, 9.5], would filter as 5.05.
+        """
         filtered = self._filter_floats()
         if len(filtered) > 0:
-            self.filter_mag = float(np.mean(np.array(self._filter_floats())))
+            self.filter_mag = min(filtered)
         else:
             self.filter_mag = self.UNKNOWN_MAG
 

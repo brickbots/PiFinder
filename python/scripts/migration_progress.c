@@ -5,7 +5,7 @@
  * Designed to be statically compiled and included in the initramfs.
  *
  * Usage: migration_progress <percent> <stage_num> <stage_total> <message>
- *   percent: 0-100
+ *   percent: progress of the current step, 0-100; -1 = the step has no measure
  *   message: status text (max ~20 chars fits on screen)
  *
  * Examples:
@@ -30,7 +30,12 @@
 #define MAX_WIDTH 176
 #define MAX_HEIGHT 176
 #define SPI_DEVICE "/dev/spidev0.0"
-#define SPI_SPEED 40000000
+/* The SPI clock of each panel, the same as PiFinder/displays.py. Newer 1.5"
+ * SSD1351 panels stay blank at 40 MHz, which is about twice the datasheet
+ * clock. SPI_SPEED_MAX is the device limit; each transfer sets its speed. */
+#define SPI_SPEED_SSD1351 20000000
+#define SPI_SPEED_SSD1333 40000000
+#define SPI_SPEED_MAX SPI_SPEED_SSD1333
 #define GPIO_DC 24
 #define GPIO_RST 25
 
@@ -54,6 +59,7 @@ enum oled_controller {
 };
 
 static enum oled_controller controller = CTRL_SSD1351;
+static uint32_t spi_speed = SPI_SPEED_SSD1351;
 static int display_width = 128;
 static int display_height = 128;
 
@@ -195,7 +201,7 @@ static void spi_write(const uint8_t *data, size_t len)
         struct spi_ioc_transfer tr = {0};
         tr.tx_buf = (unsigned long)data;
         tr.len = this_len;
-        tr.speed_hz = SPI_SPEED;
+        tr.speed_hz = spi_speed;
         tr.bits_per_word = 8;
         ioctl(spi_fd, SPI_IOC_MESSAGE(1), &tr);
         data += this_len;
@@ -229,11 +235,13 @@ static void detect_display(void)
     const char *display_resolution = getenv("MIGRATION_DISPLAY_RESOLUTION");
 
     controller = CTRL_SSD1351;
+    spi_speed = SPI_SPEED_SSD1351;
     display_width = 128;
     display_height = 128;
 
     if (display_class && strstr(display_class, "SSD1333")) {
         controller = CTRL_SSD1333;
+        spi_speed = SPI_SPEED_SSD1333;
         display_width = 176;
         display_height = 176;
         return;
@@ -241,6 +249,7 @@ static void detect_display(void)
 
     if (display_resolution && strcmp(display_resolution, "176x176") == 0) {
         controller = CTRL_SSD1333;
+        spi_speed = SPI_SPEED_SSD1333;
         display_width = 176;
         display_height = 176;
     }
@@ -419,6 +428,9 @@ static void fb_string_centered_fit(int y, const char *s, uint16_t color, int max
 
 static void draw_progress(int percent, const char *stage, int stage_num, int stage_total)
 {
+    /* The bar shows the progress of the current step. A negative percent
+     * means the step has no measure: no bar and no number. */
+    int measured = percent >= 0;
     if (percent < 0) percent = 0;
     if (percent > 100) percent = 100;
 
@@ -450,32 +462,36 @@ static void draw_progress(int percent, const char *stage, int stage_num, int sta
         fb_string_centered(stage_y, stage_str, COL_DKGRAY, scale);
     }
 
-    /* Progress bar */
-    int bar_x = margin;
-    int bar_w = display_width - (margin * 2);
-    int bar_h = display_width >= 160 ? 16 : 12;
+    /* Progress bar, only for a step with a measure */
+    if (measured) {
+        int bar_x = margin;
+        int bar_w = display_width - (margin * 2);
+        int bar_h = display_width >= 160 ? 16 : 12;
 
-    /* Border */
-    fb_rect(bar_x, bar_y, bar_w, 1, COL_DKGRAY);
-    fb_rect(bar_x, bar_y + bar_h - 1, bar_w, 1, COL_DKGRAY);
-    fb_rect(bar_x, bar_y, 1, bar_h, COL_DKGRAY);
-    fb_rect(bar_x + bar_w - 1, bar_y, 1, bar_h, COL_DKGRAY);
+        /* Border */
+        fb_rect(bar_x, bar_y, bar_w, 1, COL_DKGRAY);
+        fb_rect(bar_x, bar_y + bar_h - 1, bar_w, 1, COL_DKGRAY);
+        fb_rect(bar_x, bar_y, 1, bar_h, COL_DKGRAY);
+        fb_rect(bar_x + bar_w - 1, bar_y, 1, bar_h, COL_DKGRAY);
 
-    /* Fill */
-    int fill_w = (bar_w - 4) * percent / 100;
-    if (fill_w > 0)
-        fb_rect(bar_x + 2, bar_y + 2, fill_w, bar_h - 4, COL_RED);
+        /* Fill */
+        int fill_w = (bar_w - 4) * percent / 100;
+        if (fill_w > 0)
+            fb_rect(bar_x + 2, bar_y + 2, fill_w, bar_h - 4, COL_RED);
 
-    /* Dark red background for unfilled */
-    int unfill_x = bar_x + 2 + fill_w;
-    int unfill_w = (bar_w - 4) - fill_w;
-    if (unfill_w > 0)
-        fb_rect(unfill_x, bar_y + 2, unfill_w, bar_h - 4, COL_DKRED);
+        /* Dark red background for unfilled */
+        int unfill_x = bar_x + 2 + fill_w;
+        int unfill_w = (bar_w - 4) - fill_w;
+        if (unfill_w > 0)
+            fb_rect(unfill_x, bar_y + 2, unfill_w, bar_h - 4, COL_DKRED);
+    }
 
     /* Percentage */
-    char pct_str[8];
-    snprintf(pct_str, sizeof(pct_str), "%d%%", percent);
-    fb_string_centered(pct_y, pct_str, COL_RED, 2);
+    if (measured) {
+        char pct_str[8];
+        snprintf(pct_str, sizeof(pct_str), "%d%%", percent);
+        fb_string_centered(pct_y, pct_str, COL_RED, 2);
+    }
 
     /* Current stage name */
     if (stage && *stage)
@@ -498,7 +514,7 @@ static int hw_init(void)
 
     uint8_t mode = SPI_MODE_0;
     uint8_t bits = 8;
-    uint32_t speed = SPI_SPEED;
+    uint32_t speed = SPI_SPEED_MAX;
     ioctl(spi_fd, SPI_IOC_WR_MODE, &mode);
     ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD, &bits);
     ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
