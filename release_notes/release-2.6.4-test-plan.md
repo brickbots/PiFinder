@@ -366,13 +366,17 @@ in 2.6.4.
 #697's on-device checklist (15 items, in the PR body) **passed on rev4 on 2026-11-19**
 with the final database. It has not run anywhere else.
 
-- [ ] **G3.10** Run the same 15-item checklist on a **rev3 unit with the 128 px screen**.
+- [x] **G3.10** Run the same 15-item checklist on a **rev3 unit with the 128 px screen**.
   Pay attention to the items that draw text: "Dhanuśarāgra" (Nam 88567) with the ś and ā
   drawn correctly, names-first rows in SAC Doubles and Named Stars, and the M 103 details
   line "NGC 581, Col 14, Lyn 44".
-- [ ] **G3.11** First-start timing on the rev3 (G2.1): main menu time and the time to
+- [x] **G3.11** First-start timing on the rev3 (G2.1): main menu time and the time to
   **Catalogs Fully Loaded**. Record the SD card too, since the rebuild reads the whole
   database.
+
+**Result, rev3 (Pi 4, SanDisk 32 GB, 128 px), 2026-11-21 (Rich):** all 15 checklist items
+pass on the 128 px screen. First start 19 s to the main menu and 2:01 to Catalogs Fully
+Loaded; a cached start after a reboot 18 s.
 
 ### Per-telescope alignment from a real 2.6.3 configuration (R4)
 
@@ -385,11 +389,11 @@ with the final database. It has not run anywhere else.
 
 ### The 20 MHz OLED on an older rev3 panel (R7)
 
-- [ ] **G3.30** On a rev3 unit with an **older** 1.5" OLED (one that worked at 40 MHz):
+- [x] **G3.30** On a rev3 unit with an **older** 1.5" OLED (one that worked at 40 MHz):
   the screen starts, the splash shows, and the chart is readable.
 - [ ] **G3.31** Chart frame rate with `--fps` while moving the scope, 20 MHz against
   40 MHz on the same unit. (Open item from #701.)
-- [ ] **G3.32** If a new Waveshare panel is at hand: it starts at 20 MHz (was blank at
+- [x] **G3.32** If a new Waveshare panel is at hand: it starts at 20 MHz (was blank at
   40 MHz).
 
 ### Power-off on fresh images (R6)
@@ -397,6 +401,10 @@ with the final database. It has not run anywhere else.
 - [ ] **G3.40** rev4, fresh 2.6.4 image: `gpio-poweroff` is in `/proc/device-tree`;
   `poweroff` cuts power; `reboot` comes back. (ADR 0007's acceptance check, re-run.)
 - [ ] **G3.41** rev3, fresh 2.6.4 image: overlay absent; `poweroff` ends fully dark.
+
+**Result, OLED, 2026-11-21 (Rich):** a rev3 with a **newer** 1.5" panel, blank on 2.6.3,
+works on 2.6.4 in the app and in the boot splash (G3.32). Rich checked older panels at
+20 MHz separately (G3.30). G3.31 (frame rate, 20 against 40 MHz) was not measured.
 
 **Blocks:** G3.1–G3.7 and G3.10 block the cut. G3.30–G3.31 block the cut for rev3
 owners: if an older panel misbehaves at 20 MHz, the fix for new panels breaks old ones.
