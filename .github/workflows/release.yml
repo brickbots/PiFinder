@@ -376,6 +376,23 @@ jobs:
           git tag "$TAG" "$SOURCE_SHA"
           git push origin "$TAG"
 
+      - name: Tag fork source commit
+        # A fork shares its objects with this repo, so the API can point a tag
+        # of this repo at the fork commit. Without this tag, the release step
+        # below makes the tag on the head of the default branch. A failure
+        # here only gives a warning: the release still publishes.
+        if: (inputs.source_repository || github.repository) != github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ needs.build-hosted.outputs.source_sha || needs.build-native.outputs.source_sha }}
+        run: |
+          if gh api "repos/${{ github.repository }}/git/refs" \
+              -f ref="refs/tags/$TAG" -f sha="$SOURCE_SHA" >/dev/null; then
+            echo "Tagged $TAG at $SOURCE_SHA"
+          else
+            echo "::warning::Could not tag $TAG at $SOURCE_SHA. The release step tags the head of the default branch."
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
