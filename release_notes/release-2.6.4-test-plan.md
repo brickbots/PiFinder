@@ -418,7 +418,7 @@ owners: if an older panel misbehaves at 20 MHz, the fix for new panels breaks ol
 
 Owner: Rich.
 
-- [ ] **G4.1** **From the `v2.6.3` tag** (tracked symlink). **Run G6.4 (SkySafari) on this card too.** In-app update is offered,
+- [x] **G4.1** **From the `v2.6.3` tag** (tracked symlink). **Run G6.4 (SkySafari) on this card too.** In-app update is offered,
   completes, Status reads 2.6.4. `python/tetra3` is the relative link
   `PiFinder/tetra3/tetra3` and the solver starts.
 - [ ] **G4.2** **From the later `release` tip** (still reports 2.6.3, already untracked).
@@ -438,6 +438,12 @@ Owner: Rich.
   **(carried)**.
 
 **Blocks:** offering the update.
+
+**Result, after the cut, 2026-11-22 (Rich):** G4.1 on a rev4 with a newly written 2.6.3 card.
+The Software screen offered 2.6.4; the in-app update reported **Ok! Restarting**; the unit
+came up on `578a00d07` ("Release 2.6.4") with `python/tetra3` recreated by the update and a
+clean tree; an observation logged on 2.6.3 (M 101) still shows as observed. G6.4 on the
+same unit: SkySafari works (the readout across a telescope switch was not checked).
 
 ---
 
@@ -476,7 +482,7 @@ Reset `language` to `en` in `~/PiFinder_data/config.json` before the web suite.
   path).
 - [x] **G6.3** `/api/current-selection` and the web object details show the new names
   (M 82 → Cigar Galaxy) and the joined listings.
-- [ ] **G6.4** SkySafari push to the observing list and position readout
+- [x] **G6.4** SkySafari push to the observing list and position readout
   **(carried)**; Stellarium live session if not banked in 2.6.3 **(carried)**.
 
 **Result, 2026-11-21 (coordinator):** run on a Mac against a headless PiFinder from
@@ -551,8 +557,8 @@ unverified). No dedicated release review was run for this cut.
 | G1 — Automated | Claude | 2026-11-22 | Pass at `45377bce1`: 2,421 smoke+unit, 225 UI, ruff, mypy, sphinx `-nW`, i18n 698 × 4. G1.7 not run. |
 | G2 — Bench, standard hardware | Rich | 2026-11-20 | Pass on rev4. G2.9 and G2.40 not run. |
 | G3 — Migration, catalog off rev4, alignment, OLED, power-off | Rich, mrosseel | 2026-11-22 | Pass: migration on rev4 and Pi 4, catalog on 128 px, OLED (G3.30, G3.32). Accepted as not run: G3.7, G3.20–G3.21, G3.31. G3.40–G3.41 after the image. Known gap: turned rev4 conversion screen. |
-| G4 — Upgrade paths | Rich | | After the cut, with G6.4. |
+| G4 — Upgrade paths | Rich | 2026-11-22 | G4.1 pass after the cut: a new 2.6.3 card on a rev4, real in-app update. G4.2–G4.8 not run. |
 | G5 — Under the stars | Rich | 2026-11-22 | **Not run, by decision:** the solver and camera paths did not change (only #666, which does not move a live reading). |
-| G6 — Web, API, planetarium | Claude, Rich | 2026-11-21 | G6.1–G6.3 pass (web suite 174, with the language-test fix). G6.4 after the cut. |
+| G6 — Web, API, planetarium | Claude, Rich | 2026-11-21 | G6.1–G6.3 pass (web suite 174, with the language-test fix). G6.4 pass after the cut (2026-11-22). |
 
 **Migration gates (G3.1–G3.6) passed on Pi 4 and rev4:** 2026-11-22  **Cut authorised by:** Rich  **Date:** 2026-11-22
