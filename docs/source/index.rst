@@ -92,6 +92,7 @@ Join the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ for support 
    BOM
    software
    sd_card
+   nixos_migration
    v25_upgrade
 
 .. toctree::
