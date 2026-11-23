@@ -131,7 +131,11 @@ This is the part that has actually bitten us. Work through it before the merge.
       msgid was removed, and each `.mo` is byte-identical to a fresh `pybabel compile`. Note
       `messages.pot` is gitignored, so scope the diff to the tracked `.po` files. New menu
       entries shift menu indexes and break Selenium tests that navigate by counting keypresses;
-      that has happened twice.
+      that has happened twice. Count against a fresh extract, not the committed catalogs: 2.6.3
+      reported 0 untranslated while `Enter Local Time`, still in the code, sat obsolete in every
+      catalog and showed in English. After `pybabel update`, check for a msgid that is both
+      active and obsolete (`msgfmt` stops with "duplicate message definition"); remove the
+      obsolete copy.
 - [ ] `default_config.json` diff since the last public tag. Every added key is a visible change
       on an untouched upgrade. List them in the notes.
 - [ ] New migration needed? Add `migration_source/vX.Y.Z.sh` **and** register it in
@@ -144,8 +148,23 @@ This is the part that has actually bitten us. Work through it before the merge.
 
 ## Phase 3, the gates
 
-The plan's shape, reused across 2.6.1, 2.6.2 and 2.6.3. Gates 1 to 3 must pass before the
-merge; 4 to 6 before the update is offered.
+The plan's shape, reused across 2.6.1, 2.6.2, 2.6.3 and 2.6.4. Gates 1 to 3 must pass before
+the merge; 4 to 6 before the update is offered, except the parts of Gate 4 that need the real
+in-app update, which can only run after the push.
+
+**Testing the candidate before the cut.** The in-app update only pulls `release`, so Gates 2
+and 3 update a unit by hand, the way `pifinder_update.sh` would:
+
+```bash
+cd ~/PiFinder
+git fetch origin <prep-branch>
+git checkout -B rc FETCH_HEAD
+source pifinder_post_update.sh   # recreates python/tetra3, as the real update does
+```
+
+Start from a newly written card on the last public image; it is the population that
+upgrades, and a used card hides problems (2.6.4's Gate 2 found the 2.6.3 settings-clobber bug
+that way).
 
 | Gate | What | Runs where |
 |---|---|---|
@@ -157,13 +176,27 @@ merge; 4 to 6 before the update is offered.
 | 6 | Web, API, planetarium protocols | Dev box + phone |
 
 Baselines worth recording each time, because the trend catches regressions the suite doesn't:
-smoke+unit count (1,238 at the 2.6.2 cut, 1,305 at #631, 1,531 at 2.6.3), msgid count
-(694 × 4 catalogs at 2.6.3), sphinx page count.
+smoke+unit count (1,238 at the 2.6.2 cut, 1,305 at #631, 1,531 at 2.6.3, 2,421 at 2.6.4),
+msgid count (694 × 4 catalogs at 2.6.3, 698 × 4 at 2.6.4), sphinx page count (20 at 2.6.4),
+web suite (174 at 2.6.4), first start to Catalogs Fully Loaded (about 2 min at 2.6.4 on
+rev4 and rev3).
 
-Two automation traps: clear the mypy cache first (`rm -rf .mypy_cache`), because a stale cache
-reports phantom errors. And reset `language` to `en` in `~/PiFinder_data/config.json` before the
-web suite, because the tests assert English titles and a device left in Chinese fails three of
-them for no reason.
+Automation traps:
+
+- Clear the mypy cache first (`rm -rf .mypy_cache`), because a stale cache reports phantom
+  errors.
+- Reset `language` to `en` in `~/PiFinder_data/config.json` before the web suite, because the
+  tests assert English titles and a device left in Chinese fails three of them for no reason.
+- The web suite needs no Selenium Grid: `pytest -m web --local` drives a local Chrome. Back up
+  `~/PiFinder_data` first; the tests write to it. On macOS the app binds port 80, and its
+  plate solver needs `bin/cedar-detect-server-arm64 -p 50551` started by hand.
+- On macOS, stopping the app with `kill` leaves its child processes running, the web server
+  among them, still on port 80. Kill every `multiprocessing` child before a restart, or the
+  tests talk to a dead copy. 2.6.4's first run showed 49 false failures this way.
+- A new `nox -s babel` venv needs `setuptools<81` (pinned in `noxfile.py` since 2.6.4): Babel
+  2.16 on Python 3.9 finds the jinja2 extractor through `pkg_resources`.
+- On a device, the app log is `~/PiFinder_data/pifinder.log`, and the default level is
+  `ERROR`. INFO and WARNING lines are not written, so a test cannot expect them there.
 
 ## Phase 4, the cut
 
@@ -227,12 +260,50 @@ otherwise (see one-time tasks).
 
 ## Phase 6, build and publish the image
 
-TODO. The GitHub release for 2.6.3 points at
-`https://ddbeeedxfpnp0.cloudfront.net/software/PiFinder_2.6.3.img`, so the 2.x image is built
-and uploaded outside this repo. Nothing here describes how. Needs: how the image is built, what
-gets baked in (preconfigured hardware settings were documented in #637), how it's uploaded, and
-whether anything verifies the upload before the release body links to it. Write this section
-while doing it for 2.6.4.
+The 2.x image is not built from scratch. Each release image is the previous release image,
+updated in place and cleaned. Written down from Rich's 2.6.4 build (2026-11-22).
+
+- [ ] Write the previous release image to a card and boot it.
+- [ ] Add a local WiFi network and restart in client mode.
+- [ ] Update with the normal in-app update (Settings → Software). This is also a run of the
+      upgrade path from the previous release (G4.1).
+- [ ] Validate the image: the version, a solve in Test Mode, the first start's catalog load.
+- [ ] **Check the boot setup by hand.** An update never runs `pifinder_setup.sh` and never
+      changes `/boot/config.txt`, so a fix that only `pifinder_setup.sh` makes (for example
+      #639, the `[cm4]`-gated `gpio-poweroff` block) does not reach an image built this way.
+      Compare `/boot/config.txt` with what `pifinder_setup.sh` writes, and edit it to match.
+      For 2.6.4 Rich added the gated block by hand:
+      ```
+      [cm4]
+      dtoverlay=gpio-poweroff,gpiopin=14,active_low
+      [all]
+      ```
+- [ ] Delete the WiFi network you added, and switch to access-point mode.
+- [ ] Remove what the validation left behind in `~/PiFinder_data` (2.6.4's first build kept a
+      test `observations.db`):
+      - delete `observations.db` (the app creates an empty one), `pifinder.log*`, and the
+        contents of `captures/`, `screenshots/`, `solver_debug_dumps/` and `telemetry/`;
+      - delete `PiFinder_backup.zip` and `startup_profile.*` if they exist;
+      - keep `config.json`, but undo anything the validation changed in it (it carries the
+        image's preset hardware settings, #637);
+      - keep `migrations/` (its sentinel files stop migrations running again) and
+        `cache/catalogs/` (it spares a new owner the 2-minute first catalog load; a stale
+        cache is simply rebuilt);
+      - outside the data folder, clear `~/.bash_history`.
+- [ ] Shut the PiFinder down, remove the card, dump it to an image file and shrink it with
+      [PiShrink](https://github.com/Drewsif/PiShrink). That file is `PiFinder_X.Y.Z.img`.
+      On Linux, with the card at `/dev/sdb` (check with `lsblk` first: `dd` overwrites
+      whatever `of=` names):
+      ```bash
+      dd bs=4M if=/dev/sdb of=PiFinder_X.Y.Z.img conv=fsync status=progress
+      ./pishrink.sh PiFinder_X.Y.Z.img
+      ```
+- [ ] Upload it to the S3 bucket behind `https://ddbeeedxfpnp0.cloudfront.net/software/` with
+      `s3cmd`, which uploads in chunks and can resume. TODO: the bucket path, and whether
+      CloudFront needs an invalidation.
+- [ ] Before the release body links it, check that the URL answers with the right size
+      (`curl -sI <url>`), and test-boot a card written from the published file on a rev3 and
+      a rev4: power off must go dark on both (test plan G3.40, G3.41).
 
 ## Phase 7, announce
 
@@ -324,6 +395,12 @@ hotfix is needed after the gate opens, close the gate first.
 - No stable NixOS release before the 2.6.4 cut. The gate stays closed and both flags stay
   `false`. Seven presses of SQUARE land on a beta, so the 90-day rule above applies from day
   one. `v3.1.3-beta` was built on 2026-11-11.
+
+Outcome: cut on 2026-11-22. `release` and `release_candidate` at `578a00d07` ("Release 2.6.4"),
+tag `v2.6.4` on that commit. The 2.6.4 release notes do not mention the migration, by Rich's
+decision; testers get their own instructions. Two known gaps for the release that opens the
+gate: the rev4 conversion screens are turned (`migration_progress.c` does not rotate the
+SSD1333), and 3.1.3-beta drives the 1.5" OLED at 40 MHz (the `nixos` branch has the fix).
 
 ## The `release` branch after NixOS, a transition plan
 
@@ -455,8 +532,7 @@ release is one workflow run, so that is the way to publish one.
 
 ## Still open
 
-- Phase 6 is a stub. How does the SD image get built, what goes into it, and how does it reach
-  CloudFront?
+- Phase 6 has one TODO: whether CloudFront needs an invalidation after an upload.
 - Phase 7's three announcement channels need their specifics filled in.
 - The Software screen's behaviour with the gate open is read from code, not seen on a device.
 - The two items under "Not decided" in the transition plan.
